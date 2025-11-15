@@ -8,6 +8,9 @@ icarus-common = { path = "icarus-common" }
 icarus-board = { path = "icarus-board" }
 arrayvec = "0.7.6"
 
-
 [workspace]
 members = ["icarus-board", "icarus-common"]
+
+[features]
+use-bmi2 = ["icarus-board/use-bmi2"]
+default = ["use-bmi2"]

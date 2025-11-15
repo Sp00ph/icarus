@@ -12,3 +12,4 @@ icarus-common = { path = "../icarus-common" }
 
 [features]
 perft-all-960 = []
+use-bmi2 = []
