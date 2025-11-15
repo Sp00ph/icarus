@@ -29,7 +29,6 @@ fn pdep(n: u64, mask: u64) -> u64 {
     }
 }
 
-// TODO: pdep compression for rooks
 fn pext(n: u64, mask: u64) -> u64 {
     #[cfg(target_feature = "bmi2")]
     return unsafe { std::arch::x86_64::_pext_u64(n, mask) };
