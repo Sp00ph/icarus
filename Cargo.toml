@@ -1,0 +1,13 @@
+[package]
+name = "icarus"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+icarus-common = { path = "icarus-common" }
+icarus-board = { path = "icarus-board" }
+arrayvec = "0.7.6"
+
+
+[workspace]
+members = ["icarus-board", "icarus-common"]

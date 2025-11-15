@@ -1,0 +1,14 @@
+[package]
+name = "icarus-board"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+icarus-common = { path = "../icarus-common" }
+enum-map = "2.7.3"
+
+[build-dependencies]
+icarus-common = { path = "../icarus-common" }
+
+[features]
+perft-all-960 = []
