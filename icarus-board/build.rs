@@ -380,14 +380,17 @@ mod bmi2 {
             rook_offsets[sq + 1] =
                 rook_offsets[sq] + (1 << rook_mask(Square::from_idx(sq as u8)).popcnt());
         }
-        bishop_offsets[0] = rook_offsets[64];
+        // bishop_offsets[0] = rook_offsets[64];
         for sq in 0..64 {
             bishop_offsets[sq + 1] =
                 bishop_offsets[sq] + (1 << bishop_mask(Square::from_idx(sq as u8)).popcnt());
         }
 
-        let table_size = bishop_offsets[64];
-        let mut table = vec![0u64; table_size];
+        let rook_table_size = rook_offsets[64];
+        let mut rook_table = vec![0u64; rook_table_size];
+
+        let bishop_table_size = bishop_offsets[64];
+        let mut bishop_table = vec![0u64; bishop_table_size];
 
         for i in 0..64 {
             let sq = Square::from_idx(i as u8);
@@ -400,7 +403,7 @@ mod bmi2 {
                     let blockers = pdep(j as u64, mask.0);
                     let moves = rook_moves(sq, blockers);
 
-                    table[rook_offsets[i] + j] = moves.0;
+                    rook_table[rook_offsets[i] + j] = moves.0;
                 }
             }
 
@@ -412,7 +415,7 @@ mod bmi2 {
                     let blockers = pdep(j as u64, mask.0);
                     let moves = bishop_moves(sq, blockers);
 
-                    table[bishop_offsets[i] + j] = moves.0;
+                    bishop_table[bishop_offsets[i] + j] = moves.0;
                 }
             }
         }
@@ -421,12 +424,19 @@ mod bmi2 {
             use icarus_common::{square::Square, bitboard::Bitboard, util::Align64};
 
             #[repr(align(32))]
-            struct Magic {
+            struct RookMagic {
                 pext: u64,
                 pdep: u64,
                 data: *const u16,
             }
-            unsafe impl Sync for Magic {}
+            unsafe impl Sync for RookMagic {}
+
+            #[repr(align(16))]
+            struct BishopMagic {
+                pext: u64,
+                data: *const u64,
+            }
+            unsafe impl Sync for BishopMagic {}
 
             #[inline]
             pub fn rook_moves(sq: Square, blockers: Bitboard) -> Bitboard {
@@ -450,15 +460,12 @@ mod bmi2 {
                 let sq_idx = sq.idx() as usize;
 
                 Bitboard(unsafe {
-                    core::arch::x86_64::_pdep_u64(
-                        *BISHOP_MAGICS.0[sq_idx]
-                            .data
-                            .add(core::arch::x86_64::_pext_u64(
-                                blockers.0,
-                                BISHOP_MAGICS.0[sq_idx].pext,
-                            ) as usize) as u64,
-                        BISHOP_MAGICS.0[sq_idx].pdep,
-                    )
+                    *BISHOP_MAGICS.0[sq_idx]
+                        .data
+                        .add(core::arch::x86_64::_pext_u64(
+                            blockers.0,
+                            BISHOP_MAGICS.0[sq_idx].pext,
+                        ) as usize)
                 })
             }
         );
@@ -467,7 +474,7 @@ mod bmi2 {
 
         writeln!(
             w,
-            "#[rustfmt::skip]\nstatic ROOK_MAGICS: Align64<[Magic; 64]> = unsafe {{ Align64(["
+            "#[rustfmt::skip]\nstatic ROOK_MAGICS: Align64<[RookMagic; 64]> = unsafe {{ Align64(["
         )?;
         for (i, o) in rook_offsets[..64].iter().enumerate() {
             let sq = Square::from_idx(i as u8);
@@ -475,7 +482,7 @@ mod bmi2 {
             let pdep = rook_rays(sq);
             writeln!(
                 w,
-                "    Magic {{ pext: {:#018x}, pdep: {:#018x}, data: ATTACK_TABLE.0.as_ptr().add({:#07x}) }},",
+                "    RookMagic {{ pext: {:#018x}, pdep: {:#018x}, data: ROOK_ATTACK_TABLE.0.as_ptr().add({:#07x}) }},",
                 mask.0, pdep.0, o
             )?;
         }
@@ -483,48 +490,48 @@ mod bmi2 {
 
         writeln!(
             w,
-            "#[rustfmt::skip]\nstatic BISHOP_MAGICS: Align64<[Magic; 64]> = unsafe {{ Align64(["
+            "#[rustfmt::skip]\nstatic BISHOP_MAGICS: Align64<[BishopMagic; 64]> = unsafe {{ Align64(["
         )?;
         for (i, o) in bishop_offsets[..64].iter().enumerate() {
             let sq = Square::from_idx(i as u8);
             let mask = bishop_mask(sq);
-            let pdep = bishop_rays(sq);
             writeln!(
                 w,
-                "    Magic {{ pext: {:#018x}, pdep: {:#018x}, data: ATTACK_TABLE.0.as_ptr().add({:#07x}) }},",
-                mask.0, pdep.0, o
+                "    BishopMagic {{ pext: {:#018x}, data: BISHOP_ATTACK_TABLE.0.as_ptr().add({:#07x}) }},",
+                mask.0, o
             )?;
         }
         writeln!(w, "]) }};\n\n")?;
 
         writeln!(
             w,
-            "#[rustfmt::skip]\nstatic ATTACK_TABLE: Align64<[u16; {table_size}]> = Align64(["
+            "#[rustfmt::skip]\nstatic ROOK_ATTACK_TABLE: Align64<[u16; {rook_table_size}]> = Align64(["
         )?;
 
         for sq in 0..64 {
-            for ch in table[rook_offsets[sq]..rook_offsets[sq + 1]].chunks(8) {
+            for ch in rook_table[rook_offsets[sq]..rook_offsets[sq + 1]].chunks(16) {
                 write!(w, "    ")?;
                 for i in ch {
                     write!(
                         w,
-                        "{:#018x}, ",
+                        "{:#06x}, ",
                         pext(*i, rook_rays(Square::from_idx(sq as u8)).0)
                     )?;
                 }
                 writeln!(w)?;
             }
         }
+        writeln!(w, "]);\n")?;
+        writeln!(
+            w,
+            "#[rustfmt::skip]\nstatic BISHOP_ATTACK_TABLE: Align64<[u64; {bishop_table_size}]> = Align64(["
+        )?;
 
         for sq in 0..64 {
-            for ch in table[bishop_offsets[sq]..bishop_offsets[sq + 1]].chunks(8) {
+            for ch in bishop_table[bishop_offsets[sq]..bishop_offsets[sq + 1]].chunks(8) {
                 write!(w, "    ")?;
                 for i in ch {
-                    write!(
-                        w,
-                        "{:#018x}, ",
-                        pext(*i, bishop_rays(Square::from_idx(sq as u8)).0)
-                    )?;
+                    write!(w, "{i:#018x}, ",)?;
                 }
                 writeln!(w)?;
             }
