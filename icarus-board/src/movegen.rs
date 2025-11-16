@@ -379,14 +379,14 @@ impl Board {
         for orth in rook_rays(our_king) & their_orth {
             let between = between(orth, our_king) & blockers;
             if between.popcnt() == 1 {
-                self.pinned |= between.next();
+                self.pinned |= between;
             }
         }
 
         for diag in bishop_rays(our_king) & their_diag {
             let between = between(diag, our_king) & blockers;
             if between.popcnt() == 1 {
-                self.pinned |= between.next();
+                self.pinned |= between;
             }
         }
     }
