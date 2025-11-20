@@ -26,18 +26,18 @@ fn perft(board: &Board, depth: u8) -> u64 {
 }
 
 macro_rules! perft_test {
-        ($name:ident: $board:expr; $($nodes:expr),* $(,)?) => {
-            #[test]
-            fn $name() {
-                const NODES: &'static [u64] = &[$($nodes),*];
+    ($name:ident: $board:expr; $($nodes:expr),* $(,)?) => {
+        #[test]
+        fn $name() {
+            const NODES: &'static [u64] = &[$($nodes),*];
 
-                let board = Board::read_fen($board).unwrap();
-                for (depth, &nodes) in NODES.iter().enumerate() {
-                    assert_eq!(perft(&board, depth as u8 + 1), nodes);
-                }
+            let board = Board::read_fen($board).unwrap();
+            for (depth, &nodes) in NODES.iter().enumerate() {
+                assert_eq!(perft(&board, depth as u8 + 1), nodes);
             }
         }
     }
+}
 
 perft_test!(
     perft_startpos: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
