@@ -18,9 +18,19 @@ use crate::{
     zobrist::ZOBRIST,
 };
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Abort {
+    #[default]
     No,
     Yes,
+}
+
+macro_rules! abort_if {
+    ($e:expr) => {
+        if let Abort::Yes = $e {
+            return Abort::Yes;
+        }
+    };
 }
 
 #[inline(always)]
@@ -45,11 +55,11 @@ impl Board {
     }
 
     #[inline]
-    fn pawn_noisies<const WHITE: bool, V: FnMut(PieceMoves)>(
+    fn pawn_noisies<const WHITE: bool, V: FnMut(PieceMoves) -> Abort>(
         &self,
         visitor: &mut V,
         targets: Bitboard,
-    ) {
+    ) -> Abort {
         let stm = color::<WHITE>();
         let push_dir = stm.signum();
         let our_pawns = self.colored_pieces(Piece::Pawn, stm);
@@ -70,12 +80,12 @@ impl Board {
                     MoveFlag::None
                 };
 
-                visitor(PieceMoves::new(
+                abort_if!(visitor(PieceMoves::new(
                     flag,
                     Piece::Pawn,
                     from,
                     from.bitboard().shift::<UpLeft>(push_dir),
-                ));
+                )));
             }
         }
 
@@ -92,12 +102,12 @@ impl Board {
                     MoveFlag::None
                 };
 
-                visitor(PieceMoves::new(
+                abort_if!(visitor(PieceMoves::new(
                     flag,
                     Piece::Pawn,
                     from,
                     from.bitboard().shift::<UpRight>(push_dir),
-                ));
+                )));
             }
         }
 
@@ -111,12 +121,12 @@ impl Board {
                 Rank::R8.relative_to(stm).bitboard() & !self.colors[!stm] & targets;
 
             for from in promo_push_targets.shift::<Down>(push_dir) & our_pawns & !pinned_pawns {
-                visitor(PieceMoves::new(
+                abort_if!(visitor(PieceMoves::new(
                     MoveFlag::Promotion,
                     Piece::Pawn,
                     from,
                     from.bitboard().shift::<Up>(push_dir),
-                ));
+                )));
             }
         }
 
@@ -125,22 +135,24 @@ impl Board {
 
             // We already precalculated the legal en passants, so we don't any more checks here.
             for from in ep.attacker_bb(stm) {
-                visitor(PieceMoves::new(
+                abort_if!(visitor(PieceMoves::new(
                     MoveFlag::EnPassant,
                     Piece::Pawn,
                     from,
                     to.bitboard(),
-                ));
+                )));
             }
         }
+
+        Abort::No
     }
 
     #[inline]
-    fn pawn_quiets<const WHITE: bool, V: FnMut(PieceMoves)>(
+    fn pawn_quiets<const WHITE: bool, V: FnMut(PieceMoves) -> Abort>(
         &self,
         visitor: &mut V,
         targets: Bitboard,
-    ) {
+    ) -> Abort {
         let stm = color::<WHITE>();
         let push_dir = stm.signum();
         let our_pawns = self.colored_pieces(Piece::Pawn, stm);
@@ -165,42 +177,54 @@ impl Board {
             & push_targets.shift::<Down>(2 * push_dir);
 
         for from in single_push_from & targets.shift::<Down>(push_dir) {
-            visitor(PieceMoves::new(
+            abort_if!(visitor(PieceMoves::new(
                 MoveFlag::None,
                 Piece::Pawn,
                 from,
                 from.bitboard().shift::<Up>(push_dir),
-            ))
+            )));
         }
 
         for from in double_push_from & targets.shift::<Down>(2 * push_dir) {
-            visitor(PieceMoves::new(
+            abort_if!(visitor(PieceMoves::new(
                 MoveFlag::None,
                 Piece::Pawn,
                 from,
                 Square::new(from.file(), Rank::R4.relative_to(stm)).bitboard(),
-            ))
+            )));
         }
+
+        Abort::No
     }
 
     #[inline]
-    fn knight_moves<V: FnMut(PieceMoves)>(&self, visitor: &mut V, targets: Bitboard) {
+    fn knight_moves<V: FnMut(PieceMoves) -> Abort>(
+        &self,
+        visitor: &mut V,
+        targets: Bitboard,
+    ) -> Abort {
         for from in self.colored_pieces(Piece::Knight, self.stm) & !self.pinned {
             let to = knight_moves(from) & targets;
             if to.is_non_empty() {
-                visitor(PieceMoves::new(MoveFlag::None, Piece::Knight, from, to))
+                abort_if!(visitor(PieceMoves::new(
+                    MoveFlag::None,
+                    Piece::Knight,
+                    from,
+                    to
+                )));
             }
         }
+        Abort::No
     }
 
     #[inline]
-    fn sliders<V: FnMut(PieceMoves), F: Fn(Square, Bitboard) -> Bitboard>(
+    fn sliders<V: FnMut(PieceMoves) -> Abort, F: Fn(Square, Bitboard) -> Bitboard>(
         &self,
         visitor: &mut V,
         targets: Bitboard,
         sliders: Bitboard,
         moves: F,
-    ) {
+    ) -> Abort {
         let from = self.colors[self.stm] & sliders;
         let blockers = self.occupied();
         let our_king = self.king(self.stm);
@@ -208,12 +232,12 @@ impl Board {
         for unpinned in from & !self.pinned {
             let to = moves(unpinned, blockers) & targets;
             if to.is_non_empty() {
-                visitor(PieceMoves::new(
+                abort_if!(visitor(PieceMoves::new(
                     MoveFlag::None,
                     self.piece_on(unpinned).unwrap(),
                     unpinned,
                     to,
-                ))
+                )));
             }
         }
 
@@ -221,45 +245,63 @@ impl Board {
             let ray = line(our_king, pinned);
             let to = moves(pinned, blockers) & targets & ray;
             if to.is_non_empty() {
-                visitor(PieceMoves::new(
+                abort_if!(visitor(PieceMoves::new(
                     MoveFlag::None,
                     self.piece_on(pinned).unwrap(),
                     pinned,
                     to,
-                ))
+                )));
             }
         }
+
+        Abort::No
     }
 
     #[inline]
-    fn diag_slider_moves<V: FnMut(PieceMoves)>(&self, visitor: &mut V, targets: Bitboard) {
+    fn diag_slider_moves<V: FnMut(PieceMoves) -> Abort>(
+        &self,
+        visitor: &mut V,
+        targets: Bitboard,
+    ) -> Abort {
         self.sliders(
             visitor,
             targets,
             self.pieces[Piece::Queen] | self.pieces[Piece::Bishop],
             bishop_moves,
-        );
+        )
     }
 
     #[inline]
-    fn orth_slider_moves<V: FnMut(PieceMoves)>(&self, visitor: &mut V, targets: Bitboard) {
+    fn orth_slider_moves<V: FnMut(PieceMoves) -> Abort>(
+        &self,
+        visitor: &mut V,
+        targets: Bitboard,
+    ) -> Abort {
         self.sliders(
             visitor,
             targets,
             self.pieces[Piece::Queen] | self.pieces[Piece::Rook],
             rook_moves,
-        );
+        )
     }
 
     #[inline]
-    fn king_moves<const IN_CHECK: bool, V: FnMut(PieceMoves)>(&self, visitor: &mut V) {
+    fn king_moves<const IN_CHECK: bool, V: FnMut(PieceMoves) -> Abort>(
+        &self,
+        visitor: &mut V,
+    ) -> Abort {
         let our_king = self.king(self.stm);
 
         {
             // Regular king moves.
             let to = king_moves(our_king) & !self.xray & !self.colors[self.stm];
             if to.is_non_empty() {
-                visitor(PieceMoves::new(MoveFlag::None, Piece::King, our_king, to))
+                abort_if!(visitor(PieceMoves::new(
+                    MoveFlag::None,
+                    Piece::King,
+                    our_king,
+                    to
+                )));
             }
         }
 
@@ -287,34 +329,38 @@ impl Board {
                     if (must_be_empty & blockers).is_empty()
                         && (must_be_safe & self.attacked).is_empty()
                     {
-                        visitor(PieceMoves::new(
+                        abort_if!(visitor(PieceMoves::new(
                             MoveFlag::Castle,
                             Piece::King,
                             our_king,
                             rook_sq.bitboard(),
-                        ))
+                        )));
                     }
                 }
             }
         }
+
+        Abort::No
     }
 
-    fn gen_moves_impl<const IN_CHECK: bool, const WHITE: bool, V: FnMut(PieceMoves)>(
+    fn gen_moves_impl<const IN_CHECK: bool, const WHITE: bool, V: FnMut(PieceMoves) -> Abort>(
         &self,
         visitor: &mut V,
-    ) {
+    ) -> Abort {
         let targets = self.targets::<IN_CHECK, WHITE>();
 
-        self.pawn_noisies::<WHITE, V>(visitor, targets);
-        self.pawn_quiets::<WHITE, V>(visitor, targets);
-        self.knight_moves::<V>(visitor, targets);
-        self.orth_slider_moves::<V>(visitor, targets);
-        self.diag_slider_moves::<V>(visitor, targets);
-        self.king_moves::<IN_CHECK, V>(visitor);
+        abort_if!(self.pawn_noisies::<WHITE, V>(visitor, targets));
+        abort_if!(self.pawn_quiets::<WHITE, V>(visitor, targets));
+        abort_if!(self.knight_moves::<V>(visitor, targets));
+        abort_if!(self.orth_slider_moves::<V>(visitor, targets));
+        abort_if!(self.diag_slider_moves::<V>(visitor, targets));
+        abort_if!(self.king_moves::<IN_CHECK, V>(visitor));
+
+        Abort::No
     }
 
     #[inline]
-    pub fn gen_moves<V: FnMut(PieceMoves)>(&self, mut visitor: V) {
+    pub fn gen_moves<V: FnMut(PieceMoves) -> Abort>(&self, mut visitor: V) -> Abort {
         match (self.stm, self.checkers.popcnt()) {
             (Color::White, 0) => self.gen_moves_impl::<false, true, V>(&mut visitor),
             (Color::Black, 0) => self.gen_moves_impl::<false, false, V>(&mut visitor),

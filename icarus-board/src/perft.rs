@@ -1,4 +1,4 @@
-use crate::board::Board;
+use crate::{board::Board, movegen::Abort};
 
 fn perft(board: &Board, depth: u8) -> u64 {
     let mut nodes = 0;
@@ -10,6 +10,7 @@ fn perft(board: &Board, depth: u8) -> u64 {
     if depth == 1 {
         board.gen_moves(|moves| {
             nodes += moves.len() as u64;
+            Abort::No
         });
     } else {
         board.gen_moves(|moves| {
@@ -19,6 +20,7 @@ fn perft(board: &Board, depth: u8) -> u64 {
 
                 nodes += perft(&board, depth - 1);
             }
+            Abort::No
         });
     }
 

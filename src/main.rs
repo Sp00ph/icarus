@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use icarus_board::board::Board;
+use icarus_board::{board::Board, movegen::Abort};
 
 fn perft(board: &Board, depth: u8) -> u64 {
     let mut nodes = 0;
@@ -10,7 +10,10 @@ fn perft(board: &Board, depth: u8) -> u64 {
     }
     if depth == 1 {
         let mut count = 0;
-        board.gen_moves(|m| count += m.len() as u64);
+        board.gen_moves(|m| {
+            count += m.len() as u64;
+            Abort::No
+        });
         return count;
     }
     board.gen_moves(|moves| {
@@ -20,6 +23,7 @@ fn perft(board: &Board, depth: u8) -> u64 {
 
             nodes += perft(&board, depth - 1);
         }
+        Abort::No
     });
 
     nodes
