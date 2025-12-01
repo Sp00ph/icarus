@@ -1,5 +1,3 @@
-#![feature(type_alias_impl_trait)]
-
 pub mod board;
 pub mod castling;
 pub mod zobrist;
