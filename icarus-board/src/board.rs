@@ -436,6 +436,9 @@ impl Board {
         };
 
         if let Some(pt) = promote_to {
+            if pt == Piece::Pawn || pt == Piece::King {
+                return None;
+            }
             return Some(Move::new_promotion(from, to, pt));
         }
 
