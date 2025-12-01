@@ -1,40 +1,47 @@
-use std::time::Instant;
+use icarus_board::board::Board;
+use rustyline::{Config, Editor, error::ReadlineError, history::MemHistory};
 
-use icarus_board::{board::Board, movegen::Abort};
+use crate::uci::UciCommand;
 
-fn perft(board: &Board, depth: u8) -> u64 {
-    let mut nodes = 0;
+mod uci;
 
-    if depth == 0 {
-        return 1;
-    }
-    if depth == 1 {
-        let mut count = 0;
-        board.gen_moves(|m| {
-            count += m.len() as u64;
-            Abort::No
-        });
-        return count;
-    }
-    board.gen_moves(|moves| {
-        for mv in moves {
-            let mut board = *board;
-            board.make_move(mv);
+fn main() -> Result<(), rootcause::Report> {
+    let mut editor = Editor::<(), MemHistory>::with_history(
+        Config::builder()
+            .auto_add_history(true)
+            .enable_signals(true)
+            .build(),
+        MemHistory::new(),
+    )?;
 
-            nodes += perft(&board, depth - 1);
+    let mut board = Board::start_pos();
+    loop {
+        let line = match editor.readline("") {
+            Ok(line) => line,
+            Err(ReadlineError::Eof) => break,
+            Err(e) => return Err(e.into()),
+        };
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
         }
-        Abort::No
-    });
 
-    nodes
-}
+        let command = UciCommand::parse(line, &board, true);
+        println!("{command:?}");
 
-fn main() {
-    let b = Board::start_pos();
-
-    for depth in 1u8.. {
-        let t0 = Instant::now();
-        let n = perft(&b, depth);
-        println!("{:.2?}, {n}", t0.elapsed());
+        match command {
+            Ok(UciCommand::Position { board: new, moves }) => {
+                board = new;
+                for mv in moves {
+                    board.make_move(mv);
+                }
+            }
+            Ok(UciCommand::Display) => {
+                board.print(true);
+            }
+            _ => {}
+        }
     }
+
+    Ok(())
 }

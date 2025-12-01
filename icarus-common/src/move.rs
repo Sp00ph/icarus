@@ -85,9 +85,9 @@ impl Move {
         }
     }
 
-    #[inline]
     /// Returns the piece that this move promotes to. If the move
     /// doesn't promote, the return value is arbitrary.
+    #[inline]
     pub const fn promotes_to_unchecked(self) -> Piece {
         Piece::from_idx(((self.0.get() >> 14) as u8 & 0x3) + Piece::Knight.idx())
     }
@@ -97,14 +97,15 @@ impl Move {
         self.0.get()
     }
 
-    #[inline]
     /// Should only be called with an argument that was previously returned from a `mov.to_bits()` call.
+    #[inline]
     pub const fn from_bits(n: u16) -> Self {
         Self(NonZeroU16::new(n).expect("Illegal move!"))
     }
 }
 
 impl fmt::Display for Move {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use fmt::Write;
         write!(f, "{:#}{:#}", self.from(), self.to())?;
@@ -112,6 +113,13 @@ impl fmt::Display for Move {
             f.write_char(p.to_char(Color::Black))?;
         }
         Ok(())
+    }
+}
+
+impl fmt::Debug for Move {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }
 

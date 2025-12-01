@@ -1,7 +1,8 @@
-use std::mem;
+use std::{fmt, mem};
 
 use icarus_common::{
     bitboard::Bitboard,
+    r#move::{Move, MoveFlag},
     piece::{Color, Piece},
     square::{File, Rank, Square},
     util::enum_map::EnumMap,
@@ -10,6 +11,7 @@ use icarus_common::{
 use crate::{
     castling::{CastlingDirection, CastlingRights},
     ep_file::EnPassantFile,
+    movegen::Abort,
     zobrist::ZOBRIST,
 };
 
@@ -67,6 +69,11 @@ impl Board {
     #[inline]
     pub fn piece_on(&self, sq: Square) -> Option<Piece> {
         self.mailbox[sq]
+    }
+
+    #[inline]
+    pub fn colored_piece_on(&self, sq: Square, color: Color) -> Option<Piece> {
+        self.mailbox[sq].filter(|_| self.colors[color].contains(sq))
     }
 
     #[inline]
@@ -375,5 +382,120 @@ impl Board {
         write!(res, "{ep} {} {}", self.halfmove_clock, self.fullmove_count).unwrap();
 
         res
+    }
+
+    pub fn print(&self, chess960: bool) {
+        println!("╔═══╤═══╤═══╤═══╤═══╤═══╤═══╤═══╗");
+
+        for &rank in Rank::ALL.iter().rev() {
+            print!("║");
+            for &file in File::ALL {
+                let sq = Square::new(file, rank);
+                let mut ch = match self.piece_on(sq) {
+                    None => ' ',
+                    Some(Piece::Pawn) => 'P',
+                    Some(Piece::Knight) => 'N',
+                    Some(Piece::Bishop) => 'B',
+                    Some(Piece::Rook) => 'R',
+                    Some(Piece::Queen) => 'Q',
+                    Some(Piece::King) => 'K',
+                };
+
+                if self.colors[Color::Black].contains(sq) {
+                    ch = ch.to_ascii_lowercase();
+                }
+
+                print!(" {ch} ");
+                print!("{}", if file == File::H { '║' } else { '│' });
+            }
+            if rank != Rank::R1 {
+                println!(" {rank:?}\n╟───┼───┼───┼───┼───┼───┼───┼───╢");
+            }
+        }
+        println!(" {:?}\n╚═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╝", Rank::R1);
+
+        for file in File::ALL {
+            print!("  {file:?} ");
+        }
+
+        println!("\n\nFEN: {}", self.fen(chess960));
+        println!("Zobrist key: {:#018x}", self.hash)
+    }
+
+    #[inline]
+    pub fn parse_move(&self, lan: &str, chess960: bool) -> Option<Move> {
+        if !(4..=5).contains(&lan.len()) {
+            return None;
+        }
+
+        let from = Square::parse(&lan[..2])?;
+        let to = Square::parse(&lan[2..4])?;
+        let promote_to = match lan.as_bytes().get(4) {
+            Some(&b) => Some(Piece::from_char(b as char)?),
+            None => None,
+        };
+
+        if let Some(pt) = promote_to {
+            return Some(Move::new_promotion(from, to, pt));
+        }
+
+        let castle_file = 'castle: {
+            if self.piece_on(from) != Some(Piece::King) {
+                break 'castle None;
+            }
+
+            if !chess960 && from.file() == File::E && [File::C, File::G].contains(&to.file()) {
+                let dir = if to.file() == File::C {
+                    CastlingDirection::Long
+                } else {
+                    CastlingDirection::Short
+                };
+                break 'castle Some(self.castling_rights[self.stm].get(dir)?);
+            }
+
+            if self.colored_piece_on(to, self.stm) == Some(Piece::Rook) {
+                break 'castle Some(to.file());
+            }
+
+            None
+        };
+
+        if let Some(cf) = castle_file {
+            return Some(Move::new(
+                from,
+                Square::new(cf, to.rank()),
+                MoveFlag::Castle,
+            ));
+        }
+
+        let is_ep = self.piece_on(from) == Some(Piece::Pawn)
+            && from.rank() == Rank::R5.relative_to(self.stm)
+            && self.en_passant.map(|ep| ep.file()) == Some(to.file());
+
+        Some(Move::new(
+            from,
+            to,
+            if is_ep {
+                MoveFlag::EnPassant
+            } else {
+                MoveFlag::None
+            },
+        ))
+    }
+
+    pub fn is_legal(&self, mv: Move) -> bool {
+        self.gen_moves(|moves| {
+            if moves.into_iter().any(|legal| legal == mv) {
+                Abort::Yes
+            } else {
+                Abort::No
+            }
+        }) == Abort::Yes
+    }
+}
+
+impl fmt::Debug for Board {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Board").field(&self.fen(true)).finish()
     }
 }

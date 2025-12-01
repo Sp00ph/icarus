@@ -7,6 +7,9 @@ edition = "2024"
 icarus-common = { path = "icarus-common" }
 icarus-board = { path = "icarus-board" }
 arrayvec = "0.7.6"
+rustyline = "17.0.2"
+thiserror = "2.0.17"
+rootcause = "0.10.0"
 
 [workspace]
 members = ["icarus-board", "icarus-common"]

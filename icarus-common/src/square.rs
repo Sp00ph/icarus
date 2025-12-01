@@ -134,6 +134,19 @@ impl Square {
     pub const fn bitboard(self) -> Bitboard {
         Bitboard(1 << self.idx())
     }
+
+    #[inline]
+    pub fn parse(s: &str) -> Option<Self> {
+        let &[f, r]: &[u8; 2] = s.as_bytes().try_into().ok()?;
+
+        match (f.to_ascii_lowercase(), r) {
+            (f @ b'a'..=b'h', b'1'..=b'8') => Some(Self::new(
+                File::from_idx(f - b'a'),
+                Rank::from_idx(r - b'1'),
+            )),
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Display for Square {
