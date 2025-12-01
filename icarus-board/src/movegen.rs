@@ -294,7 +294,7 @@ impl Board {
 
         {
             // Regular king moves.
-            let to = king_moves(our_king) & !self.xray & !self.colors[self.stm];
+            let to = king_moves(our_king) & !self.attacked & !self.colors[self.stm];
             if to.is_non_empty() {
                 abort_if!(visitor(PieceMoves::new(
                     MoveFlag::None,
@@ -385,7 +385,6 @@ impl Board {
         self.attacked =
             their_pawns.shift::<DownLeft>(push_dir) | their_pawns.shift::<DownRight>(push_dir);
         self.attacked |= king_moves(self.king(!self.stm));
-        self.xray = self.attacked;
 
         for knight in self.colored_pieces(Piece::Knight, !self.stm) {
             let moves = knight_moves(knight);
@@ -393,27 +392,20 @@ impl Board {
                 self.checkers |= knight;
             }
             self.attacked |= moves;
-            self.xray |= moves;
         }
 
         for orth in their_orth {
-            let moves = rook_moves(orth, blockers);
+            let moves = rook_moves(orth, blockers ^ our_king);
             if moves.contains(our_king) {
                 self.checkers |= orth;
-                self.xray |= rook_moves(orth, blockers ^ our_king)
-            } else {
-                self.xray |= moves;
             }
             self.attacked |= moves;
         }
 
         for diag in their_diag {
-            let moves = bishop_moves(diag, blockers);
+            let moves = bishop_moves(diag, blockers ^ our_king);
             if moves.contains(our_king) {
                 self.checkers |= diag;
-                self.xray |= bishop_moves(diag, blockers ^ our_king)
-            } else {
-                self.xray |= moves;
             }
             self.attacked |= moves;
         }

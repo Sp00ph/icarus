@@ -32,9 +32,8 @@ pub struct Board {
     /// Bitboard containing all nstm pieces checking the stm king.
     pub(crate) checkers: Bitboard,
     /// Bitboard containing all squares attacked by a nstm piece.
+    /// Note that nstm pieces can see through the stm king.
     pub(crate) attacked: Bitboard,
-    /// Same as `attacked`, except opponent sliders can see through our king.
-    pub(crate) xray: Bitboard,
     /// Half move clock, that counts the plies since the last capture or pawn move.
     pub(crate) halfmove_clock: u8,
     /// Full move count. Gets incremented after every black move.
@@ -191,7 +190,6 @@ impl Board {
             pinned: Bitboard::EMPTY,
             checkers: Bitboard::EMPTY,
             attacked: Bitboard::EMPTY,
-            xray: Bitboard::EMPTY,
             halfmove_clock: 0,
             fullmove_count: 0,
             stm: Color::White,
