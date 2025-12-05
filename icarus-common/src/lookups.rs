@@ -28,7 +28,7 @@ pub const fn rook_rays(sq: Square) -> Bitboard {
 }
 
 #[inline]
-pub fn bishop_rays(sq: Square) -> Bitboard {
+pub const fn bishop_rays(sq: Square) -> Bitboard {
     const RAYS: &[Bitboard; Square::COUNT] = &{
         let mut arr = [Bitboard::EMPTY; Square::COUNT];
 

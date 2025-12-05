@@ -11,10 +11,10 @@ use icarus_common::{
 };
 
 use crate::{
-    attack_generators::{bishop_moves, rook_moves},
     board::Board,
     castling::CastlingDirection,
     ep_file::EnPassantFile,
+    ray_space::{bishop_moves, rook_moves},
     zobrist::ZOBRIST,
 };
 

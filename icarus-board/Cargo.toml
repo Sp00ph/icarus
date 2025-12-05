@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 icarus-common = { path = "../icarus-common" }
 enum-map = "2.7.3"
+cfg-if = "1.0.4"
 
 [build-dependencies]
 icarus-common = { path = "../icarus-common" }
