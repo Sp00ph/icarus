@@ -14,6 +14,8 @@ pub enum UciCommand {
     Eval,
     Display,
     Bench { depth: u8, threads: u16, hash: u32 },
+    Perft(u8),
+    SplitPerft(u8),
     Stop,
     Quit,
 }
@@ -119,6 +121,8 @@ impl UciCommand {
                     hash,
                 })
             }
+            "perft" => Ok(Perft(reader.next().unwrap_or("6").parse()?)),
+            "splitperft" => Ok(SplitPerft(reader.next().unwrap_or("6").parse()?)),
             "position" => {
                 let startpos = match reader.next() {
                     Some("startpos") => Board::start_pos(),
