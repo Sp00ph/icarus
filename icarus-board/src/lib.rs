@@ -1,9 +1,7 @@
+pub mod attack_generators;
 pub mod board;
 pub mod castling;
-pub mod zobrist;
-pub mod movegen;
-pub mod attack_generators;
 pub mod ep_file;
-
-#[cfg(test)]
-mod perft;
+pub mod movegen;
+pub mod perft;
+pub mod zobrist;

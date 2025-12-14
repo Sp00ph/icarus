@@ -4,7 +4,7 @@ use crate::{
     bitboard::Bitboard,
     define_enum,
     piece::{Color, Piece},
-    square::Square,
+    square::{File, Square},
 };
 
 /// Bit packed move type
@@ -102,24 +102,31 @@ impl Move {
     pub const fn from_bits(n: u16) -> Self {
         Self(NonZeroU16::new(n).expect("Illegal move!"))
     }
-}
 
-impl fmt::Display for Move {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use fmt::Write;
-        write!(f, "{:#}{:#}", self.from(), self.to())?;
-        if let Some(p) = self.promotes_to() {
-            f.write_char(p.to_char(Color::Black))?;
+    pub fn display(self, chess960: bool) -> String {
+        let from = self.from();
+        let mut to = self.to();
+        if !chess960 && self.flag() == MoveFlag::Castle {
+            let to_file = if to.file() < from.file() {
+                File::C
+            } else {
+                File::G
+            };
+            to = Square::new(to_file, from.rank());
         }
-        Ok(())
+
+        let mut s = format!("{:#}{:#}", from, to);
+        if let Some(p) = self.promotes_to() {
+            s.push(p.to_char(Color::Black));
+        }
+        s
     }
 }
 
 impl fmt::Debug for Move {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(self, f)
+        fmt::Display::fmt(&self.display(true), f)
     }
 }
 
