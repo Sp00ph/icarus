@@ -4,17 +4,17 @@ use icarus_board::{board::Board, movegen::Abort, perft::perft};
 use icarus_common::r#move::Move;
 use rustyline::{Config, Editor, error::ReadlineError, history::MemHistory};
 
-use crate::uci::UciCommand;
+use crate::{position::Position, uci::UciCommand};
 
 pub struct Engine {
-    board: Board,
+    position: Position,
     chess960: bool,
 }
 
 impl Engine {
     pub fn new() -> Self {
         Self {
-            board: Board::start_pos(),
+            position: Position::new(Board::start_pos()),
             chess960: false,
         }
     }
@@ -39,7 +39,7 @@ impl Engine {
                 continue;
             }
 
-            let command = match UciCommand::parse(line, &self.board, self.chess960) {
+            let command = match UciCommand::parse(line, self.position.board(), self.chess960) {
                 Ok(command) => command,
                 Err(e) => {
                     eprintln!("info string {e}");
@@ -79,7 +79,7 @@ impl Engine {
     }
 
     fn newgame(&mut self) {
-        self.board = Board::start_pos();
+        self.position = Position::new(Board::start_pos());
     }
 
     fn isready(&self) {
@@ -101,19 +101,19 @@ impl Engine {
     }
 
     fn position(&mut self, board: Board, moves: Vec<Move>) {
-        self.board = board;
+        self.position = Position::new(board);
         for mv in moves {
-            self.board.make_move(mv);
+            self.position.make_move(mv);
         }
     }
 
     fn display(&self) {
-        self.board.print(self.chess960);
+        self.position.board().print(self.chess960);
     }
 
     fn perft(&self, depth: u8) {
         let t = Instant::now();
-        let n = perft(&self.board, depth);
+        let n = perft(self.position.board(), depth);
         let d = t.elapsed();
         let mnps = (n as f64) / d.as_secs_f64() / 1e6;
         println!("Total: {n}");
@@ -127,7 +127,7 @@ impl Engine {
         }
 
         let mut moves = vec![];
-        self.board.gen_moves(|mv| {
+        self.position.board().gen_moves(|mv| {
             moves.extend(mv);
             Abort::No
         });
@@ -135,7 +135,7 @@ impl Engine {
         let mut d = Duration::ZERO;
         let mut total = 0u64;
         for mv in moves {
-            let mut board = self.board;
+            let mut board = *self.position.board();
             board.make_move(mv);
             let t = Instant::now();
             let n = perft(&board, depth - 1);

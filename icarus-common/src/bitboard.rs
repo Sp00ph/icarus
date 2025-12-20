@@ -22,6 +22,10 @@ impl Bitboard {
     /// A8-H1 diagonal
     pub const ANTI_DIAGONAL: Self = Self(0x0102040810204080);
 
+    pub const LIGHT_SQUARES: Self = Self(0xAA55AA55AA55AA55);
+    
+    pub const DARK_SQUARES: Self = Self(0x55AA55AA55AA55AA);
+
     #[inline]
     pub const fn invert(self) -> Self {
         Self(!self.0)
@@ -40,6 +44,11 @@ impl Bitboard {
     #[inline]
     pub const fn contains(self, sq: Square) -> bool {
         self.intersect(sq.bitboard()).is_non_empty()
+    }
+
+    #[inline]
+    pub const fn is_subset_of(self, superset: Self) -> bool {
+        self.intersect(superset).0 == self.0
     }
 
     #[inline]

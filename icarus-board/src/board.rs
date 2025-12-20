@@ -15,6 +15,11 @@ use crate::{
     zobrist::ZOBRIST,
 };
 
+pub enum TerminalState {
+    Checkmate(Color),
+    Draw,
+}
+
 #[derive(Clone, Copy)]
 pub struct Board {
     /// Bitboards per piece type, containing both white and black pieces.
@@ -133,6 +138,27 @@ impl Board {
     #[inline]
     pub fn castling_rights(&self) -> EnumMap<Color, CastlingRights> {
         self.castling_rights
+    }
+
+    #[inline]
+    pub fn is_legal(&self, mv: Move) -> bool {
+        self.gen_moves(|moves| moves.into_iter().any(|legal| legal == mv).into()) == Abort::Yes
+    }
+
+    #[inline]
+    pub fn terminal_state(&self) -> Option<TerminalState> {
+        let any_legal = self.gen_moves(|moves| (!moves.is_empty()).into()) == Abort::Yes;
+        if any_legal {
+            if self.halfmove_clock < 100 {
+                None
+            } else {
+                Some(TerminalState::Draw)
+            }
+        } else if self.checkers.is_non_empty() {
+            Some(TerminalState::Checkmate(!self.stm))
+        } else {
+            Some(TerminalState::Draw)
+        }
     }
 
     #[inline]
@@ -482,16 +508,6 @@ impl Board {
                 MoveFlag::None
             },
         ))
-    }
-
-    pub fn is_legal(&self, mv: Move) -> bool {
-        self.gen_moves(|moves| {
-            if moves.into_iter().any(|legal| legal == mv) {
-                Abort::Yes
-            } else {
-                Abort::No
-            }
-        }) == Abort::Yes
     }
 }
 

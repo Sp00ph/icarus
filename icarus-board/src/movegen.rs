@@ -25,6 +25,15 @@ pub enum Abort {
     Yes,
 }
 
+impl From<bool> for Abort {
+    fn from(value: bool) -> Self {
+        match value {
+            true => Abort::No,
+            false => Abort::Yes,
+        }
+    }
+}
+
 macro_rules! abort_if {
     ($e:expr) => {
         if let Abort::Yes = $e {
