@@ -1,4 +1,7 @@
-use std::{num::ParseIntError, str::FromStr};
+use std::{
+    num::ParseIntError,
+    str::{FromStr, ParseBoolError},
+};
 
 use icarus_board::board::Board;
 use icarus_common::r#move::Move;
@@ -14,8 +17,8 @@ pub enum UciCommand {
     Eval,
     Display,
     Bench { depth: u8, threads: u16, hash: u32 },
-    Perft(u8),
-    SplitPerft(u8),
+    Perft { depth: u8, bulk: bool },
+    SplitPerft { depth: u8, bulk: bool },
     Stop,
     Quit,
 }
@@ -60,6 +63,8 @@ pub enum UciParseError {
     MissingLimitValue(String),
     #[error("Error parsing integer: {0}")]
     InvalidInt(#[from] ParseIntError),
+    #[error("Error parsing boolean: {0}")]
+    InvalidBool(#[from] ParseBoolError),
 }
 
 impl UciCommand {
@@ -121,8 +126,14 @@ impl UciCommand {
                     hash,
                 })
             }
-            "perft" => Ok(Perft(reader.next().unwrap_or("6").parse()?)),
-            "splitperft" => Ok(SplitPerft(reader.next().unwrap_or("6").parse()?)),
+            "perft" => Ok(Perft {
+                depth: reader.next().unwrap_or("6").parse()?,
+                bulk: reader.next().unwrap_or("true").parse()?,
+            }),
+            "splitperft" => Ok(SplitPerft {
+                depth: reader.next().unwrap_or("6").parse()?,
+                bulk: reader.next().unwrap_or("true").parse()?,
+            }),
             "position" => {
                 let startpos = match reader.next() {
                     Some("startpos") => Board::start_pos(),

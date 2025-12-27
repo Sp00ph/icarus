@@ -61,8 +61,8 @@ impl Engine {
                     threads: _,
                     hash: _,
                 } => todo!(),
-                UciCommand::Perft(depth) => self.perft(depth),
-                UciCommand::SplitPerft(depth) => self.splitperft(depth),
+                UciCommand::Perft { depth, bulk } => self.perft(depth, bulk),
+                UciCommand::SplitPerft { depth, bulk } => self.splitperft(depth, bulk),
                 UciCommand::Stop => todo!(),
                 UciCommand::Quit => todo!(),
             }
@@ -111,16 +111,20 @@ impl Engine {
         self.position.board().print(self.chess960);
     }
 
-    fn perft(&self, depth: u8) {
+    fn perft(&self, depth: u8, bulk: bool) {
         let t = Instant::now();
-        let n = perft(self.position.board(), depth);
+        let n = if bulk {
+            perft::<true>(self.position.board(), depth)
+        } else {
+            perft::<false>(self.position.board(), depth)
+        };
         let d = t.elapsed();
         let mnps = (n as f64) / d.as_secs_f64() / 1e6;
         println!("Total: {n}");
         println!("Took {d:.2?} ({mnps:.2}Mnps)\n");
     }
 
-    fn splitperft(&self, depth: u8) {
+    fn splitperft(&self, depth: u8, bulk: bool) {
         if depth == 0 {
             println!("No!");
             return;
@@ -138,7 +142,11 @@ impl Engine {
             let mut board = *self.position.board();
             board.make_move(mv);
             let t = Instant::now();
-            let n = perft(&board, depth - 1);
+            let n = if bulk {
+                perft::<true>(self.position.board(), depth)
+            } else {
+                perft::<false>(self.position.board(), depth)
+            };
             d += t.elapsed();
             total += n;
             println!("{}: {n}", mv.display(self.chess960));

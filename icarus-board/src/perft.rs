@@ -1,13 +1,13 @@
 use crate::{board::Board, movegen::Abort};
 
-pub fn perft(board: &Board, depth: u8) -> u64 {
+pub fn perft<const BULK: bool>(board: &Board, depth: u8) -> u64 {
     let mut nodes = 0;
 
     if depth == 0 {
         return 1;
     }
 
-    if depth == 1 {
+    if BULK && depth == 1 {
         board.gen_moves(|moves| {
             nodes += moves.len() as u64;
             Abort::No
@@ -18,7 +18,7 @@ pub fn perft(board: &Board, depth: u8) -> u64 {
                 let mut board = *board;
                 board.make_move(mv);
 
-                nodes += perft(&board, depth - 1);
+                nodes += perft::<BULK>(&board, depth - 1);
             }
             Abort::No
         });
@@ -39,7 +39,7 @@ mod tests {
 
             let board = Board::read_fen($board).unwrap();
             for (depth, &nodes) in NODES.iter().enumerate() {
-                assert_eq!(perft(&board, depth as u8 + 1), nodes);
+                assert_eq!(perft::<true>(&board, depth as u8 + 1), nodes);
             }
         }
     }
