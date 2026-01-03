@@ -89,7 +89,10 @@ impl TimeManager {
         let soft_time = ((time / 64).saturating_sub(move_overhead) + inc).min(hard_time);
 
         self.soft_time.store(soft_time, Relaxed);
-        self.hard_time.store(hard_time.min(movetime), Relaxed);
+        self.hard_time.store(
+            hard_time.min(movetime.saturating_sub(move_overhead)),
+            Relaxed,
+        );
 
         self.start.store(Instant::now(), Relaxed);
     }
