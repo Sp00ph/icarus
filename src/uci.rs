@@ -23,15 +23,15 @@ pub enum UciCommand {
     Quit,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SearchLimit {
     SearchMoves(Vec<Move>),
-    WhiteTime(u32),
-    BlackTime(u32),
-    WhiteInc(u32),
-    BlackInc(u32),
-    MoveTime(u32),
-    Depth(u8),
+    WhiteTime(u64),
+    BlackTime(u64),
+    WhiteInc(u64),
+    BlackInc(u64),
+    MoveTime(u64),
+    Depth(u16),
     Nodes(u64),
 }
 
@@ -212,9 +212,9 @@ impl UciCommand {
                         // infinite doesn't add any limits.
                         "infinite" => {}
                         "wtime" => limits
-                            .push(WhiteTime(parse_int::<i32>(&mut reader, part)?.max(0) as u32)),
+                            .push(WhiteTime(parse_int::<i64>(&mut reader, part)?.max(0) as u64)),
                         "btime" => limits
-                            .push(BlackTime(parse_int::<i32>(&mut reader, part)?.max(0) as u32)),
+                            .push(BlackTime(parse_int::<i64>(&mut reader, part)?.max(0) as u64)),
                         "winc" => limits.push(WhiteInc(parse_int(&mut reader, part)?)),
                         "binc" => limits.push(BlackInc(parse_int(&mut reader, part)?)),
                         "depth" => limits.push(Depth(parse_int(&mut reader, part)?)),

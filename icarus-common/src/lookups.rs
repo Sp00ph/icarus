@@ -13,10 +13,7 @@ pub const fn rook_rays(sq: Square) -> Bitboard {
         let mut i = 0;
         while i < Square::COUNT {
             let sq = Square::from_idx(i as u8);
-            arr[i] = sq
-                .rank()
-                .bitboard()
-                .xor(sq.file().bitboard());
+            arr[i] = sq.rank().bitboard().xor(sq.file().bitboard());
 
             i += 1;
         }

@@ -23,7 +23,7 @@ impl Bitboard {
     pub const ANTI_DIAGONAL: Self = Self(0x0102040810204080);
 
     pub const LIGHT_SQUARES: Self = Self(0xAA55AA55AA55AA55);
-    
+
     pub const DARK_SQUARES: Self = Self(0x55AA55AA55AA55AA);
 
     #[inline]

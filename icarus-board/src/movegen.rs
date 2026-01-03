@@ -25,15 +25,6 @@ pub enum Abort {
     Yes,
 }
 
-impl From<bool> for Abort {
-    fn from(value: bool) -> Self {
-        match value {
-            true => Abort::No,
-            false => Abort::Yes,
-        }
-    }
-}
-
 macro_rules! abort_if {
     ($e:expr) => {
         if let Abort::Yes = $e {
@@ -377,6 +368,24 @@ impl Board {
             (Color::Black, 1) => self.gen_moves_impl::<true, false, V>(&mut visitor),
             _ => self.king_moves::<true, V>(&mut visitor),
         }
+    }
+
+    #[inline]
+    pub fn gen_all_moves_to_mapped<M, F: FnMut(Move) -> M, C: Default + Extend<M>>(
+        &self,
+        mut map: F,
+    ) -> C {
+        let mut collection = C::default();
+        self.gen_moves(|mv| {
+            collection.extend(mv.into_iter().map(&mut map));
+            Abort::No
+        });
+        collection
+    }
+
+    #[inline]
+    pub fn gen_all_moves_to<C: Default + Extend<Move>>(&self) -> C {
+        self.gen_all_moves_to_mapped(std::convert::identity)
     }
 
     /// Recalculates the `checkers`, `pinned`, `xray`, and `attacked` bitboards.

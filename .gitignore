@@ -1,1 +1,6 @@
 /target
+
+# fastchess files
+/config.json
+/*.epd
+/log.txt

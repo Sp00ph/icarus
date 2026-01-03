@@ -15,6 +15,7 @@ use crate::{
     zobrist::ZOBRIST,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TerminalState {
     Checkmate(Color),
     Draw,
@@ -142,23 +143,52 @@ impl Board {
 
     #[inline]
     pub fn is_legal(&self, mv: Move) -> bool {
-        self.gen_moves(|moves| moves.into_iter().any(|legal| legal == mv).into()) == Abort::Yes
+        self.gen_moves(|moves| {
+            if moves.into_iter().any(|legal| legal == mv) {
+                Abort::Yes
+            } else {
+                Abort::No
+            }
+        }) == Abort::Yes
     }
 
     #[inline]
     pub fn terminal_state(&self) -> Option<TerminalState> {
-        let any_legal = self.gen_moves(|moves| (!moves.is_empty()).into()) == Abort::Yes;
-        if any_legal {
-            if self.halfmove_clock < 100 {
-                None
+        let any_legal = self.gen_moves(|moves| {
+            if !moves.is_empty() {
+                Abort::Yes
             } else {
+                Abort::No
+            }
+        }) == Abort::Yes;
+        if any_legal {
+            if self.halfmove_clock >= 100 || self.insufficient_material() {
                 Some(TerminalState::Draw)
+            } else {
+                None
             }
         } else if self.checkers.is_non_empty() {
             Some(TerminalState::Checkmate(!self.stm))
         } else {
             Some(TerminalState::Draw)
         }
+    }
+
+    /// If this returns true, then the board contains insufficient material to ever checkmate either king.
+    pub fn insufficient_material(&self) -> bool {
+        let pieces = &self.pieces;
+        use Piece::*;
+
+        // We check 4 conditions:
+        // 1. Any pawns or rooks or queens => sufficient
+        // 2. Different-colored bishops => sufficient
+        // 3. At least one bishop and at least one knight => sufficient
+        // 4. At least 2 knights => sufficient
+        (pieces[Pawn] | pieces[Rook] | pieces[Queen]).is_empty()
+            && ((pieces[Bishop].is_subset_of(Bitboard::LIGHT_SQUARES)
+                | pieces[Bishop].is_subset_of(Bitboard::DARK_SQUARES))
+                & !(pieces[Bishop].is_non_empty() & pieces[Knight].is_non_empty())
+                & (pieces[Knight].popcnt() < 2))
     }
 
     #[inline]

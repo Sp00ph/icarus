@@ -1,6 +1,7 @@
-use icarus_board::board::Board;
-use icarus_common::{bitboard::Bitboard, r#move::Move, piece::Piece};
+use icarus_board::board::{Board, TerminalState};
+use icarus_common::r#move::Move;
 
+#[derive(Clone)]
 pub struct Position {
     board: Board,
     /// Previously played boards. `history[0]` is the starting position.
@@ -24,26 +25,22 @@ impl Position {
         self.board = self.history.pop().unwrap();
     }
 
-    pub fn insufficient_material(&self) -> bool {
-        match self.board.occupied().popcnt() {
-            // Only kings are insufficient
-            2 => true,
-            // Only kings and one bishop/knight are insufficient
-            3 => {
-                (self.board.pieces(Piece::Bishop) | self.board.pieces(Piece::Knight)).is_non_empty()
-            }
-            // Only kings and bishops is insufficient if the bishops are all on the same color squares.
-            n => {
-                let bishops = self.board.pieces(Piece::Bishop);
-
-                (bishops.popcnt() == n - 2)
-                    && (bishops.is_subset_of(Bitboard::LIGHT_SQUARES)
-                        || bishops.is_subset_of(Bitboard::DARK_SQUARES))
-            }
-        }
-    }
-
     pub fn board(&self) -> &Board {
         &self.board
+    }
+
+    pub fn repetition(&self) -> bool {
+        // It's important for codegen quality here that we skip(3).take(max(hm - 3, 0)) instead of take(hm).skip(3)
+        self.history
+            .iter()
+            .rev()
+            .skip(3)
+            .take((self.board.halfmove_clock() as usize).saturating_sub(3))
+            .step_by(2)
+            .any(|b| b.hash() == self.board.hash())
+    }
+
+    pub fn is_draw(&self) -> bool {
+        self.board.terminal_state() == Some(TerminalState::Draw) || self.repetition()
     }
 }

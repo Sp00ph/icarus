@@ -263,7 +263,8 @@ mod magic {
                     let moves = rook_moves(sq, blockers);
 
                     table[(ROOK_MAGICS[i].position as usize)
-                        + ((blockers | !mask.0).wrapping_mul(ROOK_MAGICS[i].factor) >> 52) as usize] = moves.0;
+                        + ((blockers | !mask.0).wrapping_mul(ROOK_MAGICS[i].factor) >> 52)
+                            as usize] = moves.0;
                 }
             }
 
@@ -276,8 +277,8 @@ mod magic {
                     let moves = bishop_moves(sq, blockers);
 
                     table[(BISHOP_MAGICS[i].position as usize)
-                        + ((blockers | !mask.0).wrapping_mul(BISHOP_MAGICS[i].factor) >> 55) as usize] =
-                        moves.0;
+                        + ((blockers | !mask.0).wrapping_mul(BISHOP_MAGICS[i].factor) >> 55)
+                            as usize] = moves.0;
                 }
             }
         }

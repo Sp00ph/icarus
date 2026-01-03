@@ -1,14 +1,23 @@
-use std::time::{Duration, Instant};
+use std::{
+    sync::LazyLock,
+    time::{Duration, Instant},
+};
 
 use icarus_board::{board::Board, movegen::Abort, perft::perft};
 use icarus_common::r#move::Move;
 use rustyline::{Config, Editor, error::ReadlineError, history::MemHistory};
 
-use crate::{position::Position, uci::UciCommand};
+use crate::{
+    position::Position,
+    search::{searcher::Searcher, time_manager::DEFAULT_MOVE_OVERHEAD},
+    uci::{SearchLimit, UciCommand},
+    util::atomic_instant::EPOCH,
+};
 
 pub struct Engine {
     position: Position,
     chess960: bool,
+    searcher: Searcher,
 }
 
 impl Engine {
@@ -16,10 +25,13 @@ impl Engine {
         Self {
             position: Position::new(Board::start_pos()),
             chess960: false,
+            searcher: Searcher::default(),
         }
     }
 
     pub fn run(&mut self) -> Result<(), rootcause::Report> {
+        // Initialize the epoch used for `AtomicInstant`.
+        LazyLock::force(&EPOCH);
         let mut editor = Editor::<(), MemHistory>::with_history(
             Config::builder()
                 .auto_add_history(true)
@@ -28,11 +40,16 @@ impl Engine {
             MemHistory::new(),
         )?;
 
+        let mut argv = std::env::args().skip(1);
+
         loop {
-            let line = match editor.readline("") {
-                Ok(line) => line,
-                Err(ReadlineError::Eof) => break,
-                Err(e) => return Err(e.into()),
+            let line = match argv.next() {
+                Some(line) => line,
+                None => match editor.readline("") {
+                    Ok(line) => line,
+                    Err(ReadlineError::Eof) => break,
+                    Err(e) => return Err(e.into()),
+                },
             };
             let line = line.trim();
             if line.is_empty() {
@@ -47,34 +64,51 @@ impl Engine {
                 }
             };
 
-            match command {
-                UciCommand::Uci => self.uci(),
-                UciCommand::NewGame => self.newgame(),
-                UciCommand::IsReady => self.isready(),
-                UciCommand::SetOption { name, value } => self.setoption(name, value),
-                UciCommand::Position { board, moves } => self.position(board, moves),
-                UciCommand::Go(_search_limits) => todo!(),
-                UciCommand::Eval => todo!(),
-                UciCommand::Display => self.display(),
-                UciCommand::Bench {
-                    depth: _,
-                    threads: _,
-                    hash: _,
-                } => todo!(),
-                UciCommand::Perft { depth, bulk } => self.perft(depth, bulk),
-                UciCommand::SplitPerft { depth, bulk } => self.splitperft(depth, bulk),
-                UciCommand::Stop => todo!(),
-                UciCommand::Quit => todo!(),
+            if self.handle_cmd(command) == Abort::Yes {
+                break;
             }
         }
 
         Ok(())
     }
 
+    fn handle_cmd(&mut self, command: UciCommand) -> Abort {
+        match command {
+            UciCommand::Uci => self.uci(),
+            UciCommand::NewGame => self.newgame(),
+            UciCommand::IsReady => self.isready(),
+            UciCommand::SetOption { name, value } => self.setoption(name, value),
+            UciCommand::Position { board, moves } => self.position(board, moves),
+            UciCommand::Go(search_limits) => self.go(search_limits),
+            UciCommand::Eval => todo!(),
+            UciCommand::Display => self.display(),
+            UciCommand::Bench {
+                depth: _,
+                threads: _,
+                hash: _,
+            } => todo!(),
+            UciCommand::Perft { depth, bulk } => self.perft(depth, bulk),
+            UciCommand::SplitPerft { depth, bulk } => self.splitperft(depth, bulk),
+            UciCommand::Stop => self.stop(),
+            UciCommand::Quit => {
+                self.quit();
+                return Abort::Yes;
+            }
+        }
+
+        Abort::No
+    }
+
     fn uci(&self) {
-        println!("id name Icarus 0.0.0-dev");
+        let version = env!("CARGO_PKG_VERSION");
+        println!("id name Icarus {version}-dev");
         println!("id author Sp00ph");
-        println!("option UCI_Chess960 type check default false");
+        println!("option name UCI_Chess960 type check default false");
+        println!(
+            "option name MoveOverhead type spin default {} min 0 max {}",
+            DEFAULT_MOVE_OVERHEAD,
+            u16::MAX
+        );
         println!("uciok");
     }
 
@@ -95,6 +129,14 @@ impl Engine {
                 };
                 self.chess960 = val;
                 println!("info string Set Chess960 to {val}");
+            }
+            "MoveOverhead" => {
+                let Ok(val) = value.parse::<u16>() else {
+                    println!("info string Unknown value {value}");
+                    return;
+                };
+                self.searcher.global_ctx.time_manager.set_move_overhead(val);
+                println!("info string Set move overhead to {val}");
             }
             _ => println!("info string Unsupported option {name}"),
         }
@@ -143,9 +185,9 @@ impl Engine {
             board.make_move(mv);
             let t = Instant::now();
             let n = if bulk {
-                perft::<true>(self.position.board(), depth)
+                perft::<true>(self.position.board(), depth - 1)
             } else {
-                perft::<false>(self.position.board(), depth)
+                perft::<false>(self.position.board(), depth - 1)
             };
             d += t.elapsed();
             total += n;
@@ -155,6 +197,28 @@ impl Engine {
         let mnps = (total as f64) / d.as_secs_f64() / 1e6;
         println!("\nTotal: {total}");
         println!("Took {d:.2?} ({mnps:.2}Mnps)\n");
+    }
+
+    fn go(&mut self, search_limits: Vec<SearchLimit>) {
+        if self.searcher.is_running() {
+            println!("info string already searching");
+            return;
+        }
+        self.searcher
+            .search(self.position.clone(), search_limits, self.chess960);
+    }
+
+    fn stop(&mut self) {
+        if self.searcher.is_running() {
+            self.searcher.stop();
+            println!("info string stopped search");
+        } else {
+            println!("info string search isn't runni;ng")
+        }
+    }
+
+    fn quit(&mut self) {
+        self.searcher.quit();
     }
 }
 
