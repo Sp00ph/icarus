@@ -25,6 +25,10 @@ impl Score {
         (Self::MAX_MATE.0..=Self::MIN_MATE.0).contains(&self.0.abs())
     }
 
+    pub fn is_infinite(self) -> bool {
+        self.0.abs() >= Self::INFINITE.0
+    }
+
     pub fn mate_in(self) -> Option<i16> {
         if self.is_mate() {
             let abs_score = self.0.abs();
@@ -46,7 +50,19 @@ impl Score {
 
 impl fmt::Display for Score {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(ply) = self.mate_in() {
+        if f.alternate() {
+            if self.is_infinite() {
+                if self.0 > 0 {
+                    write!(f, "+INF")
+                } else {
+                    write!(f, "-INF")
+                }
+            } else if let Some(ply) = self.mate_in() {
+                write!(f, "#{}", (ply + ply.signum()) / 2)
+            } else {
+                write!(f, "{:+.2}", self.0 as f32 / 100.0)
+            }
+        } else if let Some(ply) = self.mate_in() {
             write!(f, "mate {}", (ply + ply.signum()) / 2)
         } else {
             write!(f, "cp {}", self.0)
