@@ -8,6 +8,7 @@ use icarus_common::r#move::Move;
 use rustyline::{Config, Editor, error::ReadlineError, history::MemHistory};
 
 use crate::{
+    pesto::eval,
     position::Position,
     search::{searcher::Searcher, time_manager::DEFAULT_MOVE_OVERHEAD},
     uci::{SearchLimit, UciCommand},
@@ -33,10 +34,7 @@ impl Engine {
         // Initialize the epoch used for `AtomicInstant`.
         LazyLock::force(&EPOCH);
         let mut editor = Editor::<(), MemHistory>::with_history(
-            Config::builder()
-                .auto_add_history(true)
-                .enable_signals(true)
-                .build(),
+            Config::builder().auto_add_history(true).build(),
             MemHistory::new(),
         )?;
 
@@ -80,7 +78,7 @@ impl Engine {
             UciCommand::SetOption { name, value } => self.setoption(name, value),
             UciCommand::Position { board, moves } => self.position(board, moves),
             UciCommand::Go(search_limits) => self.go(search_limits),
-            UciCommand::Eval => todo!(),
+            UciCommand::Eval => self.eval(),
             UciCommand::Display => self.display(),
             UciCommand::Bench {
                 depth: _,
@@ -154,16 +152,19 @@ impl Engine {
     }
 
     fn perft(&self, depth: u8, bulk: bool) {
-        let t = Instant::now();
-        let n = if bulk {
-            perft::<true>(self.position.board(), depth)
-        } else {
-            perft::<false>(self.position.board(), depth)
-        };
-        let d = t.elapsed();
-        let mnps = (n as f64) / d.as_secs_f64() / 1e6;
-        println!("Total: {n}");
-        println!("Took {d:.2?} ({mnps:.2}Mnps)\n");
+        let board = *self.position.board();
+        std::thread::spawn(move || {
+            let t = Instant::now();
+            let n = if bulk {
+                perft::<true>(&board, depth)
+            } else {
+                perft::<false>(&board, depth)
+            };
+            let d = t.elapsed();
+            let mnps = (n as f64) / d.as_secs_f64() / 1e6;
+            println!("Total: {n}");
+            println!("Took {d:.2?} ({mnps:.2}Mnps)\n");
+        });
     }
 
     fn splitperft(&self, depth: u8, bulk: bool) {
@@ -172,31 +173,32 @@ impl Engine {
             return;
         }
 
-        let mut moves = vec![];
-        self.position.board().gen_moves(|mv| {
-            moves.extend(mv);
-            Abort::No
+        let board = *self.position.board();
+        let chess960 = self.chess960;
+
+        std::thread::spawn(move || {
+            let moves: Vec<Move> = board.gen_all_moves_to();
+
+            let mut d = Duration::ZERO;
+            let mut total = 0u64;
+            for mv in moves {
+                let mut board = board;
+                board.make_move(mv);
+                let t = Instant::now();
+                let n = if bulk {
+                    perft::<true>(&board, depth - 1)
+                } else {
+                    perft::<false>(&board, depth - 1)
+                };
+                d += t.elapsed();
+                total += n;
+                println!("{}: {n}", mv.display(chess960));
+            }
+
+            let mnps = (total as f64) / d.as_secs_f64() / 1e6;
+            println!("\nTotal: {total}");
+            println!("Took {d:.2?} ({mnps:.2}Mnps)\n");
         });
-
-        let mut d = Duration::ZERO;
-        let mut total = 0u64;
-        for mv in moves {
-            let mut board = *self.position.board();
-            board.make_move(mv);
-            let t = Instant::now();
-            let n = if bulk {
-                perft::<true>(self.position.board(), depth - 1)
-            } else {
-                perft::<false>(self.position.board(), depth - 1)
-            };
-            d += t.elapsed();
-            total += n;
-            println!("{}: {n}", mv.display(self.chess960));
-        }
-
-        let mnps = (total as f64) / d.as_secs_f64() / 1e6;
-        println!("\nTotal: {total}");
-        println!("Took {d:.2?} ({mnps:.2}Mnps)\n");
     }
 
     fn go(&mut self, search_limits: Vec<SearchLimit>) {
@@ -219,6 +221,11 @@ impl Engine {
 
     fn quit(&mut self) {
         self.searcher.quit();
+    }
+
+    fn eval(&self) {
+        let score = eval(self.position.board());
+        println!("Static eval: {score:#}");
     }
 }
 
