@@ -1,5 +1,7 @@
-use icarus_board::board::{Board, TerminalState};
-use icarus_common::r#move::Move;
+use icarus_board::{
+    board::{Board, TerminalState},
+    r#move::Move,
+};
 
 #[derive(Clone)]
 pub struct Position {

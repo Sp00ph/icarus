@@ -8,7 +8,7 @@ use std::{
 };
 
 use arrayvec::ArrayVec;
-use icarus_common::r#move::Move;
+use icarus_board::r#move::Move;
 
 use crate::{
     position::Position,

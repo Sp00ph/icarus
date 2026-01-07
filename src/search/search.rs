@@ -1,6 +1,5 @@
 use arrayvec::ArrayVec;
-use icarus_board::{board::TerminalState, movegen::Abort};
-use icarus_common::r#move::Move;
+use icarus_board::{board::TerminalState, r#move::Move};
 
 use crate::{pesto::eval, position::Position, score::Score, search::searcher::ThreadCtx};
 

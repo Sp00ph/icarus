@@ -1,6 +1,6 @@
 use std::{fmt, num::NonZeroU16};
 
-use crate::{
+use icarus_common::{
     bitboard::Bitboard,
     define_enum,
     piece::{Color, Piece},

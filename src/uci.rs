@@ -3,8 +3,7 @@ use std::{
     str::{FromStr, ParseBoolError},
 };
 
-use icarus_board::board::Board;
-use icarus_common::r#move::Move;
+use icarus_board::{board::Board, r#move::Move};
 
 #[derive(Debug)]
 pub enum UciCommand {

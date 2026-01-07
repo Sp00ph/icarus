@@ -5,7 +5,6 @@ use icarus_common::{
         between, between_inclusive, bishop_rays, king_moves, knight_moves, line, pawn_attacks,
         rook_rays,
     },
-    r#move::{Move, MoveFlag, PieceMoves},
     piece::{Color, Piece},
     square::{File, Rank, Square},
 };
@@ -15,6 +14,7 @@ use crate::{
     board::Board,
     castling::CastlingDirection,
     ep_file::EnPassantFile,
+    r#move::{Move, MoveFlag, PieceMoves},
     zobrist::ZOBRIST,
 };
 

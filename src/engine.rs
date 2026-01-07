@@ -3,8 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use icarus_board::{board::Board, movegen::Abort, perft::perft};
-use icarus_common::r#move::Move;
+use icarus_board::{board::Board, r#move::Move, movegen::Abort, perft::perft};
 use rustyline::{Config, Editor, error::ReadlineError, history::MemHistory};
 
 use crate::{

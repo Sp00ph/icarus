@@ -2,7 +2,6 @@ use std::{fmt, mem};
 
 use icarus_common::{
     bitboard::Bitboard,
-    r#move::{Move, MoveFlag},
     piece::{Color, Piece},
     square::{File, Rank, Square},
     util::enum_map::EnumMap,
@@ -11,6 +10,7 @@ use icarus_common::{
 use crate::{
     castling::{CastlingDirection, CastlingRights},
     ep_file::EnPassantFile,
+    r#move::{Move, MoveFlag},
     movegen::Abort,
     zobrist::ZOBRIST,
 };
