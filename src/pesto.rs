@@ -25,17 +25,19 @@ pub fn eval(board: &Board) -> Score {
                     .occupied_by(Color::Black)
                     .contains(Square::from_idx(sq)) as u8,
             );
-            mg[col.idx() as usize] += PESTO[0][p][col.idx() as usize][sq as usize] * col.signum() as i16;
-            eg[col.idx() as usize] += PESTO[1][p][col.idx() as usize][sq as usize] * col.signum() as i16;
+            mg[col.idx() as usize] +=
+                PESTO[0][p][col.idx() as usize][sq as usize] * col.signum() as i16;
+            eg[col.idx() as usize] +=
+                PESTO[1][p][col.idx() as usize][sq as usize] * col.signum() as i16;
             phase += PHASE_INC[p] as i32;
         }
     }
 
     let stm = board.stm() as usize;
-    
+
     let mg = (mg[stm] - mg[1 - stm]) as i32;
     let eg = (eg[stm] - eg[1 - stm]) as i32;
-    
+
     let mg_phase = phase.min(24);
     let eg_phase = 24 - mg_phase;
     let score = ((mg * mg_phase + eg * eg_phase) / 24) as i16;
