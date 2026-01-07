@@ -7,6 +7,8 @@ use icarus_common::{
     square::{File, Square},
 };
 
+use crate::board::Board;
+
 /// Bit packed move type
 /// Bits 0-5:   src square
 ///      6-11:  dst square
@@ -90,6 +92,20 @@ impl Move {
     #[inline]
     pub const fn promotes_to_unchecked(self) -> Piece {
         Piece::from_idx(((self.0.get() >> 14) as u8 & 0x3) + Piece::Knight.idx())
+    }
+
+    #[inline]
+    pub fn captures(self, board: &Board) -> Option<Piece> {
+        match self.flag() {
+            MoveFlag::Castle => None,
+            MoveFlag::EnPassant => Some(Piece::Pawn),
+            _ => board.mailbox[self.to()],
+        }
+    }
+
+    #[inline]
+    pub fn piece_type(&self, board: &Board) -> Piece {
+        board.mailbox[self.from()].expect("Illegal move!")
     }
 
     #[inline]

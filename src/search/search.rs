@@ -1,7 +1,12 @@
+use std::cmp::Reverse;
+
 use arrayvec::ArrayVec;
 use icarus_board::{board::TerminalState, r#move::Move};
 
 use crate::{pesto::eval, position::Position, score::Score, search::searcher::ThreadCtx};
+
+#[derive(Clone, Copy, Debug)]
+pub struct ScoredMove(pub Move, pub i16);
 
 pub fn search(
     pos: &mut Position,
@@ -35,15 +40,20 @@ pub fn search(
         return eval(pos.board());
     }
 
-    let mut moves: ArrayVec<Move, 218> = ArrayVec::new();
-    pos.board().gen_moves(|mv| {
-        moves.extend(mv);
-        Abort::No
-    });
+    let mut moves: ArrayVec<ScoredMove, 218> =
+        pos.board().gen_all_moves_to_mapped(|mv| ScoredMove(mv, 0));
+
+    for mv in &mut moves {
+        let victim = 8 * mv.0.captures(pos.board()).map_or(0, |p| p.idx() + 1) as i16;
+        let attacker = mv.0.piece_type(pos.board()) as i16;
+        mv.1 = victim - attacker * i16::from(victim != 0);
+    }
+
+    moves.sort_unstable_by_key(|mv| Reverse(mv.1));
 
     let mut max = -Score::INFINITE;
 
-    for mv in moves {
+    for (i, ScoredMove(mv, _)) in moves.into_iter().enumerate() {
         pos.make_move(mv);
         let score = -search(pos, depth - 1, ply + 1, -beta, -alpha, thread);
         pos.unmake_move();
@@ -54,7 +64,7 @@ pub fn search(
         if score > max {
             max = score;
 
-            if score > alpha {
+            if i == 0 || score > alpha {
                 alpha = score;
 
                 let [parent, child] = thread
