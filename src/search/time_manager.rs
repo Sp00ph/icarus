@@ -1,6 +1,6 @@
 use std::{
     sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering::Relaxed},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use icarus_common::{piece::Color, util::enum_map::enum_map};
@@ -116,17 +116,18 @@ impl TimeManager {
     pub fn stop_search(&self, nodes: &BufferedCounter) -> bool {
         self.stop_flag()
             || nodes.global() >= self.max_nodes.load(Relaxed)
-            || (nodes.local().is_multiple_of(1024) && self.elapsed() > self.hard_time.load(Relaxed))
+            || (nodes.local().is_multiple_of(1024)
+                && self.elapsed().as_millis() as u64 > self.hard_time.load(Relaxed))
     }
 
     pub fn stop_id(&self, depth: u16, nodes: u64) -> bool {
         self.stop_flag()
             || depth >= self.max_depth.load(Relaxed)
             || nodes > self.max_nodes.load(Relaxed)
-            || self.elapsed() > self.soft_time.load(Relaxed)
+            || self.elapsed().as_millis() as u64 > self.soft_time.load(Relaxed)
     }
 
-    pub fn elapsed(&self) -> u64 {
-        self.start.load(Relaxed).elapsed().as_millis() as u64
+    pub fn elapsed(&self) -> Duration {
+        self.start.load(Relaxed).elapsed()
     }
 }

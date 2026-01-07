@@ -248,8 +248,8 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx) {
 
 fn print_info(score: Score, depth: u16, thread: &ThreadCtx) {
     let nodes = thread.nodes.global();
-    let time = thread.global.time_manager.elapsed();
-    let nps = ((nodes as f64) / (time.max(1) as f64) * 1000.) as u64;
+    let time = thread.global.time_manager.elapsed().as_micros();
+    let nps = ((nodes as f64) / (time.max(1) as f64) * 1e6) as u64;
     let pv = {
         use std::fmt::Write;
         let mut s = String::new();
