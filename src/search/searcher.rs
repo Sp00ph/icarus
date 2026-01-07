@@ -179,12 +179,6 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
                 thread_ctx.abort_now = false;
 
                 id_loop(search_params.pos, &mut thread_ctx);
-
-                // If we are the last thread to decrement, then set num_searching to 0
-                // to signal that no thread is still searching.
-                if thread_ctx.global.num_searching.fetch_sub(1, Relaxed) == 2 {
-                    thread_ctx.global.num_searching.store(0, Relaxed);
-                }
             }
             // We don't have anything to clear on newgame yet.
             ThreadCmd::NewGame => {}
@@ -240,6 +234,12 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx) {
         while !thread.global.time_manager.stop_flag() {
             thread::sleep(Duration::from_millis(10));
         }
+    }
+
+    // If we are the last thread to decrement, then set num_searching to 0
+    // to signal that no thread is still searching.
+    if thread.global.num_searching.fetch_sub(1, Relaxed) == 2 {
+        thread.global.num_searching.store(0, Relaxed);
     }
 
     print_info(overall_best_score, depth, thread);

@@ -11,14 +11,7 @@ pub fn search(
     beta: Score,
     thread: &mut ThreadCtx,
 ) -> Score {
-    if ply != 0
-        && (thread.abort_now
-            || (thread.nodes.local().is_multiple_of(1024)
-                && thread
-                    .global
-                    .time_manager
-                    .stop_search(thread.nodes.global())))
-    {
+    if ply != 0 && (thread.abort_now || (thread.global.time_manager.stop_search(&thread.nodes))) {
         thread.abort_now = true;
         return Score::ZERO;
     }

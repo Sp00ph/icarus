@@ -241,7 +241,7 @@ impl UciCommand {
                     }
                 }
 
-                Ok(UciCommand::Go(limits))
+                Ok(Go(limits))
             }
             _ => Err(UnknownCommand(cmd.into())),
         }

@@ -7,7 +7,7 @@ use icarus_common::{piece::Color, util::enum_map::enum_map};
 
 use crate::{
     uci::SearchLimit,
-    util::{MAX_PLY, atomic_instant::AtomicInstant},
+    util::{MAX_PLY, atomic_instant::AtomicInstant, buffered_counter::BufferedCounter},
 };
 
 pub struct TimeManager {
@@ -113,10 +113,10 @@ impl TimeManager {
         self.infinite.load(Relaxed)
     }
 
-    pub fn stop_search(&self, nodes: u64) -> bool {
+    pub fn stop_search(&self, nodes: &BufferedCounter) -> bool {
         self.stop_flag()
-            || nodes > self.max_nodes.load(Relaxed)
-            || self.elapsed() > self.hard_time.load(Relaxed)
+            || nodes.global() >= self.max_nodes.load(Relaxed)
+            || (nodes.local().is_multiple_of(1024) && self.elapsed() > self.hard_time.load(Relaxed))
     }
 
     pub fn stop_id(&self, depth: u16, nodes: u64) -> bool {

@@ -214,7 +214,7 @@ impl Engine {
             self.searcher.stop();
             println!("info string stopped search");
         } else {
-            println!("info string search isn't runni;ng")
+            println!("info string search isn't running")
         }
     }
 
