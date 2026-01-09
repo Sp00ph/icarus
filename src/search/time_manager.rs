@@ -26,7 +26,7 @@ pub struct TimeManager {
     // TODO: Implement deepening. Will require base time, prev move and stability, and perchance a dont_deepen flag.
 }
 
-pub const DEFAULT_MOVE_OVERHEAD: u16 = 200;
+pub const DEFAULT_MOVE_OVERHEAD: u16 = 20;
 
 impl Default for TimeManager {
     fn default() -> Self {
