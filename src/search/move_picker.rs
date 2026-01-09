@@ -1,0 +1,58 @@
+use arrayvec::ArrayVec;
+use icarus_board::{board::Board, r#move::Move};
+
+use crate::search::searcher::ThreadCtx;
+
+#[derive(Clone, Copy, Debug)]
+pub struct ScoredMove(pub Move, pub i16);
+
+pub const MAX_MOVES: usize = 218;
+
+pub type MoveList = ArrayVec<ScoredMove, MAX_MOVES>;
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Stage {
+    GenMoves,
+    YieldMoves,
+}
+
+pub struct MovePicker {
+    moves: MoveList,
+    index: usize,
+    stage: Stage,
+}
+
+impl Default for MovePicker {
+    fn default() -> Self {
+        Self {
+            moves: MoveList::new(),
+            index: 0,
+            stage: Stage::GenMoves,
+        }
+    }
+}
+
+impl MovePicker {
+    pub fn next(&mut self, board: &Board, _: &ThreadCtx) -> Option<Move> {
+        if self.stage == Stage::GenMoves {
+            self.moves = board.gen_all_moves_to_mapped(|mv| ScoredMove(mv, 0));
+            for mv in &mut self.moves {
+                let victim = 8 * mv.0.captures(board).map_or(0, |p| p.idx() + 1) as i16;
+                let attacker = mv.0.piece_type(board) as i16;
+                mv.1 = victim - attacker * i16::from(victim != 0);
+            }
+
+            // FIXME: Remove!
+            self.moves.sort_unstable_by_key(|mv| -mv.1);
+            self.stage = Stage::YieldMoves;
+        }
+
+        assert_eq!(self.stage, Stage::YieldMoves);
+        if let Some(&mv) = self.moves.get(self.index) {
+            self.index += 1;
+            Some(mv.0)
+        } else {
+            None
+        }
+    }
+}

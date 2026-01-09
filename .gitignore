@@ -1,4 +1,6 @@
 /target
 
 # fastchess/sprt files
-/sprt/*
+/sprt/books/*
+/sprt/engines/*
+/sprt/config.json
