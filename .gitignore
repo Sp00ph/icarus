@@ -4,3 +4,5 @@
 /sprt/books/*
 /sprt/engines/*
 /sprt/config.json
+
+/lichess-bot/**

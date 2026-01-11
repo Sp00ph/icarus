@@ -42,7 +42,7 @@ pub fn eval(board: &Board) -> Score {
     let eg_phase = 24 - mg_phase;
     let score = ((mg * mg_phase + eg * eg_phase) / 24) as i16;
 
-    Score::new(score).clamp(-Score::MAX_MATE + 1, Score::MIN_MATE - 1)
+    Score::clamp_nomate(score)
 }
 
 // Material eval for fun and profit

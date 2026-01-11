@@ -40,6 +40,10 @@ impl Score {
         None
     }
 
+    pub fn clamp_nomate(score: i16) -> Self {
+        Score(score).clamp(-Score::MAX_MATE + 1, Score::MAX_MATE - 1)
+    }
+
     /// Corresponds to "Mate in 0"
     pub const MIN_MATE: Self = Self(i16::MAX - MAX_PLY as i16);
     /// Corresponds to Mate in MAX_PLY.
