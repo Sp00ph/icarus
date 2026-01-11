@@ -20,19 +20,19 @@ pub struct MovePicker {
     moves: MoveList,
     index: usize,
     stage: Stage,
+    skip_quiets: bool,
 }
 
-impl Default for MovePicker {
-    fn default() -> Self {
+impl MovePicker {
+    pub fn new(skip_quiets: bool) -> Self {
         Self {
             moves: MoveList::new(),
             index: 0,
             stage: Stage::GenMoves,
+            skip_quiets,
         }
     }
-}
 
-impl MovePicker {
     pub fn next(&mut self, board: &Board, _: &ThreadCtx) -> Option<Move> {
         if self.stage == Stage::GenMoves {
             self.moves = board.gen_all_moves_to_mapped(|mv| ScoredMove(mv, 0));
@@ -48,11 +48,12 @@ impl MovePicker {
         }
 
         assert_eq!(self.stage, Stage::YieldMoves);
-        if let Some(&mv) = self.moves.get(self.index) {
+        while let Some(&mv) = self.moves.get(self.index) {
             self.index += 1;
-            Some(mv.0)
-        } else {
-            None
+            if !self.skip_quiets || mv.0.captures(board).is_some() || mv.0.promotes_to().is_some() {
+                return Some(mv.0);
+            }
         }
+        None
     }
 }
