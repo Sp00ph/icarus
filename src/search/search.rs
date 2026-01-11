@@ -54,19 +54,20 @@ pub fn search(
             return Score::ZERO;
         }
 
+        if moves_seen == 0 || score > alpha {
+            let [parent, child] = thread
+                .search_stack
+                .get_disjoint_mut([ply as usize, ply as usize + 1])
+                .unwrap();
+
+            parent.pv = ArrayVec::from_iter([mv]);
+            parent.pv.extend(child.pv.iter().copied());
+        }
+
         if score > max {
             max = score;
-
-            if moves_seen == 0 || score > alpha {
+            if score > alpha {
                 alpha = score;
-
-                let [parent, child] = thread
-                    .search_stack
-                    .get_disjoint_mut([ply as usize, ply as usize + 1])
-                    .unwrap();
-
-                parent.pv = ArrayVec::from_iter([mv]);
-                parent.pv.extend(child.pv.iter().copied());
             }
         }
         if score >= beta {
