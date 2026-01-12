@@ -9,7 +9,7 @@ use crate::{
     util::MAX_PLY,
 };
 
-pub fn search(
+pub fn search<const ROOT: bool>(
     pos: &mut Position,
     depth: i32,
     ply: u16,
@@ -23,7 +23,9 @@ pub fn search(
     }
 
     thread.sel_depth = thread.sel_depth.max(ply);
-    thread.nodes.inc();
+    if !ROOT {
+        thread.nodes.inc();
+    }
     thread.search_stack[ply as usize].pv.clear();
 
     if let Some(terminal) = pos.board().terminal_state() {
@@ -33,7 +35,7 @@ pub fn search(
         };
     }
 
-    if ply > 0 && pos.repetition() {
+    if !ROOT && pos.repetition() {
         return Score::ZERO;
     }
 
@@ -47,7 +49,7 @@ pub fn search(
 
     while let Some(mv) = move_picker.next(pos.board(), thread) {
         pos.make_move(mv);
-        let score = -search(pos, depth - 1, ply + 1, -beta, -alpha, thread);
+        let score = -search::<false>(pos, depth - 1, ply + 1, -beta, -alpha, thread);
         pos.unmake_move();
         moves_seen += 1;
         if thread.abort_now {
@@ -92,7 +94,6 @@ pub fn qsearch<const ROOT: bool>(
     }
 
     thread.sel_depth = thread.sel_depth.max(ply);
-    thread.nodes.inc();
     thread.search_stack[ply as usize].pv.clear();
 
     if let Some(terminal) = pos.board().terminal_state() {

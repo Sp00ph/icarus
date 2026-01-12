@@ -123,7 +123,7 @@ impl TimeManager {
     pub fn stop_id(&self, depth: u16, nodes: u64) -> bool {
         self.stop_flag()
             || depth >= self.max_depth.load(Relaxed)
-            || nodes > self.max_nodes.load(Relaxed)
+            || nodes >= self.max_nodes.load(Relaxed)
             || self.elapsed().as_millis() as u64 > self.soft_time.load(Relaxed)
     }
 

@@ -192,10 +192,8 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx) {
     let mut overall_best_score = -Score::INFINITE;
 
     loop {
-        let mut depth_best_score = -Score::INFINITE;
-
         thread.sel_depth = 0;
-        let new_score = search(
+        let new_score = search::<true>(
             &mut pos,
             depth as i32,
             0,
@@ -205,26 +203,25 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx) {
         );
         thread.nodes.flush();
 
-        if depth > 1
-            && (depth >= MAX_PLY
-                || thread.abort_now
-                || thread
-                    .global
-                    .time_manager
-                    .stop_id(depth, thread.nodes.global()))
-        {
+        if depth > 1 && thread.abort_now {
             break;
         }
 
-        if new_score > depth_best_score {
-            depth_best_score = new_score;
-            thread.root_pv = thread.search_stack[0].pv.clone();
-        }
+        thread.root_pv = thread.search_stack[0].pv.clone();
 
         if thread.id == 0 {
-            print_info(depth_best_score, depth, thread);
+            print_info(new_score, depth, thread);
         }
-        overall_best_score = depth_best_score;
+        overall_best_score = new_score;
+
+        if depth >= MAX_PLY
+            || thread
+                .global
+                .time_manager
+                .stop_id(depth, thread.nodes.global())
+        {
+            break;
+        }
 
         depth += 1;
     }
@@ -242,8 +239,14 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx) {
         thread.global.num_searching.store(0, Relaxed);
     }
 
+    let best_move = *thread
+        .root_pv
+        .first()
+        .or(thread.root_moves.first())
+        .unwrap();
+
     print_info(overall_best_score, depth, thread);
-    println!("bestmove {}", thread.root_pv[0].display(thread.chess960));
+    println!("bestmove {}", best_move.display(thread.chess960));
 }
 
 fn print_info(score: Score, depth: u16, thread: &ThreadCtx) {
