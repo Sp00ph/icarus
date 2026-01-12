@@ -112,15 +112,11 @@ impl Board {
         }
 
         {
-            // Promoting pawn pushes. Any pinned pawns that are not on the same file
-            // as the king may not make such moves.
-
-            let pinned_pawns = self.pinned & !our_king.file().bitboard();
-
+            // Promoting pawn pushes. No pinned pawns can make such pushes.
             let promo_push_targets =
                 Rank::R8.relative_to(stm).bitboard() & !self.colors[!stm] & targets;
 
-            for from in promo_push_targets.shift::<Down>(push_dir) & our_pawns & !pinned_pawns {
+            for from in promo_push_targets.shift::<Down>(push_dir) & our_pawns & !self.pinned {
                 abort_if!(visitor(PieceMoves::new(
                     MoveFlag::Promotion,
                     Piece::Pawn,
@@ -286,15 +282,16 @@ impl Board {
     }
 
     #[inline]
-    fn king_moves<const IN_CHECK: bool, V: FnMut(PieceMoves) -> Abort>(
+    fn king_moves<const IN_CHECK: bool, const MAY_CASTLE: bool, V: FnMut(PieceMoves) -> Abort>(
         &self,
         visitor: &mut V,
+        targets: Bitboard,
     ) -> Abort {
         let our_king = self.king(self.stm);
 
         {
             // Regular king moves.
-            let to = king_moves(our_king) & !self.attacked & !self.colors[self.stm];
+            let to = king_moves(our_king) & !self.attacked & !self.colors[self.stm] & targets;
             if to.is_non_empty() {
                 abort_if!(visitor(PieceMoves::new(
                     MoveFlag::None,
@@ -305,7 +302,7 @@ impl Board {
             }
         }
 
-        if !IN_CHECK {
+        if MAY_CASTLE {
             // Castles.
             let rank = Rank::R1.relative_to(self.stm);
 
@@ -351,10 +348,10 @@ impl Board {
 
         abort_if!(self.pawn_noisies::<WHITE, V>(visitor, targets));
         abort_if!(self.pawn_quiets::<WHITE, V>(visitor, targets));
-        abort_if!(self.knight_moves::<V>(visitor, targets));
-        abort_if!(self.orth_slider_moves::<V>(visitor, targets));
-        abort_if!(self.diag_slider_moves::<V>(visitor, targets));
-        abort_if!(self.king_moves::<IN_CHECK, V>(visitor));
+        abort_if!(self.knight_moves(visitor, targets));
+        abort_if!(self.orth_slider_moves(visitor, targets));
+        abort_if!(self.diag_slider_moves(visitor, targets));
+        abort_if!(self.king_moves::<IN_CHECK, true, V>(visitor, Bitboard::ALL));
 
         Abort::No
     }
@@ -366,7 +363,7 @@ impl Board {
             (Color::Black, 0) => self.gen_moves_impl::<false, false, V>(&mut visitor),
             (Color::White, 1) => self.gen_moves_impl::<true, true, V>(&mut visitor),
             (Color::Black, 1) => self.gen_moves_impl::<true, false, V>(&mut visitor),
-            _ => self.king_moves::<true, V>(&mut visitor),
+            _ => self.king_moves::<true, true, V>(&mut visitor, Bitboard::ALL),
         }
     }
 
@@ -386,6 +383,68 @@ impl Board {
     #[inline]
     pub fn gen_all_moves_to<C: Default + Extend<Move>>(&self) -> C {
         self.gen_all_moves_to_mapped(std::convert::identity)
+    }
+
+    fn gen_noisy_moves_impl<
+        const IN_CHECK: bool,
+        const WHITE: bool,
+        V: FnMut(PieceMoves) -> Abort,
+    >(
+        &self,
+        visitor: &mut V,
+    ) -> Abort {
+        let targets = self.targets::<IN_CHECK, WHITE>();
+        abort_if!(self.pawn_noisies::<WHITE, V>(visitor, targets));
+        let them = self.occupied_by(!color::<WHITE>());
+        let targets = targets & them;
+
+        abort_if!(self.knight_moves(visitor, targets));
+        abort_if!(self.orth_slider_moves(visitor, targets));
+        abort_if!(self.diag_slider_moves(visitor, targets));
+        abort_if!(self.king_moves::<IN_CHECK, true, V>(visitor, them));
+
+        Abort::No
+    }
+
+    fn gen_quiet_moves_impl<
+        const IN_CHECK: bool,
+        const WHITE: bool,
+        V: FnMut(PieceMoves) -> Abort,
+    >(
+        &self,
+        visitor: &mut V,
+    ) -> Abort {
+        let not_them = !self.occupied_by(!color::<WHITE>());
+        let targets = self.targets::<IN_CHECK, WHITE>() & not_them;
+        abort_if!(self.pawn_quiets::<WHITE, V>(visitor, targets));
+        abort_if!(self.knight_moves(visitor, targets));
+        abort_if!(self.orth_slider_moves(visitor, targets));
+        abort_if!(self.diag_slider_moves(visitor, targets));
+        abort_if!(self.king_moves::<IN_CHECK, false, V>(visitor, not_them));
+
+        Abort::No
+    }
+
+    #[inline]
+    pub fn gen_noisy_moves<V: FnMut(PieceMoves) -> Abort>(&self, mut visitor: V) -> Abort {
+        match (self.stm, self.checkers.popcnt()) {
+            (Color::White, 0) => self.gen_noisy_moves_impl::<false, true, V>(&mut visitor),
+            (Color::Black, 0) => self.gen_noisy_moves_impl::<false, false, V>(&mut visitor),
+            (Color::White, 1) => self.gen_noisy_moves_impl::<true, true, V>(&mut visitor),
+            (Color::Black, 1) => self.gen_noisy_moves_impl::<true, false, V>(&mut visitor),
+            _ => self.king_moves::<true, true, V>(&mut visitor, self.occupied_by(!self.stm)),
+        }
+    }
+
+    #[inline]
+    pub fn gen_quiet_moves<V: FnMut(PieceMoves) -> Abort>(&self, mut visitor: V) -> Abort {
+        match (self.stm, self.checkers.popcnt()) {
+            (Color::White, 0) => self.gen_quiet_moves_impl::<false, true, V>(&mut visitor),
+            (Color::Black, 0) => self.gen_quiet_moves_impl::<false, false, V>(&mut visitor),
+            (Color::White, 1) => self.gen_quiet_moves_impl::<true, true, V>(&mut visitor),
+            (Color::Black, 1) => self.gen_quiet_moves_impl::<true, false, V>(&mut visitor),
+            _ => self.king_moves::<true, false, V>(&mut visitor, !self.occupied_by(!self.stm)),
+        }
     }
 
     /// Recalculates the `checkers`, `pinned`, `xray`, and `attacked` bitboards.
