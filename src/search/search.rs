@@ -38,7 +38,7 @@ pub fn search(
     }
 
     if depth <= 0 {
-        return qsearch(pos, ply, alpha, beta, thread);
+        return qsearch::<true>(pos, ply, alpha, beta, thread);
     }
 
     let mut move_picker = MovePicker::new(false);
@@ -79,7 +79,7 @@ pub fn search(
     max
 }
 
-pub fn qsearch(
+pub fn qsearch<const ROOT: bool>(
     pos: &mut Position,
     ply: u16,
     mut alpha: Score,
@@ -111,7 +111,9 @@ pub fn qsearch(
     }
 
     thread.sel_depth = thread.sel_depth.max(ply);
-    thread.nodes.inc();
+    if !ROOT {
+        thread.nodes.inc();
+    }
 
     let in_check = pos.board().checkers().is_non_empty();
 
@@ -133,7 +135,7 @@ pub fn qsearch(
 
     while let Some(mv) = move_picker.next(pos.board(), thread) {
         pos.make_move(mv);
-        let score = -qsearch(pos, ply + 1, -beta, -alpha, thread);
+        let score = -qsearch::<false>(pos, ply + 1, -beta, -alpha, thread);
         pos.unmake_move();
         moves_seen += 1;
 
