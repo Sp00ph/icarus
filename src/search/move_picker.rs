@@ -42,18 +42,22 @@ impl MovePicker {
                 mv.1 = victim - attacker * i16::from(victim != 0);
             }
 
-            // FIXME: Remove!
-            self.moves.sort_unstable_by_key(|mv| -mv.1);
             self.stage = Stage::YieldMoves;
         }
 
         assert_eq!(self.stage, Stage::YieldMoves);
-        while let Some(&mv) = self.moves.get(self.index) {
-            self.index += 1;
-            if !self.skip_quiets || mv.0.captures(board).is_some() || mv.0.promotes_to().is_some() {
-                return Some(mv.0);
-            }
-        }
-        None
+        let (i, mv) = self
+            .moves
+            .iter()
+            .copied()
+            .enumerate()
+            .skip(self.index)
+            .filter(|(_, mv)| {
+                !self.skip_quiets || mv.0.captures(board).is_some() || mv.0.promotes_to().is_some()
+            })
+            .max_by_key(|(_, mv)| mv.1)?;
+        self.moves.swap(self.index, i);
+        self.index += 1;
+        Some(mv.0)
     }
 }
