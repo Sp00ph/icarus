@@ -1,5 +1,5 @@
 use std::{
-    sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering::Relaxed},
+    sync::atomic::{AtomicBool, AtomicU16, AtomicU32, AtomicU64, Ordering::Relaxed},
     time::{Duration, Instant},
 };
 
@@ -13,7 +13,7 @@ use crate::{
 pub struct TimeManager {
     start: AtomicInstant,
     infinite: AtomicBool,
-    stop: AtomicBool,
+    stop: AtomicU32,
 
     // Supported limits for a `go` command. If these are not set by the command, the maximum values are used.
     max_depth: AtomicU16,
@@ -33,7 +33,7 @@ impl Default for TimeManager {
         Self {
             start: AtomicInstant::now(),
             infinite: AtomicBool::new(false),
-            stop: AtomicBool::new(false),
+            stop: AtomicU32::new(0),
             max_depth: AtomicU16::new(0),
             max_nodes: AtomicU64::new(0),
             soft_time: AtomicU64::new(0),
@@ -98,7 +98,10 @@ impl TimeManager {
     }
 
     pub fn set_stop_flag(&self, stop: bool) {
-        self.stop.store(stop, Relaxed);
+        self.stop.store(stop as u32, Relaxed);
+        if self.infinite() {
+            atomic_wait::wake_all(&self.stop);
+        }
     }
 
     pub fn set_move_overhead(&self, overhead: u16) {
@@ -106,7 +109,7 @@ impl TimeManager {
     }
 
     pub fn stop_flag(&self) -> bool {
-        self.stop.load(Relaxed)
+        self.stop.load(Relaxed) != 0
     }
 
     pub fn infinite(&self) -> bool {
@@ -129,5 +132,11 @@ impl TimeManager {
 
     pub fn elapsed(&self) -> Duration {
         self.start.load(Relaxed).elapsed()
+    }
+
+    pub fn wait_for_stop(&self) {
+        while !self.stop_flag() {
+            atomic_wait::wait(&self.stop, 0);
+        }
     }
 }

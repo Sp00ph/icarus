@@ -216,6 +216,7 @@ impl Engine {
     fn stop(&mut self) {
         if self.searcher.is_running() {
             self.searcher.stop();
+            self.searcher.wait();
             println!("info string stopped search");
         } else {
             println!("info string search isn't running")

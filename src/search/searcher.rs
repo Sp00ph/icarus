@@ -4,7 +4,6 @@ use std::{
         atomic::{AtomicU32, AtomicU64, Ordering::Relaxed},
     },
     thread::{self, JoinHandle},
-    time::Duration,
 };
 
 use arrayvec::ArrayVec;
@@ -244,10 +243,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
     }
 
     if thread.global.time_manager.infinite() {
-        // Lazy way of waiting for the stop flag to be set. Ideally, we'd wait here with a futex or condvar.
-        while !thread.global.time_manager.stop_flag() {
-            thread::sleep(Duration::from_millis(10));
-        }
+        thread.global.time_manager.wait_for_stop();
     }
 
     // If we are the last thread to decrement, then set num_searching to 0
