@@ -72,7 +72,6 @@ impl Engine {
 
         for fen in FENS {
             let pos = Position::new(Board::read_fen(fen).unwrap());
-            searcher.newgame();
             let start = Instant::now();
             searcher.search(pos, limits.clone(), false, false);
             searcher.wait();
