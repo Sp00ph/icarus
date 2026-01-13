@@ -141,8 +141,10 @@ impl Board {
         self.castling_rights
     }
 
+    /// Returns whether the given move is legal on the current board. Note that this uses move generation internally, so
+    /// it is rather slow. In return, it can handle _any_ kind of move, so it doesn't require any invariants of `Move` to hold.
     #[inline]
-    pub fn is_legal(&self, mv: Move) -> bool {
+    pub fn is_legal_thorough(&self, mv: Move) -> bool {
         self.gen_moves(|moves| {
             if moves.into_iter().any(|legal| legal == mv) {
                 Abort::Yes

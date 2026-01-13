@@ -169,7 +169,7 @@ impl UciCommand {
                         .parse_move(part, chess960)
                         .ok_or_else(|| InvalidMove(part.to_string()))?;
 
-                    if !current.is_legal(mv) {
+                    if !current.is_legal_thorough(mv) {
                         return Err(InvalidMove(part.to_string()));
                     }
                     moves.push(mv);
@@ -230,7 +230,7 @@ impl UciCommand {
                                 let mv = board
                                     .parse_move(token, chess960)
                                     .ok_or_else(|| InvalidMove(token.into()))?;
-                                if !board.is_legal(mv) {
+                                if !board.is_legal_thorough(mv) {
                                     return Err(InvalidMove(token.into()));
                                 }
                                 moves.push(mv);

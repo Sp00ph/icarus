@@ -33,10 +33,6 @@ impl Engine {
     pub fn run(&mut self) -> Result<(), rootcause::Report> {
         // Initialize the epoch used for `AtomicInstant`.
         LazyLock::force(&EPOCH);
-        let mut editor = Editor::<(), MemHistory>::with_history(
-            Config::builder().auto_add_history(true).build(),
-            MemHistory::new(),
-        )?;
 
         let argv: Vec<String> = std::env::args().skip(1).collect();
 
@@ -44,6 +40,16 @@ impl Engine {
             self.bench(DEFAULT_BENCH_DEPTH, true);
             return Ok(());
         }
+
+        #[cfg(feature = "test-islegal")]
+        if argv == ["test_islegal"] {
+            crate::test_islegal::test_islegal();
+        }
+
+        let mut editor = Editor::<(), MemHistory>::with_history(
+            Config::builder().auto_add_history(true).build(),
+            MemHistory::new(),
+        )?;
 
         let mut argv = argv.into_iter();
         loop {
