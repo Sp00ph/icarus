@@ -248,10 +248,8 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
         if depth > 1 && thread.abort_now {
             break;
         }
-        
-        if !thread.search_stack.is_empty() {
-            thread.root_pv = thread.search_stack[0].pv.clone();
-        }
+
+        thread.root_pv = thread.search_stack[0].pv.clone();
         if depth >= MAX_PLY
             || thread
                 .global
