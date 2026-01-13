@@ -10,6 +10,7 @@ arrayvec = "0.7.6"
 rustyline = "17.0.2"
 thiserror = "2.0.17"
 rootcause = "0.10.0"
+atomic-wait = "1.1.0"
 
 [workspace]
 members = ["icarus-board", "icarus-common"]

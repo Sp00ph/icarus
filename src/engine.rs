@@ -7,6 +7,7 @@ use icarus_board::{board::Board, r#move::Move, movegen::Abort, perft::perft};
 use rustyline::{Config, Editor, error::ReadlineError, history::MemHistory};
 
 use crate::{
+    bench::DEFAULT_BENCH_DEPTH,
     pesto::eval,
     position::Position,
     search::{searcher::Searcher, time_manager::DEFAULT_MOVE_OVERHEAD},
@@ -37,8 +38,14 @@ impl Engine {
             MemHistory::new(),
         )?;
 
-        let mut argv = std::env::args().skip(1);
+        let argv: Vec<String> = std::env::args().skip(1).collect();
 
+        if argv == ["bench"] {
+            self.bench(DEFAULT_BENCH_DEPTH, true);
+            return Ok(());
+        }
+
+        let mut argv = argv.into_iter();
         loop {
             let line = match argv.next() {
                 Some(line) => line,
@@ -79,11 +86,7 @@ impl Engine {
             UciCommand::Go(search_limits) => self.go(search_limits),
             UciCommand::Eval => self.eval(),
             UciCommand::Display => self.display(),
-            UciCommand::Bench {
-                depth: _,
-                threads: _,
-                hash: _,
-            } => todo!(),
+            UciCommand::Bench { depth, .. } => self.bench(depth, false),
             UciCommand::Perft { depth, bulk } => self.perft(depth, bulk),
             UciCommand::SplitPerft { depth, bulk } => self.splitperft(depth, bulk),
             UciCommand::Stop => self.stop(),
@@ -91,6 +94,7 @@ impl Engine {
                 self.quit();
                 return Abort::Yes;
             }
+            UciCommand::Wait => self.wait(true),
         }
 
         Abort::No
@@ -206,7 +210,7 @@ impl Engine {
             return;
         }
         self.searcher
-            .search(self.position.clone(), search_limits, self.chess960);
+            .search(self.position.clone(), search_limits, self.chess960, true);
     }
 
     fn stop(&mut self) {
@@ -220,6 +224,22 @@ impl Engine {
 
     fn quit(&mut self) {
         self.searcher.quit();
+    }
+
+    fn wait(&self, print: bool) {
+        if !self.searcher.is_running() {
+            if print {
+                println!("info string search isn't running");
+            }
+        } else {
+            if print {
+                println!("info string waiting for search to end...");
+            }
+            self.searcher.wait();
+            if print {
+                println!("info string searcher stopped");
+            }
+        }
     }
 
     fn eval(&self) {

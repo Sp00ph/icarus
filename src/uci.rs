@@ -5,6 +5,8 @@ use std::{
 
 use icarus_board::{board::Board, r#move::Move};
 
+use crate::bench::DEFAULT_BENCH_DEPTH;
+
 #[derive(Debug)]
 pub enum UciCommand {
     Uci,
@@ -20,6 +22,7 @@ pub enum UciCommand {
     SplitPerft { depth: u8, bulk: bool },
     Stop,
     Quit,
+    Wait,
 }
 
 #[derive(Debug, Clone)]
@@ -82,6 +85,7 @@ impl UciCommand {
             "d" => Ok(Display),
             "stop" => Ok(Stop),
             "quit" | "q" => Ok(Quit),
+            "wait" => Ok(Wait),
             "setoption" => {
                 if reader.next() != Some("name") {
                     return Err(MissingOptionNameToken);
@@ -104,7 +108,6 @@ impl UciCommand {
                     value: value.into(),
                 })
             }
-
             // option shorthand: so <name> <value>
             "so" => {
                 let name = reader.next().ok_or(MissingOptionName)?;
@@ -116,7 +119,7 @@ impl UciCommand {
             }
             // bench <depth> <threads> <hash>
             "bench" => {
-                let depth = reader.next().unwrap_or("12").parse()?;
+                let depth = reader.next().map_or(Ok(DEFAULT_BENCH_DEPTH), str::parse)?;
                 let threads = reader.next().unwrap_or("1").parse()?;
                 let hash = reader.next().unwrap_or("16").parse()?;
                 Ok(Bench {
