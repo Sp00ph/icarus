@@ -5,7 +5,11 @@ use crate::{
     pesto::eval,
     position::Position,
     score::Score,
-    search::{move_picker::MovePicker, searcher::ThreadCtx},
+    search::{
+        move_picker::MovePicker,
+        searcher::ThreadCtx,
+        transposition_table::TTFlag,
+    },
     util::MAX_PLY,
 };
 
@@ -17,7 +21,7 @@ pub fn search<const ROOT: bool>(
     beta: Score,
     thread: &mut ThreadCtx,
 ) -> Score {
-    if ply != 0 && (thread.abort_now || thread.global.time_manager.stop_search(&thread.nodes)) {
+    if !ROOT && (thread.abort_now || thread.global.time_manager.stop_search(&thread.nodes)) {
         thread.abort_now = true;
         return Score::ZERO;
     }
@@ -43,9 +47,16 @@ pub fn search<const ROOT: bool>(
         return qsearch::<true>(pos, ply, alpha, beta, thread);
     }
 
-    let mut move_picker = MovePicker::new(false);
+    let raw_eval = eval(pos.board());
+
+    let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
+    let tt_move = tt_entry.and_then(|e| e.mv);
+
+    let mut move_picker = MovePicker::new(tt_move, false);
     let mut max = -Score::INFINITE;
     let mut moves_seen = 0;
+    let mut best_move = None;
+    let mut flag = TTFlag::Upper;
 
     while let Some(mv) = move_picker.next(pos.board(), thread) {
         pos.make_move(mv);
@@ -70,13 +81,27 @@ pub fn search<const ROOT: bool>(
             max = score;
             if score > alpha {
                 alpha = score;
+                best_move = Some(mv);
+                flag = TTFlag::Exact;
             }
         }
 
         if score >= beta {
+            flag = TTFlag::Lower;
             break;
         }
     }
+
+    thread.global.ttable.store(
+        pos.board().hash(),
+        depth as u8,
+        ply,
+        raw_eval,
+        max,
+        best_move,
+        flag,
+        true,
+    );
 
     max
 }
@@ -132,7 +157,7 @@ pub fn qsearch<const ROOT: bool>(
 
     let mut max = -Score::INFINITE;
     let mut moves_seen = 0;
-    let mut move_picker = MovePicker::new(!in_check);
+    let mut move_picker = MovePicker::new(None, !in_check);
 
     while let Some(mv) = move_picker.next(pos.board(), thread) {
         pos.make_move(mv);

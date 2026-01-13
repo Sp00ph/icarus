@@ -10,7 +10,11 @@ use crate::{
     bench::DEFAULT_BENCH_DEPTH,
     pesto::eval,
     position::Position,
-    search::{searcher::Searcher, time_manager::DEFAULT_MOVE_OVERHEAD},
+    search::{
+        searcher::Searcher,
+        time_manager::DEFAULT_MOVE_OVERHEAD,
+        transposition_table::{DEFAULT_TT_SIZE, MAX_TT_SIZE},
+    },
     uci::{SearchLimit, UciCommand},
     util::atomic_instant::EPOCH,
 };
@@ -116,6 +120,10 @@ impl Engine {
             DEFAULT_MOVE_OVERHEAD,
             u16::MAX
         );
+        println!(
+            "option name Hash type spin default {} min 1 max {}",
+            DEFAULT_TT_SIZE, MAX_TT_SIZE
+        );
         println!("uciok");
     }
 
@@ -144,6 +152,23 @@ impl Engine {
                 };
                 self.searcher.global_ctx.time_manager.set_move_overhead(val);
                 println!("info string Set move overhead to {val}");
+            }
+            "Hash" => {
+                if self.searcher.is_running() {
+                    println!("info string Can't update Hash while searching");
+                    return;
+                }
+
+                let Ok(val) = value.parse::<u64>() else {
+                    println!("info string Unknown value {value}");
+                    return;
+                };
+                if !(1..=MAX_TT_SIZE).contains(&val) {
+                    println!("info string Invalid Hash size!");
+                    return;
+                }
+                self.searcher.resize_ttable(val);
+                println!("info string Set TT size to {val}MiB");
             }
             _ => println!("info string Unsupported option {name}"),
         }

@@ -12,6 +12,7 @@ pub type MoveList = ArrayVec<ScoredMove, MAX_MOVES>;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Stage {
+    TTMove,
     GenNoisy,
     YieldNoisy,
     GenQuiet,
@@ -23,23 +24,38 @@ pub struct MovePicker {
     index: usize,
     stage: Stage,
     skip_quiets: bool,
+    tt_move: Option<Move>,
 }
 
 impl MovePicker {
-    pub fn new(skip_quiets: bool) -> Self {
+    pub fn new(tt_move: Option<Move>, skip_quiets: bool) -> Self {
         Self {
             moves: MoveList::new(),
             index: 0,
-            stage: Stage::GenNoisy,
+            stage: Stage::TTMove,
             skip_quiets,
+            tt_move,
         }
     }
 
     pub fn next(&mut self, board: &Board, _: &ThreadCtx) -> Option<Move> {
+        if self.stage == Stage::TTMove {
+            self.stage = Stage::GenNoisy;
+            if let Some(mv) = self.tt_move
+                && board.is_legal(mv)
+            {
+                return Some(mv);
+            }
+        }
+
         if self.stage == Stage::GenNoisy {
             board.gen_noisy_moves(|moves| {
-                self.moves
-                    .extend(moves.into_iter().map(|mv| ScoredMove(mv, 0)));
+                self.moves.extend(
+                    moves
+                        .into_iter()
+                        .filter(|mv| self.tt_move != Some(*mv))
+                        .map(|mv| ScoredMove(mv, 0)),
+                );
                 Abort::No
             });
             for mv in &mut self.moves {
@@ -77,8 +93,12 @@ impl MovePicker {
             self.index = 0;
             if !self.skip_quiets {
                 board.gen_quiet_moves(|moves| {
-                    self.moves
-                        .extend(moves.into_iter().map(|mv| ScoredMove(mv, 0)));
+                    self.moves.extend(
+                        moves
+                            .into_iter()
+                            .filter(|mv| self.tt_move != Some(*mv))
+                            .map(|mv| ScoredMove(mv, 0)),
+                    );
                     Abort::No
                 });
             }

@@ -12,7 +12,11 @@ use icarus_board::r#move::Move;
 use crate::{
     position::Position,
     score::Score,
-    search::{search::search, time_manager::TimeManager},
+    search::{
+        search::search,
+        time_manager::TimeManager,
+        transposition_table::{DEFAULT_TT_SIZE, TTable},
+    },
     uci::SearchLimit,
     util::{
         MAX_PLY,
@@ -30,6 +34,7 @@ pub struct GlobalCtx {
     /// Number of currently searching threads + 1.
     /// If not in search, 0.
     pub num_searching: AtomicU32,
+    pub ttable: TTable,
 }
 
 pub type PrincipalVariation = ArrayVec<Move, { MAX_PLY as usize }>;
@@ -63,6 +68,7 @@ struct SearchParams {
 #[derive(Clone)]
 enum ThreadCmd {
     Search(Box<SearchParams>),
+    SetGlobal(Arc<GlobalCtx>),
     NewGame,
     Quit,
 }
@@ -80,6 +86,7 @@ impl Default for Searcher {
             time_manager: TimeManager::default(),
             nodes: Arc::new(AtomicU64::new(0)),
             num_searching: AtomicU32::new(0),
+            ttable: TTable::new(DEFAULT_TT_SIZE),
         });
         let (tx, rx) = channel(1);
         let search_thread = Some(thread::spawn({
@@ -164,6 +171,21 @@ impl Searcher {
             num_searching = self.global_ctx.num_searching.load(Relaxed);
         }
     }
+
+    pub fn resize_ttable(&mut self, mb: u64) {
+        assert!(
+            !self.is_running(),
+            "Called `resize_ttable()` while searching"
+        );
+        self.global_ctx = Arc::new(GlobalCtx {
+            time_manager: Default::default(),
+            nodes: Default::default(),
+            num_searching: Default::default(),
+            ttable: TTable::new(mb),
+        });
+        self.command_sender
+            .send(ThreadCmd::SetGlobal(self.global_ctx.clone()));
+    }
 }
 
 fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: usize) {
@@ -196,6 +218,10 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
 
                 id_loop(search_params.pos, &mut thread_ctx, search_params.print_info);
             }
+            ThreadCmd::SetGlobal(global) => {
+                thread_ctx.nodes = BufferedCounter::new(global.nodes.clone());
+                thread_ctx.global = global;
+            }
             // We don't have anything to clear on newgame yet.
             ThreadCmd::NewGame => {}
             ThreadCmd::Quit => return,
@@ -222,9 +248,10 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
         if depth > 1 && thread.abort_now {
             break;
         }
-
-        thread.root_pv = thread.search_stack[0].pv.clone();
-
+        
+        if !thread.search_stack.is_empty() {
+            thread.root_pv = thread.search_stack[0].pv.clone();
+        }
         if depth >= MAX_PLY
             || thread
                 .global
