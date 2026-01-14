@@ -60,7 +60,7 @@ pub static FENS: [&str; 50] = [
     "2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R w - - 23 93",
 ];
 
-pub const DEFAULT_BENCH_DEPTH: u8 = 6;
+pub const DEFAULT_BENCH_DEPTH: u8 = 7;
 
 impl Engine {
     pub fn bench(&self, depth: u8, _cli: bool) {
