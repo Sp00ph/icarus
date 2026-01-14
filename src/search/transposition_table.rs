@@ -171,6 +171,16 @@ impl TTable {
             .ok();
     }
 
+    pub fn hashfull(&self) -> usize {
+        self.entries[..1000]
+            .iter()
+            .filter(|e| {
+                let data = e.key_and_data().1;
+                data.flags.tt_flag() != TTFlag::None && data.flags.age() == self.age.load(Relaxed)
+            })
+            .count()
+    }
+
     fn index(&self, hash: u64) -> usize {
         ((hash as u128 * self.entries.len() as u128) >> 64) as usize
     }

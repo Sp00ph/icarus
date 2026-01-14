@@ -293,6 +293,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
     // We want the waiters to wake up after the bestmove print
     if last {
         atomic_wait::wake_all(&thread.global.num_searching);
+        thread.global.ttable.age();
     }
 }
 
@@ -301,6 +302,7 @@ fn print_info(score: Score, depth: u16, thread: &ThreadCtx) {
     let time_us = thread.global.time_manager.elapsed().as_micros();
     let nps = ((nodes as f64) / (time_us.max(1) as f64) * 1e6) as u64;
     let time_ms = time_us / 1000;
+    let hashfull = thread.global.ttable.hashfull();
     let pv = {
         use std::fmt::Write;
         let mut s = String::new();
@@ -311,7 +313,7 @@ fn print_info(score: Score, depth: u16, thread: &ThreadCtx) {
         s
     };
     println!(
-        "info depth {} seldepth {} score {} time {} nodes {} nps {} pv {}",
-        depth, thread.sel_depth, score, time_ms, nodes, nps, pv
+        "info depth {} seldepth {} score {} time {} nodes {} nps {} hashfull {} pv {}",
+        depth, thread.sel_depth, score, time_ms, nodes, nps, hashfull, pv
     )
 }
