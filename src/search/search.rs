@@ -98,11 +98,36 @@ pub fn search<Node: NodeType>(
 
     let in_check = pos.board().checkers().is_non_empty();
 
-    // RFP
     if !Node::PV && !in_check {
+        // RFP
+        let rfp_depth = 6;
         let rfp_margin = 80;
-        if depth < 6 && static_eval - rfp_margin * depth >= beta {
+        if depth < rfp_depth && static_eval - rfp_margin * depth >= beta {
             return static_eval;
+        }
+
+        // NMP
+        let nmp_depth = 3;
+        if depth >= nmp_depth && pos.prev_move(1).is_some() {
+            pos.make_null_move();
+            let nmp_reduction = 3;
+            let score = -search::<NonPV>(
+                pos,
+                depth - nmp_reduction,
+                ply + 1,
+                -beta,
+                -beta + 1,
+                thread,
+            );
+            pos.unmake_null_move();
+
+            if thread.abort_now {
+                return Score::ZERO;
+            }
+
+            if score >= beta {
+                return beta;
+            }
         }
     }
 

@@ -8,6 +8,7 @@ pub struct Position {
     board: Board,
     /// Previously played boards. `history[0]` is the starting position.
     history: Vec<Board>,
+    moves: Vec<Option<Move>>,
 }
 
 impl Position {
@@ -15,16 +16,35 @@ impl Position {
         Self {
             board,
             history: vec![],
+            moves: vec![],
         }
     }
 
     pub fn make_move(&mut self, mv: Move) {
         self.history.push(self.board);
         self.board.make_move(mv);
+        self.moves.push(Some(mv));
+    }
+
+    pub fn make_null_move(&mut self) {
+        self.history.push(self.board);
+        self.board.make_null_move();
+        self.moves.push(None);
     }
 
     pub fn unmake_move(&mut self) {
         self.board = self.history.pop().unwrap();
+        self.moves.pop();
+    }
+
+    // Only here for completeness when I add NNUE :3
+    pub fn unmake_null_move(&mut self) {
+        self.board = self.history.pop().unwrap();
+        self.moves.pop();
+    }
+
+    pub fn prev_move(&self, ply: usize) -> Option<Move> {
+        self.moves[self.moves.len() - ply]
     }
 
     pub fn board(&self) -> &Board {

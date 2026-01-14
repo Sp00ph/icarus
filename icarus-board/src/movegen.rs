@@ -684,4 +684,16 @@ impl Board {
         }
         self.calc_threats();
     }
+
+    pub fn make_null_move(&mut self) {
+        debug_assert!(self.checkers.is_empty());
+
+        self.halfmove_clock = (self.halfmove_clock + 1).min(100);
+        self.fullmove_count += u16::from(self.stm == Color::Black);
+
+        self.set_en_passant(None);
+        self.stm = !self.stm;
+        self.hash ^= ZOBRIST.black_to_move;
+        self.calc_threats();
+    }
 }
