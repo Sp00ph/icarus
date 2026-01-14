@@ -14,6 +14,8 @@ const NONPAWN_CORR_SIZE: usize = 16384;
 pub struct History {
     /// [stm][from][from attacked][to][to attacked]
     quiet: [[[[[i16; 2]; 64]; 2]; 64]; 2],
+    /// [stm][attacker][victim][to]
+    tactic: [[[i16; 64]; 6]; 2],
     /// [stm][prev piece][prev dst][piece][dst]
     cont_oneply: [[[[[i16; 64]; 6]; 64]; 6]; 2],
 
@@ -44,6 +46,11 @@ impl History {
                 self.cont_oneply[board.stm()][prev.0][prev.1.to()]
                     [board.piece_on(mv.from()).unwrap()][mv.to()]
             })
+    }
+
+    pub fn score_tactic(&self, board: &Board, mv: Move) -> i16 {
+        let attacker = board.piece_on(mv.from()).unwrap();
+        self.tactic[board.stm()][attacker][mv.to()]
     }
 
     pub fn corr(&self, board: &Board) -> i16 {
@@ -77,18 +84,20 @@ impl History {
             [mv.to()][board.attacked().contains(mv.to()) as usize]
     }
 
+    fn tactic_mut(&mut self, board: &Board, mv: Move) -> &mut i16 {
+        let attacker = board.piece_on(mv.from()).unwrap();
+        &mut self.tactic[board.stm()][attacker][mv.to()]
+    }
+
     pub fn update(
         &mut self,
         board: &Board,
         mv: Move,
         prev: Option<(Piece, Move)>,
         quiets: &[Move],
+        tactics: &[Move],
         depth: i16,
     ) {
-        if board.is_tactic(mv) {
-            return;
-        }
-
         let bonus_base = 128;
         let bonus_scale = 128;
         let bonus_max = 2048;
@@ -99,24 +108,32 @@ impl History {
         let malus_max = 2048;
         let malus = (malus_base + (depth as i32) * malus_scale).min(malus_max);
 
-        Self::update_value(self.quiet_mut(board, mv), bonus);
-        if let Some(prev) = prev {
-            Self::update_value(
-                &mut self.cont_oneply[board.stm()][prev.0][prev.1.to()]
-                    [board.piece_on(mv.from()).unwrap()][mv.to()],
-                bonus,
-            );
-        }
-
-        for &quiet in quiets {
-            Self::update_value(self.quiet_mut(board, quiet), -malus);
+        if board.is_tactic(mv) {
+            Self::update_value(self.tactic_mut(board, mv), bonus);
+        } else {
+            Self::update_value(self.quiet_mut(board, mv), bonus);
             if let Some(prev) = prev {
                 Self::update_value(
                     &mut self.cont_oneply[board.stm()][prev.0][prev.1.to()]
-                        [board.piece_on(quiet.from()).unwrap()][quiet.to()],
-                    -malus,
+                        [board.piece_on(mv.from()).unwrap()][mv.to()],
+                    bonus,
                 );
             }
+
+            for &quiet in quiets {
+                Self::update_value(self.quiet_mut(board, quiet), -malus);
+                if let Some(prev) = prev {
+                    Self::update_value(
+                        &mut self.cont_oneply[board.stm()][prev.0][prev.1.to()]
+                            [board.piece_on(quiet.from()).unwrap()][quiet.to()],
+                        -malus,
+                    );
+                }
+            }
+        }
+
+        for &tactic in tactics {
+            Self::update_value(self.tactic_mut(board, tactic), -malus);
         }
     }
 

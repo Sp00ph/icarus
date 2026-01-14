@@ -146,8 +146,9 @@ pub fn search<Node: NodeType>(
     let mut best_move = None;
     let mut flag = TTFlag::Upper;
 
-    // For quiet hist
+    // For quiet + tactic hist
     let mut quiets = SmallVec::<[Move; 64]>::new();
+    let mut tactics = SmallVec::<[Move; 64]>::new();
 
     while let Some(mv) = move_picker.next(pos, thread) {
         let is_tactic = pos.board().is_tactic(mv);
@@ -243,12 +244,16 @@ pub fn search<Node: NodeType>(
             flag = TTFlag::Lower;
             thread
                 .history
-                .update(pos.board(), mv, pos.prev_move(1), &quiets, depth);
+                .update(pos.board(), mv, pos.prev_move(1), &quiets, &tactics, depth);
             break;
         }
 
-        if best_move != Some(mv) && !is_tactic {
-            quiets.push(mv);
+        if best_move != Some(mv) {
+            if is_tactic {
+                tactics.push(mv);
+            } else {
+                quiets.push(mv);
+            }
         }
     }
 
