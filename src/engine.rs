@@ -47,7 +47,7 @@ impl Engine {
 
         #[cfg(feature = "test-islegal")]
         if argv == ["test_islegal"] {
-            crate::test_islegal::test_islegal();
+            icarus_board::is_legal::test::test_islegal(&crate::bench::FENS);
         }
 
         let mut editor = Editor::<(), MemHistory>::with_history(

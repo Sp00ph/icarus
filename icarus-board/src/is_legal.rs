@@ -1,3 +1,6 @@
+
+#[cfg(feature = "test-islegal")] pub mod test;
+
 use icarus_common::{
     lookups::{
         between, between_inclusive, king_moves, knight_moves, line, pawn_attacks, pawn_pushes,

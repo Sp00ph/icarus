@@ -1,4 +1,4 @@
-use icarus_board::{
+use crate::{
     attack_generators::{bishop_moves, rook_moves},
     board::Board,
     r#move::{Move, MoveFlag},
@@ -11,9 +11,7 @@ use icarus_common::{
     square::{File, Rank, Square},
 };
 
-use crate::bench::FENS;
-
-pub fn test_islegal() {
+pub fn test_islegal(fens: &[&str]) {
     let mut all_moves = vec![];
     for from in Square::all() {
         let to = knight_moves(from)
@@ -52,7 +50,7 @@ pub fn test_islegal() {
 
     for depth in 0.. {
         println!("Depth {depth}...");
-        for fen in FENS {
+        for fen in fens {
             let board = Board::read_fen(fen).unwrap();
             println!("{fen}");
             islegal_all(&board, depth, &all_moves);
