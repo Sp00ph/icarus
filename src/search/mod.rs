@@ -6,3 +6,4 @@ pub mod searcher;
 pub mod time_manager;
 pub mod transposition_table;
 pub mod history;
+pub mod lmr;

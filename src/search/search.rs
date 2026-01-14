@@ -6,7 +6,9 @@ use crate::{
     pesto::eval,
     position::Position,
     score::Score,
-    search::{move_picker::MovePicker, searcher::ThreadCtx, transposition_table::TTFlag},
+    search::{
+        lmr::get_lmr, move_picker::MovePicker, searcher::ThreadCtx, transposition_table::TTFlag,
+    },
     util::MAX_PLY,
 };
 
@@ -142,16 +144,30 @@ pub fn search<Node: NodeType>(
     let mut quiets = SmallVec::<[Move; 64]>::new();
 
     while let Some(mv) = move_picker.next(pos, thread) {
-        pos.make_move(mv);
-
+        
+        let is_tactic = pos.board().is_tactic(mv);
+        let mut lmr = get_lmr(is_tactic, depth as u8, moves_seen);
         let mut score;
+        
+        let new_depth = depth - 1;
+        pos.make_move(mv);
+        
         // PVS
         if moves_seen == 0 {
-            score = -search::<Node::Next>(pos, depth - 1, ply + 1, -beta, -alpha, thread);
+            score = -search::<Node::Next>(pos, new_depth, ply + 1, -beta, -alpha, thread);
         } else {
-            score = -search::<NonPV>(pos, depth - 1, ply + 1, -alpha - 1, -alpha, thread);
+            if depth < 2 {
+                lmr = 0;
+            }
+            let lmr_depth = (new_depth - lmr).max(1).min(new_depth);
+
+            score = -search::<NonPV>(pos, lmr_depth, ply + 1, -alpha - 1, -alpha, thread);
+
+            if lmr > 0 && score > alpha {
+                score = -search::<NonPV>(pos, new_depth, ply + 1, -alpha - 1, -alpha, thread)
+            }
             if Node::PV && score > alpha {
-                score = -search::<PV>(pos, depth - 1, ply + 1, -beta, -alpha, thread);
+                score = -search::<PV>(pos, new_depth, ply + 1, -beta, -alpha, thread);
             }
         }
 
@@ -186,7 +202,7 @@ pub fn search<Node: NodeType>(
             break;
         }
 
-        if best_move != Some(mv) && pos.board().is_quiet(mv) {
+        if best_move != Some(mv) && !is_tactic {
             quiets.push(mv);
         }
     }
