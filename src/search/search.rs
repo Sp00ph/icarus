@@ -40,7 +40,7 @@ impl NodeType for NonPV {
 
 pub fn search<Node: NodeType>(
     pos: &mut Position,
-    depth: i32,
+    depth: i16,
     ply: u16,
     mut alpha: Score,
     beta: Score,
@@ -77,7 +77,7 @@ pub fn search<Node: NodeType>(
         thread.nodes.inc();
     }
 
-    let raw_eval = eval(pos.board());
+    let static_eval = eval(pos.board());
 
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
     let tt_move = tt_entry.and_then(|e| e.mv);
@@ -85,7 +85,7 @@ pub fn search<Node: NodeType>(
     // TT cutoffs
     if !Node::PV
         && let Some(e) = tt_entry
-        && e.depth as i32 >= depth
+        && e.depth as i16 >= depth
     {
         let score = e.score;
         match e.flags.tt_flag() {
@@ -93,6 +93,16 @@ pub fn search<Node: NodeType>(
             TTFlag::Lower if score >= beta => return score,
             TTFlag::Upper if score <= alpha => return score,
             _ => {}
+        }
+    }
+
+    let in_check = pos.board().checkers().is_non_empty();
+
+    // RFP
+    if !Node::PV && !in_check {
+        let rfp_margin = 80;
+        if depth < 6 && static_eval - rfp_margin * depth >= beta {
+            return static_eval;
         }
     }
 
@@ -151,7 +161,7 @@ pub fn search<Node: NodeType>(
         pos.board().hash(),
         depth as u8,
         ply,
-        raw_eval,
+        static_eval,
         max,
         best_move,
         flag,

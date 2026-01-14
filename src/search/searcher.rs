@@ -237,7 +237,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
         thread.sel_depth = 0;
         let new_score = search::<Root>(
             &mut pos,
-            depth as i32,
+            depth as i16,
             0,
             -Score::INFINITE,
             Score::INFINITE,
