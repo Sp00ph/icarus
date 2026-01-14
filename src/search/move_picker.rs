@@ -1,7 +1,8 @@
 use arrayvec::ArrayVec;
 use icarus_board::{r#move::Move, movegen::Abort};
+use icarus_common::piece::Piece;
 
-use crate::{position::Position, search::searcher::ThreadCtx};
+use crate::{position::Position, search::searcher::ThreadCtx, weights::see_val};
 
 #[derive(Clone, Copy, Debug)]
 pub struct ScoredMove(pub Move, pub i16);
@@ -89,9 +90,11 @@ impl MovePicker {
                 Abort::No
             });
             for mv in &mut self.moves {
-                let victim = 8 * mv.0.captures(board).map_or(0, |p| p.idx() + 1) as i16;
-                let attacker = mv.0.piece_type(board) as i16;
-                mv.1 = victim - attacker * i16::from(victim != 0);
+                let victim = mv.0.captures(board).map_or(0, see_val);
+                mv.1 = thread.history.score_tactic(board, mv.0) / 32 + victim * 8;
+                if let Some(promo) = mv.0.promotes_to() {
+                    mv.1 += (see_val(promo) - see_val(Piece::Pawn)) * 8;
+                }
             }
 
             self.stage = Stage::YieldGoodNoisy;
