@@ -26,7 +26,7 @@ use crate::{
     },
 };
 
-// While we don't support SMP yet, to make implementing it easier, we just split global and local data already.
+pub const MAX_THREADS: usize = 512;
 
 pub struct GlobalCtx {
     pub time_manager: TimeManager,
@@ -91,8 +91,7 @@ enum ThreadCmd {
 
 pub struct Searcher {
     pub global_ctx: Arc<GlobalCtx>,
-    // TODO: Make multithreaded
-    search_thread: Option<JoinHandle<()>>,
+    search_threads: Vec<JoinHandle<()>>,
     command_sender: Sender<ThreadCmd>,
 }
 
@@ -105,7 +104,7 @@ impl Default for Searcher {
             ttable: TTable::new(DEFAULT_TT_SIZE),
         });
         let (tx, rx) = channel(1);
-        let search_thread = Some(thread::spawn({
+        let search_thread = thread::spawn({
             let global_ctx = global_ctx.clone();
             move || {
                 if std::panic::catch_unwind(move || worker_thread_loop(rx, global_ctx, 0)).is_err()
@@ -113,11 +112,11 @@ impl Default for Searcher {
                     std::process::exit(-1);
                 }
             }
-        }));
+        });
 
         Self {
             global_ctx,
-            search_thread,
+            search_threads: vec![search_thread],
             command_sender: tx,
         }
     }
@@ -172,7 +171,9 @@ impl Searcher {
     pub fn quit(&mut self) {
         self.global_ctx.time_manager.set_stop_flag(true);
         self.command_sender.send(ThreadCmd::Quit);
-        self.search_thread.take().unwrap().join().unwrap();
+        self.search_threads
+            .drain(..)
+            .for_each(|t| t.join().unwrap());
     }
 
     pub fn stop(&self) {
@@ -202,6 +203,37 @@ impl Searcher {
         });
         self.command_sender
             .send(ThreadCmd::SetGlobal(self.global_ctx.clone()));
+    }
+
+    pub fn change_threads(&mut self, threads: usize) {
+        assert!(
+            !self.is_running(),
+            "Called `change_threads()` while searching"
+        );
+        assert!(threads > 1);
+
+        self.command_sender.send(ThreadCmd::Quit);
+        self.search_threads
+            .drain(..)
+            .for_each(|t| t.join().unwrap());
+
+        let (tx, rx) = channel(threads);
+        self.search_threads = (0..threads)
+            .map(|i| {
+                thread::spawn({
+                    let global_ctx = self.global_ctx.clone();
+                    let rx = rx.clone();
+                    move || {
+                        if std::panic::catch_unwind(move || worker_thread_loop(rx, global_ctx, i))
+                            .is_err()
+                        {
+                            std::process::exit(-1);
+                        }
+                    }
+                })
+            })
+            .collect();
+        self.command_sender = tx;
     }
 }
 

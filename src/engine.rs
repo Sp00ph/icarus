@@ -11,7 +11,7 @@ use crate::{
     pesto::eval,
     position::Position,
     search::{
-        searcher::Searcher,
+        searcher::{MAX_THREADS, Searcher},
         time_manager::DEFAULT_MOVE_OVERHEAD,
         transposition_table::{DEFAULT_TT_SIZE, MAX_TT_SIZE},
     },
@@ -124,7 +124,7 @@ impl Engine {
             "option name Hash type spin default {} min 1 max {}",
             DEFAULT_TT_SIZE, MAX_TT_SIZE
         );
-        println!("option name Threads type spin default 1 min 1 max 1");
+        println!("option name Threads type spin default 1 min 1 max {MAX_TT_SIZE}");
         println!("uciok");
     }
 
@@ -168,9 +168,21 @@ impl Engine {
                 println!("info string Set TT size to {val}MiB");
             }
             "Threads" => {
-                if value != "1" {
-                    println!("info string Invalid thread count!");
+                if self.searcher.is_running() {
+                    println!("info string Can't update Threads while searching");
+                    return;
                 }
+
+                let Ok(val) = value.parse::<usize>() else {
+                    println!("info string Unknown value {value}");
+                    return;
+                };
+                if !(1..=MAX_THREADS).contains(&val) {
+                    println!("info string Invalid Threads value!");
+                    return;
+                }
+                self.searcher.change_threads(val);
+                println!("info string Started {val} threads");
             }
             _ => println!("info string Unsupported option {name}"),
         }
