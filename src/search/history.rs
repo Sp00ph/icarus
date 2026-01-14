@@ -3,21 +3,27 @@ use icarus_board::{board::Board, r#move::Move};
 const MAX_HISTORY: i32 = 16384;
 
 pub struct History {
-    /// [stm][from][to]
-    quiet: [[[i16; 64]; 64]; 2],
+    /// [stm][from][from attacked][to][to attacked]
+    quiet: [[[[[i16; 2]; 64]; 2]; 64]; 2],
 }
 
 impl Default for History {
     fn default() -> Self {
         Self {
-            quiet: [[[0; 64]; 64]; 2],
+            quiet: [[[[[0; 2]; 64]; 2]; 64]; 2],
         }
     }
 }
 
 impl History {
     pub fn score_quiet(&self, board: &Board, mv: Move) -> i16 {
-        self.quiet[board.stm()][mv.from()][mv.to()]
+        self.quiet[board.stm()][mv.from()][board.attacked().contains(mv.from()) as usize][mv.to()]
+            [board.attacked().contains(mv.to()) as usize]
+    }
+
+    fn quiet_mut(&mut self, board: &Board, mv: Move) -> &mut i16 {
+        &mut self.quiet[board.stm()][mv.from()][board.attacked().contains(mv.from()) as usize]
+            [mv.to()][board.attacked().contains(mv.to()) as usize]
     }
 
     pub fn update(&mut self, board: &Board, mv: Move, quiets: &[Move], depth: i16) {
@@ -35,13 +41,10 @@ impl History {
         let malus_max = 2048;
         let malus = (malus_base + (depth as i32) * malus_scale).min(malus_max);
 
-        Self::update_value(&mut self.quiet[board.stm()][mv.from()][mv.to()], bonus);
+        Self::update_value(self.quiet_mut(board, mv), bonus);
 
-        for quiet in quiets {
-            Self::update_value(
-                &mut self.quiet[board.stm()][quiet.from()][quiet.to()],
-                -malus,
-            );
+        for &quiet in quiets {
+            Self::update_value(self.quiet_mut(board, quiet), -malus);
         }
     }
 
