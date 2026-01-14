@@ -82,6 +82,20 @@ pub fn search<Node: NodeType>(
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
     let tt_move = tt_entry.and_then(|e| e.mv);
 
+    // TT cutoffs
+    if !Node::PV
+        && let Some(e) = tt_entry
+        && e.depth as i32 >= depth
+    {
+        let score = e.score;
+        match e.flags.tt_flag() {
+            TTFlag::Exact => return score,
+            TTFlag::Lower if score >= beta => return score,
+            TTFlag::Upper if score <= alpha => return score,
+            _ => {}
+        }
+    }
+
     let mut move_picker = MovePicker::new(tt_move, false);
     let mut max = -Score::INFINITE;
     let mut moves_seen = 0;
@@ -92,6 +106,7 @@ pub fn search<Node: NodeType>(
         pos.make_move(mv);
 
         let mut score;
+        // PVS
         if moves_seen == 0 {
             score = -search::<Node::Next>(pos, depth - 1, ply + 1, -beta, -alpha, thread);
         } else {
