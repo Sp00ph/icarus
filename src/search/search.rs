@@ -5,15 +5,40 @@ use crate::{
     pesto::eval,
     position::Position,
     score::Score,
-    search::{
-        move_picker::MovePicker,
-        searcher::ThreadCtx,
-        transposition_table::TTFlag,
-    },
+    search::{move_picker::MovePicker, searcher::ThreadCtx, transposition_table::TTFlag},
     util::MAX_PLY,
 };
 
-pub fn search<const ROOT: bool>(
+pub trait NodeType {
+    const ROOT: bool;
+    const PV: bool;
+
+    type Next: NodeType;
+}
+
+pub struct Root;
+pub struct PV;
+pub struct NonPV;
+
+impl NodeType for Root {
+    const ROOT: bool = true;
+    const PV: bool = true;
+    type Next = PV;
+}
+
+impl NodeType for PV {
+    const ROOT: bool = false;
+    const PV: bool = true;
+    type Next = PV;
+}
+
+impl NodeType for NonPV {
+    const ROOT: bool = false;
+    const PV: bool = false;
+    type Next = NonPV;
+}
+
+pub fn search<Node: NodeType>(
     pos: &mut Position,
     depth: i32,
     ply: u16,
@@ -21,30 +46,35 @@ pub fn search<const ROOT: bool>(
     beta: Score,
     thread: &mut ThreadCtx,
 ) -> Score {
-    if !ROOT && (thread.abort_now || thread.global.time_manager.stop_search(&thread.nodes)) {
+    if !Node::ROOT && (thread.abort_now || thread.global.time_manager.stop_search(&thread.nodes)) {
         thread.abort_now = true;
         return Score::ZERO;
     }
 
     thread.sel_depth = thread.sel_depth.max(ply);
-    if !ROOT {
-        thread.nodes.inc();
+    if Node::PV {
+        thread.search_stack[ply as usize].pv.clear();
     }
-    thread.search_stack[ply as usize].pv.clear();
 
     if let Some(terminal) = pos.board().terminal_state() {
+        thread.nodes.inc();
         return match terminal {
             TerminalState::Checkmate(_) => Score::new_mated(ply),
             TerminalState::Draw => Score::ZERO,
         };
     }
 
-    if !ROOT && pos.repetition() {
+    if !Node::ROOT && pos.repetition() {
+        thread.nodes.inc();
         return Score::ZERO;
     }
 
     if depth <= 0 {
-        return qsearch::<true>(pos, ply, alpha, beta, thread);
+        return qsearch::<Node>(pos, ply, alpha, beta, thread);
+    }
+
+    if !Node::ROOT {
+        thread.nodes.inc();
     }
 
     let raw_eval = eval(pos.board());
@@ -60,14 +90,24 @@ pub fn search<const ROOT: bool>(
 
     while let Some(mv) = move_picker.next(pos.board(), thread) {
         pos.make_move(mv);
-        let score = -search::<false>(pos, depth - 1, ply + 1, -beta, -alpha, thread);
+
+        let mut score;
+        if moves_seen == 0 {
+            score = -search::<Node::Next>(pos, depth - 1, ply + 1, -beta, -alpha, thread);
+        } else {
+            score = -search::<NonPV>(pos, depth - 1, ply + 1, -alpha - 1, -alpha, thread);
+            if Node::PV && score > alpha {
+                score = -search::<PV>(pos, depth - 1, ply + 1, -beta, -alpha, thread);
+            }
+        }
+
         pos.unmake_move();
         moves_seen += 1;
         if thread.abort_now {
             return Score::ZERO;
         }
 
-        if moves_seen == 1 || score > alpha {
+        if Node::PV && (moves_seen == 1 || score > alpha) {
             let [parent, child] = thread
                 .search_stack
                 .get_disjoint_mut([ply as usize, ply as usize + 1])
@@ -106,7 +146,7 @@ pub fn search<const ROOT: bool>(
     max
 }
 
-pub fn qsearch<const ROOT: bool>(
+pub fn qsearch<Node: NodeType>(
     pos: &mut Position,
     ply: u16,
     mut alpha: Score,
@@ -137,9 +177,7 @@ pub fn qsearch<const ROOT: bool>(
     }
 
     thread.sel_depth = thread.sel_depth.max(ply);
-    if !ROOT {
-        thread.nodes.inc();
-    }
+    thread.nodes.inc();
 
     let in_check = pos.board().checkers().is_non_empty();
 
@@ -161,7 +199,7 @@ pub fn qsearch<const ROOT: bool>(
 
     while let Some(mv) = move_picker.next(pos.board(), thread) {
         pos.make_move(mv);
-        let score = -qsearch::<false>(pos, ply + 1, -beta, -alpha, thread);
+        let score = -qsearch::<Node::Next>(pos, ply + 1, -beta, -alpha, thread);
         pos.unmake_move();
         moves_seen += 1;
 

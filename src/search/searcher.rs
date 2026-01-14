@@ -13,7 +13,7 @@ use crate::{
     position::Position,
     score::Score,
     search::{
-        search::search,
+        search::{Root, search},
         time_manager::TimeManager,
         transposition_table::{DEFAULT_TT_SIZE, TTable},
     },
@@ -235,7 +235,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
 
     loop {
         thread.sel_depth = 0;
-        let new_score = search::<true>(
+        let new_score = search::<Root>(
             &mut pos,
             depth as i32,
             0,
