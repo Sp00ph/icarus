@@ -13,6 +13,7 @@ use crate::{
     position::Position,
     score::Score,
     search::{
+        history::History,
         search::{Root, search},
         time_manager::TimeManager,
         transposition_table::{DEFAULT_TT_SIZE, TTable},
@@ -50,6 +51,8 @@ pub struct ThreadCtx {
     pub sel_depth: u16,
     pub search_stack: Box<[SearchStackEntry; MAX_PLY as usize + 1]>,
     pub root_pv: PrincipalVariation,
+
+    pub history: History,
 }
 
 #[derive(Clone, Default, Debug)]
@@ -203,6 +206,7 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
             .try_into()
             .unwrap(),
         root_pv: Default::default(),
+        history: Default::default(),
     };
 
     loop {
@@ -223,8 +227,9 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
                 thread_ctx.nodes = BufferedCounter::new(global.nodes.clone());
                 thread_ctx.global = global;
             }
-            // We don't have anything to clear on newgame yet.
-            ThreadCmd::NewGame => {}
+            ThreadCmd::NewGame => {
+                thread_ctx.history = History::default();
+            }
             ThreadCmd::Quit => return,
         }
     }

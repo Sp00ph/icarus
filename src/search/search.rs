@@ -1,5 +1,6 @@
 use arrayvec::ArrayVec;
-use icarus_board::board::TerminalState;
+use icarus_board::{board::TerminalState, r#move::Move};
+use smallvec::SmallVec;
 
 use crate::{
     pesto::eval,
@@ -137,6 +138,9 @@ pub fn search<Node: NodeType>(
     let mut best_move = None;
     let mut flag = TTFlag::Upper;
 
+    // For quiet hist
+    let mut quiets = SmallVec::<[Move; 64]>::new();
+
     while let Some(mv) = move_picker.next(pos.board(), thread) {
         pos.make_move(mv);
 
@@ -178,7 +182,12 @@ pub fn search<Node: NodeType>(
 
         if score >= beta {
             flag = TTFlag::Lower;
+            thread.history.update(pos.board(), mv, &quiets, depth);
             break;
+        }
+
+        if best_move != Some(mv) && pos.board().is_quiet(mv) {
+            quiets.push(mv);
         }
     }
 

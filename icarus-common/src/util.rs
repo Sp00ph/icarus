@@ -61,6 +61,22 @@ macro_rules! define_enum {
                 (0..Self::COUNT as u8).map(|i| unsafe { Self::from_idx_unchecked(i) })
             }
         }
+
+        impl<T> ::std::ops::Index<$name> for [T; { $name::COUNT }] {
+            type Output = T;
+
+            #[inline]
+            fn index(&self, index: $name) -> &T {
+                self.index(index.idx() as usize)
+            }
+        }
+
+        impl<T> ::std::ops::IndexMut<$name> for [T; { $name::COUNT }] {
+            #[inline]
+            fn index_mut(&mut self, index: $name) -> &mut T {
+                self.index_mut(index.idx() as usize)
+            }
+        }
     };
 }
 

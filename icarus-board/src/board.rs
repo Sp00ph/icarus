@@ -141,6 +141,17 @@ impl Board {
         self.castling_rights
     }
 
+    #[inline]
+    pub fn is_tactic(&self, mv: Move) -> bool {
+        [MoveFlag::EnPassant, MoveFlag::Promotion].contains(&mv.flag())
+            || self.occupied_by(!self.stm).contains(mv.to())
+    }
+
+    #[inline]
+    pub fn is_quiet(&self, mv: Move) -> bool {
+        !self.is_tactic(mv)
+    }
+
     /// Returns whether the given move is legal on the current board. Note that this uses move generation internally, so
     /// it is rather slow. In return, it can handle _any_ kind of move, so it doesn't require any invariants of `Move` to hold.
     #[inline]

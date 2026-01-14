@@ -135,6 +135,7 @@ dependencies = [
  "icarus-common",
  "rootcause",
  "rustyline",
+ "smallvec",
  "thiserror",
 ]
 

@@ -38,7 +38,7 @@ impl MovePicker {
         }
     }
 
-    pub fn next(&mut self, board: &Board, _: &ThreadCtx) -> Option<Move> {
+    pub fn next(&mut self, board: &Board, thread: &ThreadCtx) -> Option<Move> {
         if self.stage == Stage::TTMove {
             self.stage = Stage::GenNoisy;
             if let Some(mv) = self.tt_move
@@ -97,7 +97,7 @@ impl MovePicker {
                         moves
                             .into_iter()
                             .filter(|mv| self.tt_move != Some(*mv))
-                            .map(|mv| ScoredMove(mv, 0)),
+                            .map(|mv| ScoredMove(mv, thread.history.score_quiet(board, mv))),
                     );
                     Abort::No
                 });
@@ -106,7 +106,15 @@ impl MovePicker {
         }
 
         assert_eq!(self.stage, Stage::YieldQuiet);
-        let mv = *self.moves.get(self.index)?;
+
+        let (i, mv) = self
+            .moves
+            .iter()
+            .copied()
+            .enumerate()
+            .skip(self.index)
+            .max_by_key(|(_, mv)| mv.1)?;
+        self.moves.swap(self.index, i);
         self.index += 1;
         Some(mv.0)
     }
