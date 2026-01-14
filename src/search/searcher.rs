@@ -149,6 +149,7 @@ impl Searcher {
 
     pub fn newgame(&mut self) {
         assert!(!self.is_running(), "Called `newgame()` while searching");
+        self.global_ctx.ttable.clear();
         self.command_sender.send(ThreadCmd::NewGame);
     }
 
