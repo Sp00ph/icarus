@@ -1,3 +1,7 @@
 /target
 
 /lichess-bot/**
+
+# Binaries produced by the makefile
+/icarus
+/icarus.exe

@@ -124,6 +124,7 @@ impl Engine {
             "option name Hash type spin default {} min 1 max {}",
             DEFAULT_TT_SIZE, MAX_TT_SIZE
         );
+        println!("option name Threads type spin default 1 min 1 max 1");
         println!("uciok");
     }
 
@@ -165,6 +166,11 @@ impl Engine {
                 }
                 self.searcher.resize_ttable(val);
                 println!("info string Set TT size to {val}MiB");
+            }
+            "Threads" => {
+                if value != "1" {
+                    println!("info string Invalid thread count!");
+                }
             }
             _ => println!("info string Unsupported option {name}"),
         }
