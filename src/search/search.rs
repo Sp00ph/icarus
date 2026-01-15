@@ -135,7 +135,7 @@ pub fn search<Node: NodeType>(
     }
 
     let mut move_picker = MovePicker::new(tt_move, false, 0);
-    let mut max = -Score::INFINITE;
+    let mut best_score = -Score::INFINITE;
     let mut moves_seen = 0;
     let mut best_move = None;
     let mut flag = TTFlag::Upper;
@@ -144,14 +144,21 @@ pub fn search<Node: NodeType>(
     let mut quiets = SmallVec::<[Move; 64]>::new();
 
     while let Some(mv) = move_picker.next(pos, thread) {
-        
         let is_tactic = pos.board().is_tactic(mv);
         let mut lmr = get_lmr(is_tactic, depth as u8, moves_seen);
         let mut score;
-        
+
+        if !Node::ROOT && !best_score.is_loss() {
+            let lmp_margin = 4096 + 1024 * (depth as u32).pow(2);
+
+            if moves_seen as u32 * 1024 >= lmp_margin {
+                move_picker.skip_quiets();
+            }
+        }
+
         let new_depth = depth - 1;
         pos.make_move(mv);
-        
+
         // PVS
         if moves_seen == 0 {
             score = -search::<Node::Next>(pos, new_depth, ply + 1, -beta, -alpha, thread);
@@ -187,8 +194,8 @@ pub fn search<Node: NodeType>(
             parent.pv.extend(child.pv.iter().copied());
         }
 
-        if score > max {
-            max = score;
+        if score > best_score {
+            best_score = score;
             if score > alpha {
                 alpha = score;
                 best_move = Some(mv);
@@ -212,13 +219,13 @@ pub fn search<Node: NodeType>(
         depth as u8,
         ply,
         static_eval,
-        max,
+        best_score,
         best_move,
         flag,
         true,
     );
 
-    max
+    best_score
 }
 
 pub fn qsearch<Node: NodeType>(

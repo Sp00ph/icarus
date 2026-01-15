@@ -43,6 +43,14 @@ impl MovePicker {
         }
     }
 
+    pub fn skip_quiets(&mut self) {
+        self.skip_quiets = true;
+        if [Stage::GenQuiet, Stage::YieldQuiet].contains(&self.stage) {
+            self.index = 0;
+            self.stage = Stage::YieldBadNoisy;
+        }
+    }
+
     pub fn next(&mut self, pos: &Position, thread: &ThreadCtx) -> Option<Move> {
         let board = pos.board();
 

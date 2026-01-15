@@ -25,6 +25,14 @@ impl Score {
         (Self::MAX_MATE.0..=Self::MIN_MATE.0).contains(&self.0.abs())
     }
 
+    pub fn is_win(self) -> bool {
+        self >= Self::MAX_MATE
+    }
+
+    pub fn is_loss(self) -> bool {
+        self <= -Self::MAX_MATE
+    }
+
     pub fn is_infinite(self) -> bool {
         self.0.abs() >= Self::INFINITE.0
     }
