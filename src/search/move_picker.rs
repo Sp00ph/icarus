@@ -1,7 +1,7 @@
 use arrayvec::ArrayVec;
-use icarus_board::{board::Board, r#move::Move, movegen::Abort};
+use icarus_board::{r#move::Move, movegen::Abort};
 
-use crate::search::searcher::ThreadCtx;
+use crate::{position::Position, search::searcher::ThreadCtx};
 
 #[derive(Clone, Copy, Debug)]
 pub struct ScoredMove(pub Move, pub i16);
@@ -14,31 +14,38 @@ pub type MoveList = ArrayVec<ScoredMove, MAX_MOVES>;
 enum Stage {
     TTMove,
     GenNoisy,
-    YieldNoisy,
+    YieldGoodNoisy,
     GenQuiet,
     YieldQuiet,
+    YieldBadNoisy,
 }
 
 pub struct MovePicker {
     moves: MoveList,
+    bad_noisies: usize,
     index: usize,
     stage: Stage,
     skip_quiets: bool,
     tt_move: Option<Move>,
+    see_threshold: i16,
 }
 
 impl MovePicker {
-    pub fn new(tt_move: Option<Move>, skip_quiets: bool) -> Self {
+    pub fn new(tt_move: Option<Move>, skip_quiets: bool, see_threshold: i16) -> Self {
         Self {
             moves: MoveList::new(),
+            bad_noisies: 0,
             index: 0,
             stage: Stage::TTMove,
             skip_quiets,
             tt_move,
+            see_threshold,
         }
     }
 
-    pub fn next(&mut self, board: &Board, thread: &ThreadCtx) -> Option<Move> {
+    pub fn next(&mut self, pos: &Position, thread: &ThreadCtx) -> Option<Move> {
+        let board = pos.board();
+
         if self.stage == Stage::TTMove {
             self.stage = Stage::GenNoisy;
             if let Some(mv) = self.tt_move
@@ -64,14 +71,55 @@ impl MovePicker {
                 mv.1 = victim - attacker * i16::from(victim != 0);
             }
 
-            self.stage = Stage::YieldNoisy;
+            self.stage = Stage::YieldGoodNoisy;
         }
 
-        'noisy: {
-            if self.stage == Stage::YieldNoisy {
-                if self.index >= self.moves.len() {
-                    self.stage = Stage::GenQuiet;
-                    break 'noisy;
+        while self.stage == Stage::YieldGoodNoisy {
+            if self.index == self.moves.len() {
+                self.stage = Stage::GenQuiet;
+                break;
+            }
+
+            let (i, mv) = self
+                .moves
+                .iter()
+                .copied()
+                .enumerate()
+                .skip(self.index)
+                .max_by_key(|(_, mv)| mv.1)
+                .unwrap();
+            self.moves.swap(self.index, i);
+            self.index += 1;
+
+            if pos.cmp_see(mv.0, self.see_threshold) {
+                return Some(mv.0);
+            }
+
+            self.moves.swap(self.bad_noisies, self.index - 1);
+            self.bad_noisies += 1;
+        }
+
+        if self.stage == Stage::GenQuiet {
+            if !self.skip_quiets {
+                board.gen_quiet_moves(|moves| {
+                    self.moves.extend(
+                        moves
+                            .into_iter()
+                            .filter(|mv| self.tt_move != Some(*mv))
+                            .map(|mv| ScoredMove(mv, thread.history.score_quiet(board, mv))),
+                    );
+                    Abort::No
+                });
+            }
+            self.stage = Stage::YieldQuiet;
+        }
+
+        'quiet: {
+            if self.stage == Stage::YieldQuiet {
+                if self.index == self.moves.len() {
+                    self.index = 0;
+                    self.stage = Stage::YieldBadNoisy;
+                    break 'quiet;
                 }
 
                 let (i, mv) = self
@@ -88,34 +136,12 @@ impl MovePicker {
             }
         }
 
-        if self.stage == Stage::GenQuiet {
-            self.moves.clear();
-            self.index = 0;
-            if !self.skip_quiets {
-                board.gen_quiet_moves(|moves| {
-                    self.moves.extend(
-                        moves
-                            .into_iter()
-                            .filter(|mv| self.tt_move != Some(*mv))
-                            .map(|mv| ScoredMove(mv, thread.history.score_quiet(board, mv))),
-                    );
-                    Abort::No
-                });
-            }
-            self.stage = Stage::YieldQuiet;
+        assert_eq!(self.stage, Stage::YieldBadNoisy);
+        if self.index >= self.bad_noisies {
+            return None;
         }
-
-        assert_eq!(self.stage, Stage::YieldQuiet);
-
-        let (i, mv) = self
-            .moves
-            .iter()
-            .copied()
-            .enumerate()
-            .skip(self.index)
-            .max_by_key(|(_, mv)| mv.1)?;
-        self.moves.swap(self.index, i);
+        let mv = self.moves[self.index].0;
         self.index += 1;
-        Some(mv.0)
+        Some(mv)
     }
 }

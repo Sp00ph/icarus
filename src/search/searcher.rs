@@ -254,6 +254,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
         if depth > 1 && thread.abort_now {
             break;
         }
+        overall_best_score = new_score;
 
         thread.root_pv = thread.search_stack[0].pv.clone();
         if depth >= MAX_PLY
@@ -268,7 +269,6 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
         if print && thread.id == 0 {
             print_info(new_score, depth, thread);
         }
-        overall_best_score = new_score;
 
         depth += 1;
     }

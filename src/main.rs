@@ -8,6 +8,7 @@ pub mod score;
 pub mod search;
 pub mod uci;
 pub mod util;
+pub mod weights;
 
 fn main() -> Result<(), rootcause::Report> {
     Engine::new().run()

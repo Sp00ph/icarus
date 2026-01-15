@@ -1,7 +1,15 @@
 use icarus_board::{
+    attack_generators::{bishop_moves, rook_moves},
     board::{Board, TerminalState},
-    r#move::Move,
+    r#move::{Move, MoveFlag},
 };
+use icarus_common::{
+    lookups::{king_moves, knight_moves, pawn_attacks},
+    piece::{Color, Piece},
+    square::Square,
+};
+
+use crate::weights::see_val;
 
 #[derive(Clone)]
 pub struct Position {
@@ -64,5 +72,91 @@ impl Position {
 
     pub fn is_draw(&self) -> bool {
         self.board.terminal_state() == Some(TerminalState::Draw) || self.repetition()
+    }
+
+    pub fn cmp_see(&self, mv: Move, threshold: i16) -> bool {
+        // Heavily inspired by <https://github.com/AndyGrant/Ethereal/blob/0e47e9b67f345c75eb965d9fb3e2493b6a11d09a/src/search.c>
+
+        let board = &self.board;
+        let (from, to, flag) = (mv.from(), mv.to(), mv.flag());
+
+        if flag == MoveFlag::Castle {
+            return threshold <= 0;
+        }
+
+        let next_victim = mv
+            .promotes_to()
+            .or_else(|| board.piece_on(mv.from()))
+            .unwrap();
+
+        let mut balance = -threshold
+            + mv.captures(board).map_or(0, see_val)
+            + mv.promotes_to()
+                .map_or(0, |promo| see_val(promo) - see_val(Piece::Pawn));
+        if balance < 0 {
+            return false;
+        }
+
+        balance -= see_val(next_victim);
+
+        if balance >= 0 {
+            return true;
+        }
+
+        let orth = board.pieces(Piece::Rook) | board.pieces(Piece::Queen);
+        let diag = board.pieces(Piece::Bishop) | board.pieces(Piece::Queen);
+
+        let mut occupied = board.occupied() ^ from | to;
+        if flag == MoveFlag::EnPassant {
+            occupied ^= Square::new(to.file(), from.rank());
+        }
+
+        #[rustfmt::skip]
+        let mut attackers = (
+            (pawn_attacks(to, Color::White) & board.occupied_by(Color::Black) & board.pieces(Piece::Pawn))
+            | (pawn_attacks(to, Color::Black) & board.occupied_by(Color::White) & board.pieces(Piece::Pawn))
+            | (knight_moves(to) & board.pieces(Piece::Knight))
+            | (bishop_moves(to, occupied) & diag)
+            | (rook_moves(to, occupied) & orth)
+            | (king_moves(to) & board.pieces(Piece::King))
+        ) & occupied;
+
+        let mut stm = !board.stm();
+
+        loop {
+            let my_attackers = attackers & board.occupied_by(stm);
+            if my_attackers.is_empty() {
+                break;
+            }
+
+            let next_victim = Piece::all()
+                .find(|&p| (my_attackers & board.pieces(p)).is_non_empty())
+                .unwrap();
+
+            occupied ^= (board.pieces(next_victim) & my_attackers).next();
+
+            if [Piece::Pawn, Piece::Bishop, Piece::Queen].contains(&next_victim) {
+                attackers |= bishop_moves(to, occupied) & diag;
+            }
+
+            if [Piece::Rook, Piece::Queen].contains(&next_victim) {
+                attackers |= rook_moves(to, occupied) & orth;
+            }
+
+            attackers &= occupied;
+            stm = !stm;
+
+            balance = -balance - 1 - see_val(next_victim);
+
+            if balance >= 0 {
+                if next_victim == Piece::King && (attackers & board.occupied_by(stm)).is_non_empty()
+                {
+                    stm = !stm;
+                }
+                break;
+            }
+        }
+
+        board.stm() != stm
     }
 }

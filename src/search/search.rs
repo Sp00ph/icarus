@@ -132,7 +132,7 @@ pub fn search<Node: NodeType>(
         }
     }
 
-    let mut move_picker = MovePicker::new(tt_move, false);
+    let mut move_picker = MovePicker::new(tt_move, false, 0);
     let mut max = -Score::INFINITE;
     let mut moves_seen = 0;
     let mut best_move = None;
@@ -141,7 +141,7 @@ pub fn search<Node: NodeType>(
     // For quiet hist
     let mut quiets = SmallVec::<[Move; 64]>::new();
 
-    while let Some(mv) = move_picker.next(pos.board(), thread) {
+    while let Some(mv) = move_picker.next(pos, thread) {
         pos.make_move(mv);
 
         let mut score;
@@ -254,9 +254,9 @@ pub fn qsearch<Node: NodeType>(
 
     let mut max = -Score::INFINITE;
     let mut moves_seen = 0;
-    let mut move_picker = MovePicker::new(None, !in_check);
+    let mut move_picker = MovePicker::new(None, !in_check, 0);
 
-    while let Some(mv) = move_picker.next(pos.board(), thread) {
+    while let Some(mv) = move_picker.next(pos, thread) {
         pos.make_move(mv);
         let score = -qsearch::<Node::Next>(pos, ply + 1, -beta, -alpha, thread);
         pos.unmake_move();
