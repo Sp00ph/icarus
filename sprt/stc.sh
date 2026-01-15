@@ -6,4 +6,4 @@ fastchess                                                       \
     -rounds 50000                                               \
     -concurrency 12                                             \
     -openings order=random file=books/UHO_Lichess_4852_v1.epd   \
-    -sprt elo0=0 elo1=10 alpha=0.05 beta=0.05
+    -sprt elo0=0 elo1=5 alpha=0.05 beta=0.05
