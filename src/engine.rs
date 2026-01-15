@@ -89,7 +89,7 @@ impl Engine {
     fn handle_cmd(&mut self, command: UciCommand) -> Abort {
         match command {
             UciCommand::Uci => self.uci(),
-            UciCommand::NewGame => self.newgame(),
+            UciCommand::NewGame => self.searcher.newgame(),
             UciCommand::IsReady => self.isready(),
             UciCommand::SetOption { name, value } => self.setoption(name, value),
             UciCommand::Position { board, moves } => self.position(board, moves),
@@ -125,10 +125,6 @@ impl Engine {
             DEFAULT_TT_SIZE, MAX_TT_SIZE
         );
         println!("uciok");
-    }
-
-    fn newgame(&mut self) {
-        self.position = Position::new(Board::start_pos());
     }
 
     fn isready(&self) {
