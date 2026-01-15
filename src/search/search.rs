@@ -134,7 +134,7 @@ pub fn search<Node: NodeType>(
         }
     }
 
-    let mut move_picker = MovePicker::new(tt_move, false, 0);
+    let mut move_picker = MovePicker::new(tt_move, false, 0, false);
     let mut best_score = -Score::INFINITE;
     let mut moves_seen = 0;
     let mut best_move = None;
@@ -312,7 +312,7 @@ pub fn qsearch<Node: NodeType>(
 
     let mut max = -Score::INFINITE;
     let mut moves_seen = 0;
-    let mut move_picker = MovePicker::new(None, !in_check, 0);
+    let mut move_picker = MovePicker::new(None, !in_check, 0, true);
 
     while let Some(mv) = move_picker.next(pos, thread) {
         pos.make_move(mv);
