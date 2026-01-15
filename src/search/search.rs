@@ -241,7 +241,9 @@ pub fn qsearch<Node: NodeType>(
     }
 
     thread.sel_depth = thread.sel_depth.max(ply);
-    thread.search_stack[ply as usize].pv.clear();
+    if Node::PV {
+        thread.search_stack[ply as usize].pv.clear();
+    }
 
     if let Some(terminal) = pos.board().terminal_state() {
         return match terminal {
@@ -275,6 +277,21 @@ pub fn qsearch<Node: NodeType>(
         }
     }
 
+    let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
+
+    // TT cutoffs
+    if !Node::PV
+        && let Some(e) = tt_entry
+    {
+        let score = e.score;
+        match e.flags.tt_flag() {
+            TTFlag::Exact => return score,
+            TTFlag::Lower if score >= beta => return score,
+            TTFlag::Upper if score <= alpha => return score,
+            _ => {}
+        }
+    }
+
     let mut max = -Score::INFINITE;
     let mut moves_seen = 0;
     let mut move_picker = MovePicker::new(None, !in_check, 0);
@@ -289,7 +306,7 @@ pub fn qsearch<Node: NodeType>(
             return Score::ZERO;
         }
 
-        if moves_seen == 1 || score > alpha {
+        if Node::PV && (moves_seen == 1 || score > alpha) {
             let [parent, child] = thread
                 .search_stack
                 .get_disjoint_mut([ply as usize, ply as usize + 1])
