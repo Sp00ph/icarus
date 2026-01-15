@@ -148,7 +148,7 @@ pub fn search<Node: NodeType>(
 
     while let Some(mv) = move_picker.next(pos, thread) {
         let is_tactic = pos.board().is_tactic(mv);
-        let mut lmr = get_lmr(is_tactic, depth as u8, moves_seen);
+        let lmr = get_lmr(is_tactic, depth as u8, moves_seen);
         let mut score;
 
         if !Node::ROOT && !best_score.is_loss() && !move_picker.no_more_quiets() {
@@ -188,9 +188,6 @@ pub fn search<Node: NodeType>(
         if moves_seen == 0 {
             score = -search::<Node::Next>(pos, new_depth, ply + 1, -beta, -alpha, thread);
         } else {
-            if depth < 2 {
-                lmr = 0;
-            }
             let lmr_depth = (new_depth - lmr).max(1).min(new_depth);
 
             score = -search::<NonPV>(pos, lmr_depth, ply + 1, -alpha - 1, -alpha, thread);

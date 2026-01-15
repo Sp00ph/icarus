@@ -36,6 +36,6 @@ static LOG: [f32; MAX_PLY as usize] = [
 
 pub fn get_lmr(is_tactic: bool, depth: u8, moves_seen: u8) -> i16 {
     let base = 0.5;
-    let div = 1.0 / 1.5;
-    !is_tactic as i16 * (base + LOG[depth as usize] * LOG[moves_seen as usize] * div) as i16
+    let div = if is_tactic { 1.0 / 3.5 } else { 1.0 / 1.5 };
+    (base + LOG[depth as usize] * LOG[moves_seen as usize] * div) as i16
 }
