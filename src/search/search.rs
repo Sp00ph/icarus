@@ -148,11 +148,29 @@ pub fn search<Node: NodeType>(
         let mut lmr = get_lmr(is_tactic, depth as u8, moves_seen);
         let mut score;
 
-        if !Node::ROOT && !best_score.is_loss() {
-            let lmp_margin = 4096 + 1024 * (depth as u32).pow(2);
+        'lmp_fp: {
+            if !Node::ROOT && !best_score.is_loss() {
+                // LMP
+                let lmp_margin = 4096 + 1024 * (depth as u32).pow(2);
 
-            if moves_seen as u32 * 1024 >= lmp_margin {
-                move_picker.skip_quiets();
+                if moves_seen as u32 * 1024 >= lmp_margin {
+                    move_picker.skip_quiets();
+                    break 'lmp_fp;
+                }
+
+                // FP
+                let fp_depth = 8;
+                let fp_base = 100;
+                let fp_scale = 80;
+
+                let fp_margin = fp_base + fp_scale * depth;
+                if !Node::PV
+                    && depth <= fp_depth
+                    && !in_check
+                    && static_eval + fp_margin <= alpha
+                {
+                    move_picker.skip_quiets();
+                }
             }
         }
 
