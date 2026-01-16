@@ -7,14 +7,17 @@ const MAX_HIST_VALUE: i32 = 16384;
 
 const PAWN_CORR_SIZE: usize = 16384;
 const MINOR_CORR_SIZE: usize = 16384;
+const MAJOR_CORR_SIZE: usize = 16384;
 
 pub struct History {
     /// [stm][from][from attacked][to][to attacked]
     quiet: [[[[[i16; 2]; 64]; 2]; 64]; 2],
     /// [stm][pawn hash % PAWN_CORR_SIZE]
     pawn_corr: [[i16; PAWN_CORR_SIZE]; 2],
-    /// [stm][pawn hash % PAWN_CORR_SIZE]
+    /// [stm][minor hash % MINOR_CORR_SIZE]
     minor_corr: [[i16; MINOR_CORR_SIZE]; 2],
+    /// [stm][major hash % MAJOR_CORR_SIZE]
+    major_corr: [[i16; MAJOR_CORR_SIZE]; 2],
 }
 
 impl Default for History {
@@ -23,6 +26,7 @@ impl Default for History {
             quiet: [[[[[0; 2]; 64]; 2]; 64]; 2],
             pawn_corr: [[0; PAWN_CORR_SIZE]; 2],
             minor_corr: [[0; MINOR_CORR_SIZE]; 2],
+            major_corr: [[0; MAJOR_CORR_SIZE]; 2],
         }
     }
 }
@@ -36,11 +40,16 @@ impl History {
     pub fn corr(&self, board: &Board) -> i16 {
         let pawn_factor = 64;
         let minor_factor = 64;
+        let major_factor = 64;
         let mut corr = 0;
         corr += (self.pawn_corr[board.stm()][board.pawn_hash() as usize % PAWN_CORR_SIZE] as i32)
             * pawn_factor;
-        corr += (self.minor_corr[board.stm()][board.minor_hash() as usize % PAWN_CORR_SIZE] as i32)
+        corr += (self.minor_corr[board.stm()][board.minor_hash() as usize % MINOR_CORR_SIZE]
+            as i32)
             * minor_factor;
+        corr += (self.major_corr[board.stm()][board.major_hash() as usize % MAJOR_CORR_SIZE]
+            as i32)
+            * major_factor;
 
         (corr / MAX_CORR_VALUE) as i16
     }
@@ -84,6 +93,10 @@ impl History {
         );
         Self::update_corr_val(
             &mut self.minor_corr[board.stm()][board.minor_hash() as usize % MINOR_CORR_SIZE],
+            amount,
+        );
+        Self::update_corr_val(
+            &mut self.major_corr[board.stm()][board.major_hash() as usize % MAJOR_CORR_SIZE],
             amount,
         );
     }
