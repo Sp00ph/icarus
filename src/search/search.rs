@@ -116,7 +116,7 @@ pub fn search<Node: NodeType>(
         let nmp_depth = 3;
         if depth >= nmp_depth && static_eval >= beta && pos.prev_move(1).is_some() {
             pos.make_null_move();
-            let nmp_reduction = 3;
+            let nmp_reduction = nmp_depth + depth / 3;
             let score = -search::<NonPV>(
                 pos,
                 depth - nmp_reduction,
