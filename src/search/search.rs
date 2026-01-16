@@ -166,7 +166,9 @@ pub fn search<Node: NodeType>(
                 let fp_base = 100;
                 let fp_scale = 80;
 
-                let fp_margin = fp_base + fp_scale * depth;
+                let lmr_depth = (depth - lmr).max(0);
+
+                let fp_margin = fp_base + fp_scale * lmr_depth;
                 if !Node::PV && depth <= fp_depth && !in_check && static_eval + fp_margin <= alpha {
                     move_picker.skip_quiets();
                 }
