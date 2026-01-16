@@ -80,8 +80,6 @@ pub fn search<Node: NodeType>(
         thread.nodes.inc();
     }
 
-    let static_eval = eval(pos.board());
-
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
     let tt_move = tt_entry.and_then(|e| e.mv);
 
@@ -99,6 +97,11 @@ pub fn search<Node: NodeType>(
         }
     }
 
+    let raw_eval = tt_entry
+        .map(|e| e.eval)
+        .unwrap_or_else(|| eval(pos.board()));
+    let static_eval =
+        Score::clamp_nomate(raw_eval.0.saturating_add(thread.history.corr(pos.board())));
     let in_check = pos.board().checkers().is_non_empty();
 
     if !Node::PV && !in_check {
@@ -232,12 +235,25 @@ pub fn search<Node: NodeType>(
         pos.board().hash(),
         depth as u8,
         ply,
-        static_eval,
+        raw_eval,
         best_score,
         best_move,
         flag,
         true,
     );
+
+    if !in_check
+        && best_move.is_none_or(|mv| pos.board().is_quiet(mv))
+        && match flag {
+            TTFlag::Lower => best_score > static_eval,
+            TTFlag::Upper => best_score < static_eval,
+            _ => true,
+        }
+    {
+        thread
+            .history
+            .update_corr(pos.board(), depth, best_score, static_eval);
+    }
 
     best_score
 }
