@@ -6,12 +6,15 @@ const MAX_CORR_VALUE: i32 = 1024;
 const MAX_HIST_VALUE: i32 = 16384;
 
 const PAWN_CORR_SIZE: usize = 16384;
+const MINOR_CORR_SIZE: usize = 16384;
 
 pub struct History {
     /// [stm][from][from attacked][to][to attacked]
     quiet: [[[[[i16; 2]; 64]; 2]; 64]; 2],
     /// [stm][pawn hash % PAWN_CORR_SIZE]
     pawn_corr: [[i16; PAWN_CORR_SIZE]; 2],
+    /// [stm][pawn hash % PAWN_CORR_SIZE]
+    minor_corr: [[i16; MINOR_CORR_SIZE]; 2],
 }
 
 impl Default for History {
@@ -19,6 +22,7 @@ impl Default for History {
         Self {
             quiet: [[[[[0; 2]; 64]; 2]; 64]; 2],
             pawn_corr: [[0; PAWN_CORR_SIZE]; 2],
+            minor_corr: [[0; MINOR_CORR_SIZE]; 2],
         }
     }
 }
@@ -31,9 +35,14 @@ impl History {
 
     pub fn corr(&self, board: &Board) -> i16 {
         let pawn_factor = 64;
-        ((self.pawn_corr[board.stm()][board.pawn_hash() as usize % PAWN_CORR_SIZE] as i32)
-            * pawn_factor
-            / MAX_CORR_VALUE) as i16
+        let minor_factor = 64;
+        let mut corr = 0;
+        corr += (self.pawn_corr[board.stm()][board.pawn_hash() as usize % PAWN_CORR_SIZE] as i32)
+            * pawn_factor;
+        corr += (self.minor_corr[board.stm()][board.minor_hash() as usize % PAWN_CORR_SIZE] as i32)
+            * minor_factor;
+
+        (corr / MAX_CORR_VALUE) as i16
     }
 
     fn quiet_mut(&mut self, board: &Board, mv: Move) -> &mut i16 {
@@ -71,6 +80,10 @@ impl History {
 
         Self::update_corr_val(
             &mut self.pawn_corr[board.stm()][board.pawn_hash() as usize % PAWN_CORR_SIZE],
+            amount,
+        );
+        Self::update_corr_val(
+            &mut self.minor_corr[board.stm()][board.minor_hash() as usize % MINOR_CORR_SIZE],
             amount,
         );
     }
