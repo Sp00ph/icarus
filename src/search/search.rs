@@ -294,20 +294,22 @@ pub fn qsearch<Node: NodeType>(
     thread.nodes.inc();
 
     let in_check = pos.board().checkers().is_non_empty();
+    let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
 
     if !in_check {
-        let eval = eval(pos.board());
+        let raw_eval = tt_entry
+            .map(|e| e.eval)
+            .unwrap_or_else(|| eval(pos.board()));
+        let static_eval = raw_eval + thread.history.corr(pos.board());
 
-        if eval >= beta {
-            return eval;
+        if static_eval >= beta {
+            return static_eval;
         }
 
-        if eval >= alpha {
-            alpha = eval;
+        if static_eval >= alpha {
+            alpha = static_eval;
         }
     }
-
-    let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
 
     // TT cutoffs
     if !Node::PV
