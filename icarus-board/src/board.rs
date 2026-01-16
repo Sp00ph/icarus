@@ -48,8 +48,10 @@ pub struct Board {
     pub(crate) stm: Color,
     /// Zobrist hash of the current board position.
     pub(crate) hash: u64,
-    /// Zobrist hash of only the pawns
+    /// Zobrist hash of only the pawns.
     pub(crate) pawn_hash: u64,
+    /// Zobrist hash of knights, bishops, and kings.
+    pub(crate) minor_hash: u64,
 }
 
 impl Board {
@@ -144,6 +146,11 @@ impl Board {
     }
 
     #[inline]
+    pub fn minor_hash(&self) -> u64 {
+        self.minor_hash
+    }
+
+    #[inline]
     pub fn castling_rights(&self) -> EnumMap<Color, CastlingRights> {
         self.castling_rights
     }
@@ -218,8 +225,10 @@ impl Board {
 
         let key = ZOBRIST.piece(sq, piece, color);
         self.hash ^= key;
-        if piece == Piece::Pawn {
-            self.pawn_hash ^= key;
+        match piece {
+            Piece::Pawn => self.pawn_hash ^= key,
+            Piece::Knight | Piece::Bishop | Piece::King => self.minor_hash ^= key,
+            _ => {}
         }
     }
 
@@ -275,6 +284,7 @@ impl Board {
             stm: Color::White,
             hash: 0,
             pawn_hash: 0,
+            minor_hash: 0,
         };
 
         let mut rank = 8u8;
