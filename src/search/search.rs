@@ -111,7 +111,7 @@ pub fn search<Node: NodeType>(
 
         // NMP
         let nmp_depth = 3;
-        if depth >= nmp_depth && pos.prev_move(1).is_some() {
+        if depth >= nmp_depth && static_eval >= beta && pos.prev_move(1).is_some() {
             pos.make_null_move();
             let nmp_reduction = 3;
             let score = -search::<NonPV>(
@@ -164,11 +164,7 @@ pub fn search<Node: NodeType>(
                 let fp_scale = 80;
 
                 let fp_margin = fp_base + fp_scale * depth;
-                if !Node::PV
-                    && depth <= fp_depth
-                    && !in_check
-                    && static_eval + fp_margin <= alpha
-                {
+                if !Node::PV && depth <= fp_depth && !in_check && static_eval + fp_margin <= alpha {
                     move_picker.skip_quiets();
                 }
             }
