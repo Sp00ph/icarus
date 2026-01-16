@@ -152,7 +152,7 @@ pub fn search<Node: NodeType>(
         let mut score;
 
         'lmp_fp: {
-            if !Node::ROOT && !best_score.is_loss() {
+            if !Node::ROOT && !best_score.is_loss() && !move_picker.no_more_quiets() {
                 // LMP
                 let lmp_margin = 4096 + 1024 * (depth as u32).pow(2);
 
