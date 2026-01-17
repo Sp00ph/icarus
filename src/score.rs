@@ -52,6 +52,10 @@ impl Score {
         Score(score).clamp(-Score::MAX_MATE + 1, Score::MAX_MATE - 1)
     }
 
+    pub fn saturating_add(self, rhs: i16) -> Self {
+        Score(self.0.saturating_add(rhs)).clamp(-Score::INFINITE, Score::INFINITE)
+    }
+
     /// Corresponds to "Mate in 0"
     pub const MIN_MATE: Self = Self(i16::MAX - MAX_PLY as i16);
     /// Corresponds to Mate in MAX_PLY.
