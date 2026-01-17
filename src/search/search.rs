@@ -151,14 +151,14 @@ pub fn search<Node: NodeType>(
         let mut lmr = get_lmr(is_tactic, depth as u8, moves_seen);
         let mut score;
 
-        'lmp_fp: {
-            if !Node::ROOT && !best_score.is_loss() && !move_picker.no_more_quiets() {
+        if !Node::ROOT && !best_score.is_loss() && !move_picker.no_more_quiets() {
+            // Quiets only for now
+            if !is_tactic {
                 // LMP
                 let lmp_margin = 4096 + 1024 * (depth as u32).pow(2);
 
                 if moves_seen as u32 * 1024 >= lmp_margin {
                     move_picker.skip_quiets();
-                    break 'lmp_fp;
                 }
 
                 // FP
@@ -169,6 +169,14 @@ pub fn search<Node: NodeType>(
                 let fp_margin = fp_base + fp_scale * depth;
                 if !Node::PV && depth <= fp_depth && !in_check && static_eval + fp_margin <= alpha {
                     move_picker.skip_quiets();
+                }
+
+                // Quiet SEE Pruning
+                let quiet_base = 0;
+                let quiet_scale = -100;
+                let see_margin = quiet_base + quiet_scale * depth;
+                if !Node::PV && depth <= 10 && !pos.cmp_see(mv, see_margin) {
+                    continue;
                 }
             }
         }
