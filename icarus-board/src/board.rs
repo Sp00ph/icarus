@@ -54,6 +54,8 @@ pub struct Board {
     pub(crate) minor_hash: u64,
     /// Zobrist hash of rooks and queens.
     pub(crate) major_hash: u64,
+    /// Zobrist hash of all non-pawns of one color.
+    pub(crate) nonpawn_hash: EnumMap<Color, u64>,
 }
 
 impl Board {
@@ -158,6 +160,11 @@ impl Board {
     }
 
     #[inline]
+    pub fn nonpawn_hash(&self, color: Color) -> u64 {
+        self.nonpawn_hash[color]
+    }
+
+    #[inline]
     pub fn castling_rights(&self) -> EnumMap<Color, CastlingRights> {
         self.castling_rights
     }
@@ -237,6 +244,10 @@ impl Board {
             Piece::Knight | Piece::Bishop | Piece::King => self.minor_hash ^= key,
             Piece::Rook | Piece::Queen => self.major_hash ^= key,
         }
+
+        if piece != Piece::Pawn {
+            self.nonpawn_hash[color] ^= key;
+        }
     }
 
     #[inline]
@@ -293,6 +304,7 @@ impl Board {
             pawn_hash: 0,
             minor_hash: 0,
             major_hash: 0,
+            nonpawn_hash: Default::default(),
         };
 
         let mut rank = 8u8;

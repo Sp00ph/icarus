@@ -1,4 +1,5 @@
 use icarus_board::{board::Board, r#move::Move};
+use icarus_common::piece::Color;
 
 use crate::score::Score;
 
@@ -8,6 +9,7 @@ const MAX_HIST_VALUE: i32 = 16384;
 const PAWN_CORR_SIZE: usize = 16384;
 const MINOR_CORR_SIZE: usize = 16384;
 const MAJOR_CORR_SIZE: usize = 16384;
+const NONPAWN_CORR_SIZE: usize = 16384;
 
 pub struct History {
     /// [stm][from][from attacked][to][to attacked]
@@ -18,6 +20,9 @@ pub struct History {
     minor_corr: [[i16; MINOR_CORR_SIZE]; 2],
     /// [stm][major hash % MAJOR_CORR_SIZE]
     major_corr: [[i16; MAJOR_CORR_SIZE]; 2],
+    /// [stm][nonpawn hash % NONPAWN_CORR_SIZE]
+    white_nonpawn_corr: [[i16; NONPAWN_CORR_SIZE]; 2],
+    black_nonpawn_corr: [[i16; NONPAWN_CORR_SIZE]; 2],
 }
 
 impl Default for History {
@@ -27,6 +32,8 @@ impl Default for History {
             pawn_corr: [[0; PAWN_CORR_SIZE]; 2],
             minor_corr: [[0; MINOR_CORR_SIZE]; 2],
             major_corr: [[0; MAJOR_CORR_SIZE]; 2],
+            white_nonpawn_corr: [[0; NONPAWN_CORR_SIZE]; 2],
+            black_nonpawn_corr: [[0; NONPAWN_CORR_SIZE]; 2],
         }
     }
 }
@@ -41,6 +48,9 @@ impl History {
         let pawn_factor = 64;
         let minor_factor = 64;
         let major_factor = 64;
+        let white_factor = 64;
+        let black_factor = 64;
+
         let mut corr = 0;
         corr += (self.pawn_corr[board.stm()][board.pawn_hash() as usize % PAWN_CORR_SIZE] as i32)
             * pawn_factor;
@@ -50,6 +60,12 @@ impl History {
         corr += (self.major_corr[board.stm()][board.major_hash() as usize % MAJOR_CORR_SIZE]
             as i32)
             * major_factor;
+        corr += (self.white_nonpawn_corr[board.stm()]
+            [board.nonpawn_hash(Color::White) as usize % MAJOR_CORR_SIZE] as i32)
+            * white_factor;
+        corr += (self.black_nonpawn_corr[board.stm()]
+            [board.nonpawn_hash(Color::Black) as usize % MAJOR_CORR_SIZE] as i32)
+            * black_factor;
 
         (corr / MAX_CORR_VALUE) as i16
     }
@@ -97,6 +113,16 @@ impl History {
         );
         Self::update_corr_val(
             &mut self.major_corr[board.stm()][board.major_hash() as usize % MAJOR_CORR_SIZE],
+            amount,
+        );
+        Self::update_corr_val(
+            &mut self.white_nonpawn_corr[board.stm()]
+                [board.nonpawn_hash(Color::White) as usize % MAJOR_CORR_SIZE],
+            amount,
+        );
+        Self::update_corr_val(
+            &mut self.black_nonpawn_corr[board.stm()]
+                [board.nonpawn_hash(Color::Black) as usize % MAJOR_CORR_SIZE],
             amount,
         );
     }
