@@ -240,22 +240,40 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
     let mut depth = 1;
     let mut overall_best_score = -Score::INFINITE;
 
-    loop {
+    'id: loop {
         thread.sel_depth = 0;
-        let new_score = search::<Root>(
-            &mut pos,
-            depth as i16,
-            0,
-            -Score::INFINITE,
-            Score::INFINITE,
-            thread,
-        );
-        thread.nodes.flush();
 
-        if depth > 1 && thread.abort_now {
-            break;
+        let asp_initial_window = 25;
+        let asp_widen_factor = 64;
+        let asp_min_depth = 5;
+        let mut delta = asp_initial_window;
+        let mut alpha = overall_best_score.saturating_add(-delta);
+        let mut beta = overall_best_score.saturating_add(delta);
+
+        if depth < asp_min_depth {
+            (alpha, beta) = (-Score::INFINITE, Score::INFINITE);
         }
-        overall_best_score = new_score;
+
+        'asp_window: loop {
+            let new_score = search::<Root>(&mut pos, depth as i16, 0, alpha, beta, thread);
+            thread.nodes.flush();
+
+            if depth > 1 && thread.abort_now {
+                break 'id;
+            }
+
+            if new_score <= alpha {
+                beta = Score(alpha.0.midpoint(beta.0));
+                alpha = new_score.saturating_add(-delta);
+            } else if new_score >= beta {
+                beta = new_score.saturating_add(delta);
+            } else {
+                overall_best_score = new_score;
+                break 'asp_window;
+            }
+
+            delta = delta.saturating_add(((delta as i32) * asp_widen_factor / 64) as i16);
+        }
 
         thread.root_pv = thread.search_stack[0].pv.clone();
         if depth >= MAX_PLY
@@ -264,11 +282,11 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
                 .time_manager
                 .stop_id(depth, thread.nodes.global())
         {
-            break;
+            break 'id;
         }
 
         if print && thread.id == 0 {
-            print_info(new_score, depth, thread);
+            print_info(overall_best_score, depth, thread);
         }
 
         depth += 1;
