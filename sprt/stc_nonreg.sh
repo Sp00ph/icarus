@@ -6,4 +6,6 @@ fastchess                                                       \
     -rounds 50000                                               \
     -concurrency 12                                             \
     -openings order=random file=books/UHO_Lichess_4852_v1.epd   \
-    -sprt elo0=-5 elo1=0 alpha=0.05 beta=0.05
+    -sprt elo0=-5 elo1=0 alpha=0.05 beta=0.05                   \
+    -draw movenumber=40 movecount=8 score=10                    \
+    -resign movecount=3 score=400
