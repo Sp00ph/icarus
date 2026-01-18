@@ -348,7 +348,7 @@ pub fn qsearch<Node: NodeType>(
     let mut move_picker = MovePicker::new(None, !in_check, 0, true);
 
     while let Some(mv) = move_picker.next(pos, thread) {
-        if !best_score.is_loss() && moves_seen > 2 {
+        if !best_score.is_loss() && !in_check && moves_seen > 2 {
             break;
         }
 
