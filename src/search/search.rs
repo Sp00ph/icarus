@@ -241,7 +241,9 @@ pub fn search<Node: NodeType>(
 
         if score >= beta {
             flag = TTFlag::Lower;
-            thread.history.update(pos.board(), mv, &quiets, depth);
+            thread
+                .history
+                .update(pos.board(), mv, pos.prev_move(1), &quiets, depth);
             break;
         }
 

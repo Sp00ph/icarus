@@ -52,7 +52,8 @@ pub struct ThreadCtx {
     pub search_stack: Box<[SearchStackEntry; MAX_PLY as usize + 1]>,
     pub root_pv: PrincipalVariation,
 
-    pub history: History,
+    // boxed because of stack size concerns
+    pub history: Box<History>,
 }
 
 #[derive(Clone, Default, Debug)]
@@ -206,7 +207,7 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
             .try_into()
             .unwrap(),
         root_pv: Default::default(),
-        history: Default::default(),
+        history: History::new(),
     };
 
     loop {
@@ -228,7 +229,7 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
                 thread_ctx.global = global;
             }
             ThreadCmd::NewGame => {
-                thread_ctx.history = History::default();
+                thread_ctx.history.clear();
             }
             ThreadCmd::Quit => return,
         }
