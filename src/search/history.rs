@@ -1,5 +1,5 @@
 use icarus_board::{board::Board, r#move::Move};
-use icarus_common::piece::Color;
+use icarus_common::piece::{Color, Piece};
 
 use crate::score::Score;
 
@@ -14,6 +14,9 @@ const NONPAWN_CORR_SIZE: usize = 16384;
 pub struct History {
     /// [stm][from][from attacked][to][to attacked]
     quiet: [[[[[i16; 2]; 64]; 2]; 64]; 2],
+    /// [stm][prev piece][prev dst][piece][dst]
+    cont_oneply: [[[[[i16; 64]; 6]; 64]; 6]; 2],
+
     /// [stm][pawn hash % PAWN_CORR_SIZE]
     pawn_corr: [[i16; PAWN_CORR_SIZE]; 2],
     /// [stm][minor hash % MINOR_CORR_SIZE]
@@ -25,23 +28,22 @@ pub struct History {
     black_nonpawn_corr: [[i16; NONPAWN_CORR_SIZE]; 2],
 }
 
-impl Default for History {
-    fn default() -> Self {
-        Self {
-            quiet: [[[[[0; 2]; 64]; 2]; 64]; 2],
-            pawn_corr: [[0; PAWN_CORR_SIZE]; 2],
-            minor_corr: [[0; MINOR_CORR_SIZE]; 2],
-            major_corr: [[0; MAJOR_CORR_SIZE]; 2],
-            white_nonpawn_corr: [[0; NONPAWN_CORR_SIZE]; 2],
-            black_nonpawn_corr: [[0; NONPAWN_CORR_SIZE]; 2],
-        }
-    }
-}
-
 impl History {
-    pub fn score_quiet(&self, board: &Board, mv: Move) -> i16 {
+    pub fn new() -> Box<Self> {
+        unsafe { Box::new_zeroed().assume_init() }
+    }
+
+    pub fn clear(&mut self) {
+        unsafe { std::ptr::write_bytes(self, 0, 1) }
+    }
+
+    pub fn score_quiet(&self, board: &Board, mv: Move, prev: Option<(Piece, Move)>) -> i16 {
         self.quiet[board.stm()][mv.from()][board.attacked().contains(mv.from()) as usize][mv.to()]
             [board.attacked().contains(mv.to()) as usize]
+            + prev.map_or(0, |prev| {
+                self.cont_oneply[board.stm()][prev.0][prev.1.to()]
+                    [board.piece_on(mv.from()).unwrap()][mv.to()]
+            })
     }
 
     pub fn corr(&self, board: &Board) -> i16 {
@@ -75,7 +77,14 @@ impl History {
             [mv.to()][board.attacked().contains(mv.to()) as usize]
     }
 
-    pub fn update(&mut self, board: &Board, mv: Move, quiets: &[Move], depth: i16) {
+    pub fn update(
+        &mut self,
+        board: &Board,
+        mv: Move,
+        prev: Option<(Piece, Move)>,
+        quiets: &[Move],
+        depth: i16,
+    ) {
         if board.is_tactic(mv) {
             return;
         }
@@ -91,9 +100,23 @@ impl History {
         let malus = (malus_base + (depth as i32) * malus_scale).min(malus_max);
 
         Self::update_value(self.quiet_mut(board, mv), bonus);
+        if let Some(prev) = prev {
+            Self::update_value(
+                &mut self.cont_oneply[board.stm()][prev.0][prev.1.to()]
+                    [board.piece_on(mv.from()).unwrap()][mv.to()],
+                bonus,
+            );
+        }
 
         for &quiet in quiets {
             Self::update_value(self.quiet_mut(board, quiet), -malus);
+            if let Some(prev) = prev {
+                Self::update_value(
+                    &mut self.cont_oneply[board.stm()][prev.0][prev.1.to()]
+                        [board.piece_on(quiet.from()).unwrap()][quiet.to()],
+                    -malus,
+                );
+            }
         }
     }
 

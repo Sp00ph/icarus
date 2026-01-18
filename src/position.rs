@@ -16,7 +16,7 @@ pub struct Position {
     board: Board,
     /// Previously played boards. `history[0]` is the starting position.
     history: Vec<Board>,
-    moves: Vec<Option<Move>>,
+    moves: Vec<Option<(Piece, Move)>>,
 }
 
 impl Position {
@@ -29,9 +29,10 @@ impl Position {
     }
 
     pub fn make_move(&mut self, mv: Move) {
+        let piece = self.board.piece_on(mv.from()).unwrap();
         self.history.push(self.board);
         self.board.make_move(mv);
-        self.moves.push(Some(mv));
+        self.moves.push(Some((piece, mv)));
     }
 
     pub fn make_null_move(&mut self) {
@@ -51,8 +52,11 @@ impl Position {
         self.moves.pop();
     }
 
-    pub fn prev_move(&self, ply: usize) -> Option<Move> {
-        self.moves[self.moves.len() - ply]
+    pub fn prev_move(&self, ply: usize) -> Option<(Piece, Move)> {
+        self.moves
+            .len()
+            .checked_sub(ply)
+            .and_then(|i| self.moves[i])
     }
 
     pub fn board(&self) -> &Board {
