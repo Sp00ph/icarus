@@ -61,6 +61,7 @@ pub struct ThreadCtx {
 #[derive(Clone, Debug)]
 pub struct SearchStackEntry {
     pub pv: PrincipalVariation,
+    pub killer: Option<Move>,
     pub static_eval: Score,
     pub singular: Option<Move>,
 }
@@ -69,6 +70,7 @@ impl Default for SearchStackEntry {
     fn default() -> Self {
         Self {
             pv: Default::default(),
+            killer: None,
             static_eval: -Score::INFINITE,
             singular: None,
         }
@@ -290,6 +292,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
 
     'id: loop {
         thread.sel_depth = 0;
+        thread.search_stack[0].killer = None;
 
         let asp_initial_window = 25;
         let asp_widen_factor = 64;

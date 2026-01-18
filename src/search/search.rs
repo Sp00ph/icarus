@@ -165,7 +165,12 @@ pub fn search<Node: NodeType>(
         }
     }
 
-    let mut move_picker = MovePicker::new(tt_move, false, 0, false);
+    let killer = thread.search_stack[ply as usize]
+        .killer
+        .filter(|&mv| pos.board().is_quiet(mv));
+    thread.search_stack[ply as usize + 1].killer = None;
+
+    let mut move_picker = MovePicker::new(tt_move, killer, false, 0, false);
     let mut best_score = -Score::INFINITE;
     let mut moves_seen = 0;
     let mut best_move = None;
@@ -323,6 +328,9 @@ pub fn search<Node: NodeType>(
         if score >= beta {
             flag = TTFlag::Lower;
             thread.history.update(pos, mv, &quiets, &tactics, depth);
+            if pos.board().is_quiet(mv) {
+                thread.search_stack[ply as usize].killer = Some(mv);
+            }
             break;
         }
 
@@ -433,7 +441,7 @@ pub fn qsearch<Node: NodeType>(
 
     let mut best_score = -Score::INFINITE;
     let mut moves_seen = 0;
-    let mut move_picker = MovePicker::new(None, !in_check, 0, true);
+    let mut move_picker = MovePicker::new(None, None, !in_check, 0, true);
 
     while let Some(mv) = move_picker.next(pos, thread) {
         if !best_score.is_loss() && !in_check && moves_seen > 2 {
