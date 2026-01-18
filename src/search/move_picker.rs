@@ -93,18 +93,8 @@ impl MovePicker {
         let board = pos.board();
 
         if self.stage == Stage::TTMove {
-            self.stage = Stage::KillerMove;
-            if let Some(mv) = self.tt_move
-                && board.is_legal(mv)
-            {
-                return Some(mv);
-            }
-        }
-
-        if self.stage == Stage::KillerMove {
             self.stage = Stage::GenNoisy;
-            if !self.skip_quiets
-                && let Some(mv) = self.killer_move
+            if let Some(mv) = self.tt_move
                 && board.is_legal(mv)
             {
                 return Some(mv);
@@ -135,7 +125,7 @@ impl MovePicker {
 
         while self.stage == Stage::YieldGoodNoisy {
             if self.index == self.moves.len() {
-                self.stage = Stage::GenQuiet;
+                self.stage = Stage::KillerMove;
                 break;
             }
 
@@ -149,6 +139,16 @@ impl MovePicker {
 
             self.moves.swap(self.bad_noisies, self.index - 1);
             self.bad_noisies += 1;
+        }
+
+        if self.stage == Stage::KillerMove {
+            self.stage = Stage::GenQuiet;
+            if !self.skip_quiets
+                && let Some(mv) = self.killer_move
+                && board.is_legal(mv)
+            {
+                return Some(mv);
+            }
         }
 
         if self.stage == Stage::GenQuiet {
