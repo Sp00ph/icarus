@@ -151,9 +151,16 @@ pub fn search<Node: NodeType>(
         let lmr = get_lmr(is_tactic, depth as u8, moves_seen);
         let mut score;
 
-        if !Node::ROOT && !best_score.is_loss() && !move_picker.no_more_quiets() {
-            // Quiets only for now
-            if !is_tactic {
+        if !Node::ROOT && !best_score.is_loss() {
+            if is_tactic {
+                 // Tactic SEE Pruning
+                let tactic_base = 0;
+                let tactic_scale = -60;
+                let see_margin = tactic_base + tactic_scale * depth;
+                if !Node::PV && depth <= 10 &&  !pos.cmp_see(mv, see_margin) {
+                    continue;
+                }
+            } else {
                 // LMP
                 let lmp_margin = 4096 + 1024 * (depth as u32).pow(2);
 
