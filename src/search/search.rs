@@ -343,11 +343,15 @@ pub fn qsearch<Node: NodeType>(
         }
     }
 
-    let mut max = -Score::INFINITE;
+    let mut best_score = -Score::INFINITE;
     let mut moves_seen = 0;
     let mut move_picker = MovePicker::new(None, !in_check, 0, true);
 
     while let Some(mv) = move_picker.next(pos, thread) {
+        if !best_score.is_loss() && moves_seen > 2 {
+            break;
+        }
+
         pos.make_move(mv);
         let score = -qsearch::<Node::Next>(pos, ply + 1, -beta, -alpha, thread);
         pos.unmake_move();
@@ -367,8 +371,8 @@ pub fn qsearch<Node: NodeType>(
             parent.pv.extend(child.pv.iter().copied());
         }
 
-        if score > max {
-            max = score;
+        if score > best_score {
+            best_score = score;
 
             if score > alpha {
                 alpha = score;
@@ -380,5 +384,5 @@ pub fn qsearch<Node: NodeType>(
         }
     }
 
-    max.max(alpha)
+    best_score.max(alpha)
 }
