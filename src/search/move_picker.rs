@@ -14,6 +14,7 @@ pub type MoveList = ArrayVec<ScoredMove, MAX_MOVES>;
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum Stage {
     TTMove,
+    KillerMove,
     GenNoisy,
     YieldGoodNoisy,
     GenQuiet,
@@ -28,11 +29,22 @@ pub struct MovePicker {
     stage: Stage,
     skip_quiets: bool,
     tt_move: Option<Move>,
+    killer_move: Option<Move>,
     see_threshold: i16,
 }
 
 impl MovePicker {
-    pub fn new(tt_move: Option<Move>, skip_quiets: bool, see_threshold: i16) -> Self {
+    pub fn new(
+        tt_move: Option<Move>,
+        killer_move: Option<Move>,
+        skip_quiets: bool,
+        see_threshold: i16,
+    ) -> Self {
+        let killer_move = if killer_move != tt_move {
+            killer_move
+        } else {
+            None
+        };
         Self {
             moves: MoveList::new(),
             bad_noisies: 0,
@@ -40,6 +52,7 @@ impl MovePicker {
             stage: Stage::TTMove,
             skip_quiets,
             tt_move,
+            killer_move,
             see_threshold,
         }
     }
@@ -76,8 +89,18 @@ impl MovePicker {
         let board = pos.board();
 
         if self.stage == Stage::TTMove {
-            self.stage = Stage::GenNoisy;
+            self.stage = Stage::KillerMove;
             if let Some(mv) = self.tt_move
+                && board.is_legal(mv)
+            {
+                return Some(mv);
+            }
+        }
+
+        if self.stage == Stage::KillerMove {
+            self.stage = Stage::GenNoisy;
+            if !self.skip_quiets
+                && let Some(mv) = self.killer_move
                 && board.is_legal(mv)
             {
                 return Some(mv);
@@ -89,6 +112,7 @@ impl MovePicker {
                 self.moves.extend(
                     moves
                         .into_iter()
+                        // don't need to filter out the killer here, as it's quiet.
                         .filter(|mv| self.tt_move != Some(*mv))
                         .map(|mv| ScoredMove(mv, 0)),
                 );
@@ -129,7 +153,7 @@ impl MovePicker {
                     self.moves.extend(
                         moves
                             .into_iter()
-                            .filter(|mv| self.tt_move != Some(*mv))
+                            .filter(|mv| ![self.tt_move, self.killer_move].contains(&Some(*mv)))
                             .map(|mv| {
                                 ScoredMove(
                                     mv,
