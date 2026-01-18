@@ -58,6 +58,7 @@ pub struct ThreadCtx {
 #[derive(Clone, Default, Debug)]
 pub struct SearchStackEntry {
     pub pv: PrincipalVariation,
+    pub killer: Option<Move>,
 }
 
 #[derive(Clone)]
@@ -241,6 +242,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
 
     loop {
         thread.sel_depth = 0;
+        thread.search_stack[0].killer = None;
         let new_score = search::<Root>(
             &mut pos,
             depth as i16,
