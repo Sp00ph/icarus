@@ -7,7 +7,10 @@ use crate::{
     position::Position,
     score::Score,
     search::{
-        lmr::get_lmr, move_picker::MovePicker, searcher::ThreadCtx, transposition_table::TTFlag,
+        lmr::get_lmr,
+        move_picker::{MovePicker, Stage},
+        searcher::ThreadCtx,
+        transposition_table::TTFlag,
     },
     util::MAX_PLY,
 };
@@ -153,11 +156,15 @@ pub fn search<Node: NodeType>(
 
         if !Node::ROOT && !best_score.is_loss() {
             if is_tactic {
-                 // Tactic SEE Pruning
+                // Tactic SEE Pruning
                 let tactic_base = 0;
                 let tactic_scale = -60;
                 let see_margin = tactic_base + tactic_scale * depth;
-                if !Node::PV && depth <= 10 &&  !pos.cmp_see(mv, see_margin) {
+                if !Node::PV
+                    && depth <= 10
+                    && move_picker.stage() > Stage::YieldGoodNoisy
+                    && !pos.cmp_see(mv, see_margin)
+                {
                     continue;
                 }
             } else {

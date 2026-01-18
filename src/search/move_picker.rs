@@ -11,7 +11,7 @@ pub const MAX_MOVES: usize = 218;
 pub type MoveList = ArrayVec<ScoredMove, MAX_MOVES>;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-enum Stage {
+pub enum Stage {
     TTMove,
     GenNoisy,
     YieldGoodNoisy,
@@ -56,6 +56,10 @@ impl MovePicker {
             self.index = 0;
             self.stage = Stage::YieldBadNoisy;
         }
+    }
+
+    pub fn stage(&self) -> Stage {
+        self.stage
     }
 
     pub fn no_more_quiets(&self) -> bool {
