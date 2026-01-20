@@ -107,11 +107,23 @@ pub fn search<Node: NodeType>(
         Score::clamp_nomate(raw_eval.0.saturating_add(thread.history.corr(pos.board())));
     let in_check = pos.board().checkers().is_non_empty();
 
+    thread.search_stack[ply as usize].static_eval = static_eval;
+    let improving = if in_check {
+        false
+    } else if ply >= 2 && thread.search_stack[ply as usize - 2].static_eval != -Score::INFINITE {
+        static_eval > thread.search_stack[ply as usize - 2].static_eval
+    } else if ply >= 4 && thread.search_stack[ply as usize - 4].static_eval != -Score::INFINITE {
+        static_eval > thread.search_stack[ply as usize - 4].static_eval
+    } else {
+        true
+    };
+
     if !Node::PV && !in_check {
         // RFP
         let rfp_depth = 6;
         let rfp_margin = 80;
-        if depth < rfp_depth && static_eval - rfp_margin * depth >= beta {
+        if depth < rfp_depth && static_eval - rfp_margin * (depth - improving as i16).max(0) >= beta
+        {
             return static_eval;
         }
 

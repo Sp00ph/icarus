@@ -56,9 +56,19 @@ pub struct ThreadCtx {
     pub history: Box<History>,
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Debug)]
 pub struct SearchStackEntry {
     pub pv: PrincipalVariation,
+    pub static_eval: Score,
+}
+
+impl Default for SearchStackEntry {
+    fn default() -> Self {
+        Self {
+            pv: Default::default(),
+            static_eval: -Score::INFINITE,
+        }
+    }
 }
 
 #[derive(Clone)]
