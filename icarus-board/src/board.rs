@@ -1,4 +1,4 @@
-use std::{fmt, mem};
+use std::{array, fmt, mem};
 
 use icarus_common::{
     bitboard::Bitboard,
@@ -428,6 +428,93 @@ impl Board {
         board.calc_threats();
 
         Some(board)
+    }
+
+    pub fn frc(n: usize) -> Self {
+        Self::dfrc(n, n)
+    }
+
+    pub fn dfrc(w: usize, b: usize) -> Self {
+        fn place_piece(b: &mut Board, sq: Square, piece: Piece, color: Color, free: &mut Bitboard) {
+            assert!(b.mailbox[sq].is_none());
+            assert!(free.contains(sq));
+            b.mailbox[sq] = Some(piece);
+            b.toggle_square(sq, color, piece);
+            *free ^= sq;
+        }
+
+        fn write_color(b: &mut Board, n: usize, color: Color) {
+            let (n, light_bishop) = (n / 4, n % 4);
+            let (n, dark_bishop) = (n / 4, n % 4);
+            let (knights, queen) = (n / 6, n % 6);
+
+            let rank = Rank::R1.relative_to(color);
+            let mut free = rank.bitboard();
+            let light_bishop =
+                Square::new([File::B, File::D, File::F, File::H][light_bishop], rank);
+            let dark_bishop = Square::new([File::A, File::C, File::E, File::G][dark_bishop], rank);
+            place_piece(b, light_bishop, Piece::Bishop, color, &mut free);
+            place_piece(b, dark_bishop, Piece::Bishop, color, &mut free);
+
+            let queen = free.into_iter().nth(queen).unwrap();
+            place_piece(b, queen, Piece::Queen, color, &mut free);
+
+            #[rustfmt::skip]
+            let (knight1, knight2) = [
+                (0, 1), (0, 2), (0, 3), (0, 4),
+                (1, 2), (1, 3), (1, 4),
+                (2, 3), (2, 4),
+                (3, 4),
+            ][knights];
+
+            let knight1 = free.into_iter().nth(knight1).unwrap();
+            let knight2 = free.into_iter().nth(knight2).unwrap();
+
+            place_piece(b, knight1, Piece::Knight, color, &mut free);
+            place_piece(b, knight2, Piece::Knight, color, &mut free);
+
+            let mut free = free.into_iter();
+            let [rook1, king, rook2] = array::from_fn(|_| free.next().unwrap());
+
+            place_piece(b, rook1, Piece::Rook, color, &mut { Bitboard::ALL });
+            place_piece(b, rook2, Piece::Rook, color, &mut { Bitboard::ALL });
+            place_piece(b, king, Piece::King, color, &mut { Bitboard::ALL });
+
+            b.set_castles(color, CastlingDirection::Long, Some(rook1.file()));
+            b.set_castles(color, CastlingDirection::Short, Some(rook2.file()));
+
+            let pawn_rank = Rank::R2.relative_to(color);
+            for file in File::all() {
+                place_piece(b, Square::new(file, pawn_rank), Piece::Pawn, color, &mut {
+                    Bitboard::ALL
+                });
+            }
+        }
+
+        assert!(w < 960 && b < 960);
+        let mut board = Board {
+            pieces: Default::default(),
+            mailbox: Default::default(),
+            colors: Default::default(),
+            castling_rights: Default::default(),
+            en_passant: None,
+            pinned: Bitboard::EMPTY,
+            checkers: Bitboard::EMPTY,
+            attacked: Bitboard::EMPTY,
+            halfmove_clock: 0,
+            fullmove_count: 1,
+            stm: Color::White,
+            hash: 0,
+            pawn_hash: 0,
+            minor_hash: 0,
+            major_hash: 0,
+            nonpawn_hash: Default::default(),
+        };
+        write_color(&mut board, w, Color::White);
+        write_color(&mut board, b, Color::Black);
+        board.calc_threats();
+
+        board
     }
 
     pub fn fen(&self, chess960: bool) -> String {

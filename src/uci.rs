@@ -53,6 +53,12 @@ pub enum UciParseError {
     MissingOptionValue,
     #[error("Missing `fen` or `startpos` on `position` command")]
     MissingPositionType,
+    #[error("Chess960 mode isn't enabled")]
+    FrcNotEnabled,
+    #[error("Missing a Scharnagl number")]
+    MissingFrcNumber,
+    #[error("Scharnagl number is too large: {0}")]
+    InvalidFrcNumber(usize),
     #[error("Invalid FEN `{0}`")]
     InvalidFen(String),
     #[error("Missing `moves` token on `position` command")]
@@ -143,6 +149,30 @@ impl UciCommand {
                         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
                     )
                     .unwrap(),
+                    Some("frc") => {
+                        if !chess960 {
+                            return Err(FrcNotEnabled);
+                        }
+                        let n = reader.next().ok_or(MissingFrcNumber)?.parse()?;
+                        if n >= 960 {
+                            return Err(InvalidFrcNumber(n));
+                        }
+
+                        Board::frc(n)
+                    }
+
+                    Some("dfrc") => {
+                        if !chess960 {
+                            return Err(FrcNotEnabled);
+                        }
+                        let w: usize = reader.next().ok_or(MissingFrcNumber)?.parse()?;
+                        let b: usize = reader.next().ok_or(MissingFrcNumber)?.parse()?;
+                        if w.max(b) >= 960 {
+                            return Err(InvalidFrcNumber(w.max(b)));
+                        }
+
+                        Board::dfrc(w, b)
+                    }
                     Some("fen") => {
                         let mut fen = String::new();
 

@@ -1,5 +1,5 @@
-
-#[cfg(feature = "test-islegal")] pub mod test;
+#[cfg(feature = "test-islegal")]
+pub mod test;
 
 use icarus_common::{
     lookups::{

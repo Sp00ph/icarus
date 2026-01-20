@@ -1,6 +1,5 @@
 use icarus_common::piece::Piece;
 
-
 pub fn see_val(piece: Piece) -> i16 {
     match piece {
         Piece::Pawn => 100,
