@@ -107,11 +107,23 @@ pub fn search<Node: NodeType>(
         Score::clamp_nomate(raw_eval.0.saturating_add(thread.history.corr(pos.board())));
     let in_check = pos.board().checkers().is_non_empty();
 
+    thread.search_stack[ply as usize].static_eval = static_eval;
+    let improving = if in_check {
+        false
+    } else if ply >= 2 && thread.search_stack[ply as usize - 2].static_eval != -Score::INFINITE {
+        static_eval > thread.search_stack[ply as usize - 2].static_eval
+    } else if ply >= 4 && thread.search_stack[ply as usize - 4].static_eval != -Score::INFINITE {
+        static_eval > thread.search_stack[ply as usize - 4].static_eval
+    } else {
+        true
+    };
+
     if !Node::PV && !in_check {
         // RFP
         let rfp_depth = 6;
         let rfp_margin = 80;
-        if depth < rfp_depth && static_eval - rfp_margin * depth >= beta {
+        if depth < rfp_depth && static_eval - rfp_margin * (depth - improving as i16).max(0) >= beta
+        {
             return static_eval;
         }
 
@@ -172,23 +184,29 @@ pub fn search<Node: NodeType>(
                 if !move_picker.no_more_quiets() {
                     // LMP
                     let lmp_margin = 4096 + 1024 * (depth as u32).pow(2);
-                    
+
                     if moves_seen as u32 * 1024 >= lmp_margin {
                         move_picker.skip_quiets();
                     }
-                    
+
                     // FP
                     let fp_depth = 8;
                     let fp_base = 100;
                     let fp_scale = 80;
-                    
+
                     let fp_margin = fp_base + fp_scale * depth;
-                    if !Node::PV && depth <= fp_depth && !in_check && static_eval + fp_margin <= alpha {
+                    if !Node::PV
+                        && depth <= fp_depth
+                        && !in_check
+                        && static_eval + fp_margin <= alpha
+                    {
                         move_picker.skip_quiets();
                     }
-                    
+
                     // History pruning
-                    let hist = thread.history.score_quiet(pos.board(), mv, pos.prev_move(1));
+                    let hist = thread
+                        .history
+                        .score_quiet(pos.board(), mv, pos.prev_move(1));
                     let hist_scale = 2000;
                     let hist_margin = -hist_scale * depth;
                     if depth <= 5 && hist < hist_margin {
