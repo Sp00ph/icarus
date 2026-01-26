@@ -271,6 +271,7 @@ pub fn search<Node: NodeType>(
             }
         }
 
+        let initial_nodes = thread.nodes.local();
         let new_depth = depth + extension - 1;
         pos.make_move(mv);
 
@@ -292,6 +293,11 @@ pub fn search<Node: NodeType>(
 
         pos.unmake_move();
         moves_seen += 1;
+
+        if Node::ROOT {
+            thread.root_move_nodes[mv.from()][mv.to()] += thread.nodes.local() - initial_nodes;
+        }
+
         if thread.abort_now {
             return Score::ZERO;
         }
