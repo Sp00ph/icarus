@@ -204,9 +204,7 @@ pub fn search<Node: NodeType>(
                     }
 
                     // History pruning
-                    let hist = thread
-                        .history
-                        .score_quiet(pos.board(), mv, pos.prev_move(1));
+                    let hist = thread.history.score_quiet(pos, mv);
                     let hist_scale = 2000;
                     let hist_margin = -hist_scale * depth;
                     if depth <= 5 && hist < hist_margin {
@@ -270,9 +268,7 @@ pub fn search<Node: NodeType>(
 
         if score >= beta {
             flag = TTFlag::Lower;
-            thread
-                .history
-                .update(pos.board(), mv, pos.prev_move(1), &quiets, &tactics, depth);
+            thread.history.update(pos, mv, &quiets, &tactics, depth);
             break;
         }
 

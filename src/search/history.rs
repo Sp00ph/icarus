@@ -1,7 +1,7 @@
 use icarus_board::{board::Board, r#move::Move};
 use icarus_common::piece::{Color, Piece};
 
-use crate::score::Score;
+use crate::{position::Position, score::Score};
 
 const MAX_CORR_VALUE: i32 = 1024;
 const MAX_HIST_VALUE: i32 = 16384;
@@ -39,7 +39,9 @@ impl History {
         unsafe { std::ptr::write_bytes(self, 0, 1) }
     }
 
-    pub fn score_quiet(&self, board: &Board, mv: Move, prev: Option<(Piece, Move)>) -> i16 {
+    pub fn score_quiet(&self, pos: &Position, mv: Move) -> i16 {
+        let board = pos.board();
+        let prev = pos.prev_move(1);
         self.quiet[board.stm()][mv.from()][board.attacked().contains(mv.from()) as usize][mv.to()]
             [board.attacked().contains(mv.to()) as usize]
             + prev.map_or(0, |prev| {
@@ -91,13 +93,15 @@ impl History {
 
     pub fn update(
         &mut self,
-        board: &Board,
+        pos: &Position,
         mv: Move,
-        prev: Option<(Piece, Move)>,
         quiets: &[Move],
         tactics: &[Move],
         depth: i16,
     ) {
+        let board = pos.board();
+        let prev = pos.prev_move(1);
+
         let bonus_base = 128;
         let bonus_scale = 128;
         let bonus_max = 2048;

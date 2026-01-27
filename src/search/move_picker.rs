@@ -132,12 +132,7 @@ impl MovePicker {
                         moves
                             .into_iter()
                             .filter(|mv| self.tt_move != Some(*mv))
-                            .map(|mv| {
-                                ScoredMove(
-                                    mv,
-                                    thread.history.score_quiet(board, mv, pos.prev_move(1)),
-                                )
-                            }),
+                            .map(|mv| ScoredMove(mv, thread.history.score_quiet(pos, mv))),
                     );
                     Abort::No
                 });
