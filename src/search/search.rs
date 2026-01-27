@@ -44,6 +44,16 @@ impl NodeType for NonPV {
     type Next = NonPV;
 }
 
+fn update_pv(thread: &mut ThreadCtx, ply: u16, mv: Move) {
+    let [parent, child] = thread
+        .search_stack
+        .get_disjoint_mut([ply as usize, ply as usize + 1])
+        .unwrap();
+
+    parent.pv = ArrayVec::from_iter([mv]);
+    parent.pv.extend(child.pv.iter().copied());
+}
+
 pub fn search<Node: NodeType>(
     pos: &mut Position,
     depth: i16,
@@ -247,14 +257,8 @@ pub fn search<Node: NodeType>(
             return Score::ZERO;
         }
 
-        if Node::PV && (moves_seen == 1 || score > alpha) {
-            let [parent, child] = thread
-                .search_stack
-                .get_disjoint_mut([ply as usize, ply as usize + 1])
-                .unwrap();
-
-            parent.pv = ArrayVec::from_iter([mv]);
-            parent.pv.extend(child.pv.iter().copied());
+        if Node::ROOT && moves_seen == 1 {
+            update_pv(thread, ply, mv);
         }
 
         if score > best_score {
@@ -263,6 +267,10 @@ pub fn search<Node: NodeType>(
                 alpha = score;
                 best_move = Some(mv);
                 flag = TTFlag::Exact;
+
+                if Node::PV {
+                    update_pv(thread, ply, mv);
+                }
             }
         }
 
