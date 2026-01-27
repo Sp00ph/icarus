@@ -29,6 +29,8 @@ pub struct History {
     /// [stm][nonpawn hash % NONPAWN_CORR_SIZE]
     white_nonpawn_corr: [[i16; NONPAWN_CORR_SIZE]; 2],
     black_nonpawn_corr: [[i16; NONPAWN_CORR_SIZE]; 2],
+    /// [stm][prev piece][prev dst][piece][dst]
+    contcorr_oneply: [[[[[i16; 64]; 6]; 64]; 6]; 2],
 }
 
 impl History {
@@ -61,12 +63,16 @@ impl History {
         self.tactic[board.stm()][attacker][mv.to()]
     }
 
-    pub fn corr(&self, board: &Board) -> i16 {
+    pub fn corr(&self, pos: &Position) -> i16 {
+        let board = pos.board();
+        let (prev, cur) = (pos.prev_move(2), pos.prev_move(1));
+
         let pawn_factor = 64;
         let minor_factor = 64;
         let major_factor = 64;
         let white_factor = 64;
         let black_factor = 64;
+        let cont_factor = 64;
 
         let mut corr = 0;
         corr += (self.pawn_corr[board.stm()][board.pawn_hash() as usize % PAWN_CORR_SIZE] as i32)
@@ -85,6 +91,11 @@ impl History {
             [board.nonpawn_hash(Color::Black) as usize % NONPAWN_CORR_SIZE]
             as i32)
             * black_factor;
+        if let (Some((prev_piece, prev_mv)), Some((piece, mv))) = (prev, cur) {
+            corr += self.contcorr_oneply[board.stm()][prev_piece][prev_mv.to()][piece][mv.to()]
+                as i32
+                * cont_factor;
+        }
 
         (corr / MAX_CORR_VALUE) as i16
     }
@@ -164,7 +175,10 @@ impl History {
         }
     }
 
-    pub fn update_corr(&mut self, board: &Board, depth: i16, score: Score, static_eval: Score) {
+    pub fn update_corr(&mut self, pos: &Position, depth: i16, score: Score, static_eval: Score) {
+        let board = pos.board();
+        let (prev, cur) = (pos.prev_move(2), pos.prev_move(1));
+
         let bonus_scale = 128;
 
         let delta = score.0 as i32 - static_eval.0 as i32;
@@ -192,6 +206,13 @@ impl History {
                 [board.nonpawn_hash(Color::Black) as usize % NONPAWN_CORR_SIZE],
             amount,
         );
+
+        if let (Some((prev_piece, prev_mv)), Some((piece, mv))) = (prev, cur) {
+            Self::update_corr_val(
+                &mut self.contcorr_oneply[board.stm()][prev_piece][prev_mv.to()][piece][mv.to()],
+                amount,
+            );
+        }
     }
 
     fn update_value(value: &mut i16, amount: i32) {
