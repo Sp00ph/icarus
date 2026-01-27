@@ -263,14 +263,15 @@ pub fn search<Node: NodeType>(
 
         if score > best_score {
             best_score = score;
-            if score > alpha {
-                alpha = score;
-                best_move = Some(mv);
-                flag = TTFlag::Exact;
+        }
 
-                if Node::PV {
-                    update_pv(thread, ply, mv);
-                }
+        if score > alpha {
+            alpha = score;
+            best_move = Some(mv);
+            flag = TTFlag::Exact;
+
+            if Node::PV {
+                update_pv(thread, ply, mv);
             }
         }
 
