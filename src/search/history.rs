@@ -1,5 +1,5 @@
 use icarus_board::{board::Board, r#move::Move};
-use icarus_common::piece::{Color, Piece};
+use icarus_common::piece::Color;
 
 use crate::{position::Position, score::Score};
 
