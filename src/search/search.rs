@@ -169,21 +169,31 @@ pub fn search<Node: NodeType>(
                     continue;
                 }
             } else {
-                // LMP
-                let lmp_margin = 4096 + 1024 * (depth as u32).pow(2);
-
-                if moves_seen as u32 * 1024 >= lmp_margin {
-                    move_picker.skip_quiets();
-                }
-
-                // FP
-                let fp_depth = 8;
-                let fp_base = 100;
-                let fp_scale = 80;
-
-                let fp_margin = fp_base + fp_scale * depth;
-                if !Node::PV && depth <= fp_depth && !in_check && static_eval + fp_margin <= alpha {
-                    move_picker.skip_quiets();
+                if !move_picker.no_more_quiets() {
+                    // LMP
+                    let lmp_margin = 4096 + 1024 * (depth as u32).pow(2);
+                    
+                    if moves_seen as u32 * 1024 >= lmp_margin {
+                        move_picker.skip_quiets();
+                    }
+                    
+                    // FP
+                    let fp_depth = 8;
+                    let fp_base = 100;
+                    let fp_scale = 80;
+                    
+                    let fp_margin = fp_base + fp_scale * depth;
+                    if !Node::PV && depth <= fp_depth && !in_check && static_eval + fp_margin <= alpha {
+                        move_picker.skip_quiets();
+                    }
+                    
+                    // History pruning
+                    let hist = thread.history.score_quiet(pos.board(), mv, pos.prev_move(1));
+                    let hist_scale = 2000;
+                    let hist_margin = -hist_scale * depth;
+                    if depth <= 5 && hist < hist_margin {
+                        move_picker.skip_quiets();
+                    }
                 }
 
                 // Quiet SEE Pruning
