@@ -191,9 +191,11 @@ pub fn search<Node: NodeType>(
                     continue;
                 }
             } else {
+                let lmr_depth = (depth - lmr).max(0);
+
                 if !move_picker.no_more_quiets() {
                     // LMP
-                    let lmp_margin = 4096 + 1024 * (depth as u32).pow(2);
+                    let lmp_margin = 4096 + 1024 * (lmr_depth as u32).pow(2);
 
                     if moves_seen as u32 * 1024 >= lmp_margin {
                         move_picker.skip_quiets();
@@ -204,9 +206,9 @@ pub fn search<Node: NodeType>(
                     let fp_base = 100;
                     let fp_scale = 80;
 
-                    let fp_margin = fp_base + fp_scale * depth;
+                    let fp_margin = fp_base + fp_scale * lmr_depth;
                     if !Node::PV
-                        && depth <= fp_depth
+                        && lmr_depth <= fp_depth
                         && !in_check
                         && static_eval + fp_margin <= alpha
                     {
@@ -216,7 +218,7 @@ pub fn search<Node: NodeType>(
                     // History pruning
                     let hist = thread.history.score_quiet(pos, mv);
                     let hist_scale = 2000;
-                    let hist_margin = -hist_scale * depth;
+                    let hist_margin = -hist_scale * lmr_depth;
                     if depth <= 5 && hist < hist_margin {
                         move_picker.skip_quiets();
                     }
