@@ -60,6 +60,7 @@ pub struct ThreadCtx {
 pub struct SearchStackEntry {
     pub pv: PrincipalVariation,
     pub static_eval: Score,
+    pub singular: Option<Move>,
 }
 
 impl Default for SearchStackEntry {
@@ -67,6 +68,7 @@ impl Default for SearchStackEntry {
         Self {
             pv: Default::default(),
             static_eval: -Score::INFINITE,
+            singular: None,
         }
     }
 }

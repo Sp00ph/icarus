@@ -95,9 +95,12 @@ pub fn search<Node: NodeType>(
 
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
     let tt_move = tt_entry.and_then(|e| e.mv);
+    let singular = thread.search_stack[ply as usize].singular;
+    let singular_search = singular.is_some();
 
     // TT cutoffs
     if !Node::PV
+        && !singular_search
         && let Some(e) = tt_entry
         && e.depth as i16 >= depth
     {
@@ -128,7 +131,7 @@ pub fn search<Node: NodeType>(
         true
     };
 
-    if !Node::PV && !in_check {
+    if !Node::PV && !in_check && !singular_search {
         // RFP
         let rfp_depth = 6;
         let rfp_margin = 80;
@@ -173,8 +176,14 @@ pub fn search<Node: NodeType>(
     let mut tactics = SmallVec::<[Move; 64]>::new();
 
     while let Some(mv) = move_picker.next(pos, thread) {
+
+        if singular.is_some_and(|s| mv == s) {
+            continue;
+        }
+
         let is_tactic = pos.board().is_tactic(mv);
         let lmr = get_lmr(is_tactic, depth as u8, moves_seen);
+        let mut extension = 0;
         let mut score;
 
         if !Node::ROOT && !best_score.is_loss() {
@@ -234,7 +243,27 @@ pub fn search<Node: NodeType>(
             }
         }
 
-        let new_depth = depth - 1;
+        if !Node::ROOT
+            && !singular_search
+            && depth >= 8
+            && let Some(tte) = tt_entry
+            && tte.mv.is_some_and(|tt_mv| tt_mv == mv)
+            && tte.depth as i16 >= depth - 3
+            && tte.flags.tt_flag() != TTFlag::Lower {
+
+            let s_beta = (tte.score - depth * 32 / 16).max(-Score::MAX_MATE + 1);
+            let s_depth = (depth - 1) / 2;
+
+            thread.search_stack[ply as usize].singular = Some(mv);
+            let score = search::<NonPV>(pos, s_depth, ply, s_beta - 1, s_beta, thread);
+            thread.search_stack[ply as usize].singular = None;
+
+            if score < s_beta {
+                extension = 1;
+            }
+        }
+
+        let new_depth = depth + extension - 1;
         pos.make_move(mv);
 
         // PVS
@@ -292,18 +321,21 @@ pub fn search<Node: NodeType>(
         }
     }
 
-    thread.global.ttable.store(
-        pos.board().hash(),
-        depth as u8,
-        ply,
-        raw_eval,
-        best_score,
-        best_move,
-        flag,
-        true,
-    );
+    if !singular_search {
+        thread.global.ttable.store(
+            pos.board().hash(),
+            depth as u8,
+            ply,
+            raw_eval,
+            best_score,
+            best_move,
+            flag,
+            true,
+        );
+    }
 
     if !in_check
+        && !singular_search
         && best_move.is_none_or(|mv| pos.board().is_quiet(mv))
         && match flag {
             TTFlag::Lower => best_score > static_eval,
