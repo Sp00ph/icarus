@@ -321,18 +321,21 @@ pub fn search<Node: NodeType>(
         }
     }
 
-    thread.global.ttable.store(
-        pos.board().hash(),
-        depth as u8,
-        ply,
-        raw_eval,
-        best_score,
-        best_move,
-        flag,
-        true,
-    );
+    if !singular_search {
+        thread.global.ttable.store(
+            pos.board().hash(),
+            depth as u8,
+            ply,
+            raw_eval,
+            best_score,
+            best_move,
+            flag,
+            true,
+        );
+    }
 
     if !in_check
+        && !singular_search
         && best_move.is_none_or(|mv| pos.board().is_quiet(mv))
         && match flag {
             TTFlag::Lower => best_score > static_eval,
