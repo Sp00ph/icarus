@@ -178,20 +178,21 @@ pub fn search<Node: NodeType>(
         let mut score;
 
         if !Node::ROOT && !best_score.is_loss() {
+            let lmr_depth = (depth - lmr).max(0);
+
             if is_tactic {
                 // Tactic SEE Pruning
                 let tactic_base = 0;
                 let tactic_scale = -60;
-                let see_margin = tactic_base + tactic_scale * depth;
+                let see_margin = tactic_base + tactic_scale * lmr_depth;
                 if !Node::PV
-                    && depth <= 10
+                    && lmr_depth <= 10
                     && move_picker.stage() > Stage::YieldGoodNoisy
                     && !pos.cmp_see(mv, see_margin)
                 {
                     continue;
                 }
             } else {
-                let lmr_depth = (depth - lmr).max(0);
 
                 if !move_picker.no_more_quiets() {
                     // LMP
