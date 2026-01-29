@@ -403,21 +403,19 @@ pub fn qsearch<Node: NodeType>(
             return Score::ZERO;
         }
 
-        if Node::PV && (moves_seen == 1 || score > alpha) {
-            let [parent, child] = thread
-                .search_stack
-                .get_disjoint_mut([ply as usize, ply as usize + 1])
-                .unwrap();
-
-            parent.pv = ArrayVec::from_iter([mv]);
-            parent.pv.extend(child.pv.iter().copied());
+        if Node::ROOT && moves_seen == 1 {
+            update_pv(thread, ply, mv);
         }
 
         if score > best_score {
             best_score = score;
+        }
 
-            if score > alpha {
-                alpha = score;
+        if score > alpha {
+            alpha = score;
+
+            if Node::PV {
+                update_pv(thread, ply, mv);
             }
         }
 
