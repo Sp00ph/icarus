@@ -67,6 +67,18 @@ impl MovePicker {
         self.skip_quiets || self.stage > Stage::YieldQuiet
     }
 
+    fn pick_best(&self) -> (usize, Move) {
+        let packed = self
+            .moves
+            .iter()
+            .enumerate()
+            .skip(self.index)
+            .map(|(i, mv)| (i as i32) | (mv.1 as i32) << 16)
+            .fold(i32::MIN, std::cmp::max);
+        let idx = packed as usize & 0xffff;
+        (idx, self.moves[idx].0)
+    }
+
     pub fn next(&mut self, pos: &Position, thread: &ThreadCtx) -> Option<Move> {
         let board = pos.board();
 
@@ -106,19 +118,12 @@ impl MovePicker {
                 break;
             }
 
-            let (i, mv) = self
-                .moves
-                .iter()
-                .copied()
-                .enumerate()
-                .skip(self.index)
-                .max_by_key(|(_, mv)| mv.1)
-                .unwrap();
+            let (i, mv) = self.pick_best();
             self.moves.swap(self.index, i);
             self.index += 1;
 
-            if pos.cmp_see(mv.0, self.see_threshold) {
-                return Some(mv.0);
+            if pos.cmp_see(mv, self.see_threshold) {
+                return Some(mv);
             }
 
             self.moves.swap(self.bad_noisies, self.index - 1);
@@ -148,17 +153,10 @@ impl MovePicker {
                     break 'quiet;
                 }
 
-                let (i, mv) = self
-                    .moves
-                    .iter()
-                    .copied()
-                    .enumerate()
-                    .skip(self.index)
-                    .max_by_key(|(_, mv)| mv.1)
-                    .unwrap();
+                let (i, mv) = self.pick_best();
                 self.moves.swap(self.index, i);
                 self.index += 1;
-                return Some(mv.0);
+                return Some(mv);
             }
         }
 
