@@ -303,6 +303,9 @@ pub fn search<Node: NodeType>(
         true,
     );
 
+    let static_eval =
+        Score::clamp_nomate(raw_eval.0.saturating_add(thread.history.corr(pos.board())));
+
     if !in_check
         && best_move.is_none_or(|mv| pos.board().is_quiet(mv))
         && match flag {
