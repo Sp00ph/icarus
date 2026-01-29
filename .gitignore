@@ -5,3 +5,5 @@
 # Binaries produced by the makefile
 /icarus
 /icarus.exe
+
+.idea/**
