@@ -72,10 +72,12 @@ impl History {
             as i32)
             * major_factor;
         corr += (self.white_nonpawn_corr[board.stm()]
-            [board.nonpawn_hash(Color::White) as usize % NONPAWN_CORR_SIZE] as i32)
+            [board.nonpawn_hash(Color::White) as usize % NONPAWN_CORR_SIZE]
+            as i32)
             * white_factor;
         corr += (self.black_nonpawn_corr[board.stm()]
-            [board.nonpawn_hash(Color::Black) as usize % NONPAWN_CORR_SIZE] as i32)
+            [board.nonpawn_hash(Color::Black) as usize % NONPAWN_CORR_SIZE]
+            as i32)
             * black_factor;
 
         (corr / MAX_CORR_VALUE) as i16

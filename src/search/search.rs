@@ -176,7 +176,6 @@ pub fn search<Node: NodeType>(
     let mut tactics = SmallVec::<[Move; 64]>::new();
 
     while let Some(mv) = move_picker.next(pos, thread) {
-
         if singular.is_some_and(|s| mv == s) {
             continue;
         }
@@ -204,7 +203,8 @@ pub fn search<Node: NodeType>(
 
                 if !move_picker.no_more_quiets() {
                     // LMP
-                    let lmp_margin = (4096 + 1024 * (lmr_depth as u32).pow(2)) >> u32::from(!improving);
+                    let lmp_margin =
+                        (4096 + 1024 * (lmr_depth as u32).pow(2)) >> u32::from(!improving);
 
                     if moves_seen as u32 * 1024 >= lmp_margin {
                         move_picker.skip_quiets();
@@ -249,8 +249,8 @@ pub fn search<Node: NodeType>(
             && let Some(tte) = tt_entry
             && tte.mv.is_some_and(|tt_mv| tt_mv == mv)
             && tte.depth as i16 >= depth - 3
-            && tte.flags.tt_flag() != TTFlag::Upper {
-
+            && tte.flags.tt_flag() != TTFlag::Upper
+        {
             let s_beta = (tte.score - depth * 32 / 16).max(-Score::MAX_MATE + 1);
             let s_depth = (depth - 1) / 2;
 
