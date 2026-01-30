@@ -260,6 +260,9 @@ pub fn search<Node: NodeType>(
 
             if score < s_beta {
                 extension = 1;
+                // double extension
+                let dext_margin = 20;
+                extension += i16::from(!Node::PV && score + dext_margin < beta);
             }
         }
 
