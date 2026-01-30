@@ -267,7 +267,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
         }
 
         'asp_window: loop {
-            let new_score = search::<Root>(&mut pos, depth as i16, 0, alpha, beta, thread);
+            let new_score = search::<Root>(&mut pos, depth as i16, 0, alpha, beta, false, thread);
             thread.nodes.flush();
 
             if depth > 1 && thread.abort_now {
