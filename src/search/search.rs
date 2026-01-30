@@ -249,7 +249,7 @@ pub fn search<Node: NodeType>(
             && let Some(tte) = tt_entry
             && tte.mv.is_some_and(|tt_mv| tt_mv == mv)
             && tte.depth as i16 >= depth - 3
-            && tte.flags.tt_flag() != TTFlag::Lower {
+            && tte.flags.tt_flag() != TTFlag::Upper {
 
             let s_beta = (tte.score - depth * 32 / 16).max(-Score::MAX_MATE + 1);
             let s_depth = (depth - 1) / 2;
