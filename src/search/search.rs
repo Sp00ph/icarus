@@ -236,8 +236,8 @@ pub fn search<Node: NodeType>(
                 // Quiet SEE Pruning
                 let quiet_base = 0;
                 let quiet_scale = -100;
-                let see_margin = quiet_base + quiet_scale * depth;
-                if !Node::PV && depth <= 10 && !pos.cmp_see(mv, see_margin) {
+                let see_margin = quiet_base + quiet_scale * lmr_depth;
+                if !Node::PV && lmr_depth <= 10 && !pos.cmp_see(mv, see_margin) {
                     continue;
                 }
             }
