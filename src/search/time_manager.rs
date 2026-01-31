@@ -146,16 +146,19 @@ impl TimeManager {
         }
     }
 
-    pub fn deepen(&self, depth: u16, total_nodes: u64, best_move_nodes: u64) {
+    pub fn deepen(&self, depth: u16, total_nodes: u64, best_move_nodes: u64, move_stability: u16) {
         if depth < 4 {
             return;
         }
 
         let ratio = (best_move_nodes as f64) / (total_nodes.max(1) as f64);
 
-        let factor = 2.5 - 1.5 * ratio;
-        let new_target = ((self.base_time.load(Relaxed) as f64 * factor) as u64)
-            .min(self.hard_time.load(Relaxed));
+        let node_tm_factor = 2.5 - 1.5 * ratio;
+        let move_stability_factor = (1.8 - 0.1 * (move_stability as f64)).max(0.9);
+
+        let new_target =
+            ((self.base_time.load(Relaxed) as f64 * node_tm_factor * move_stability_factor) as u64)
+                .min(self.hard_time.load(Relaxed));
         self.soft_time.store(new_target, Relaxed);
     }
 }

@@ -303,6 +303,8 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
 fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
     let mut depth = 1;
     let mut overall_best_score = -Score::INFINITE;
+    let mut prev_move = None;
+    let mut move_stability = 0;
 
     'id: loop {
         thread.sel_depth = 0;
@@ -341,11 +343,18 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
 
         if thread.id == 0 {
             let best_move = thread.search_stack[0].pv[0];
+            if prev_move == Some(best_move) {
+                move_stability += 1;
+            } else {
+                move_stability = 0;
+            }
+            prev_move = Some(best_move);
 
             thread.global.time_manager.deepen(
                 depth,
                 thread.nodes.local(),
                 thread.root_move_nodes[best_move.from()][best_move.to()],
+                move_stability,
             );
         }
 
