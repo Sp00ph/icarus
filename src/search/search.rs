@@ -263,6 +263,8 @@ pub fn search<Node: NodeType>(
                 // double extension
                 let dext_margin = 20;
                 extension += i16::from(!Node::PV && score + dext_margin < beta);
+            } else if s_beta >= beta {
+                return s_beta;
             } else if tte.score >= beta {
                 // negext
                 extension = -1;
