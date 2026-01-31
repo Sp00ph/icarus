@@ -48,6 +48,8 @@ pub struct ThreadCtx {
 
     pub nodes: BufferedCounter,
     pub root_moves: Vec<Move>,
+    /// Count the number of nodes spent searching each root move.
+    pub root_move_nodes: [[u64; 64]; 64],
     pub sel_depth: u16,
     pub search_stack: Box<[SearchStackEntry; MAX_PLY as usize + 1]>,
     pub root_pv: PrincipalVariation,
@@ -245,6 +247,7 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
         chess960: false,
         nodes: BufferedCounter::new(nodes),
         root_moves: vec![],
+        root_move_nodes: [[0; 64]; 64],
         sel_depth: 0,
         abort_now: false,
         search_stack: vec![Default::default(); MAX_PLY as usize + 1]
@@ -264,6 +267,7 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
                     .unwrap_or_else(|| search_params.pos.board().gen_all_moves_to());
                 thread_ctx.chess960 = search_params.chess960;
                 thread_ctx.search_stack.fill(Default::default());
+                thread_ctx.root_move_nodes = [[0; 64]; 64];
                 thread_ctx.abort_now = false;
 
                 id_loop(search_params.pos, &mut thread_ctx, search_params.print_info);
@@ -319,6 +323,16 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
             delta = delta.saturating_add(((delta as i32) * asp_widen_factor / 64) as i16);
         }
 
+        if thread.id == 0 {
+            let best_move = thread.search_stack[0].pv[0];
+
+            thread.global.time_manager.deepen(
+                depth,
+                thread.nodes.local(),
+                thread.root_move_nodes[best_move.from()][best_move.to()],
+            );
+        }
+
         thread.root_pv = thread.search_stack[0].pv.clone();
         if depth >= MAX_PLY
             || thread
@@ -328,7 +342,6 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
         {
             break 'id;
         }
-
         if print && thread.id == 0 {
             print_info(overall_best_score, depth, thread);
         }

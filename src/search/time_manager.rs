@@ -18,12 +18,12 @@ pub struct TimeManager {
     // Supported limits for a `go` command. If these are not set by the command, the maximum values are used.
     max_depth: AtomicU16,
     max_nodes: AtomicU64,
+    base_time: AtomicU64,
     soft_time: AtomicU64,
     hard_time: AtomicU64,
 
     move_overhead: AtomicU16,
     // TODO: Implement soft nodes for datagen.
-    // TODO: Implement deepening. Will require base time, prev move and stability, and perchance a dont_deepen flag.
 }
 
 pub const DEFAULT_MOVE_OVERHEAD: u16 = 20;
@@ -36,6 +36,7 @@ impl Default for TimeManager {
             stop: AtomicU32::new(0),
             max_depth: AtomicU16::new(0),
             max_nodes: AtomicU64::new(0),
+            base_time: AtomicU64::new(0),
             soft_time: AtomicU64::new(0),
             hard_time: AtomicU64::new(0),
             move_overhead: AtomicU16::new(DEFAULT_MOVE_OVERHEAD),
@@ -89,6 +90,7 @@ impl TimeManager {
         let soft_time = ((time / 64).saturating_sub(move_overhead) + inc).min(hard_time);
 
         self.soft_time.store(soft_time, Relaxed);
+        self.base_time.store(soft_time, Relaxed);
         self.hard_time.store(
             hard_time.min(movetime.saturating_sub(move_overhead)),
             Relaxed,
@@ -138,5 +140,18 @@ impl TimeManager {
         while !self.stop_flag() {
             atomic_wait::wait(&self.stop, 0);
         }
+    }
+
+    pub fn deepen(&self, depth: u16, total_nodes: u64, best_move_nodes: u64) {
+        if depth < 4 {
+            return;
+        }
+
+        let ratio = (best_move_nodes as f64) / (total_nodes.max(1) as f64);
+
+        let factor = 2.5 - 1.5 * ratio;
+        let new_target = ((self.base_time.load(Relaxed) as f64 * factor) as u64)
+            .min(self.hard_time.load(Relaxed));
+        self.soft_time.store(new_target, Relaxed);
     }
 }
