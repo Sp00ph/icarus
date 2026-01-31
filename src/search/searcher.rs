@@ -210,7 +210,7 @@ impl Searcher {
             !self.is_running(),
             "Called `change_threads()` while searching"
         );
-        assert!(threads > 1);
+        assert!(threads >= 1);
 
         self.command_sender.send(ThreadCmd::Quit);
         self.search_threads
