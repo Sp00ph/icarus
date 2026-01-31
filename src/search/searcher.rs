@@ -353,7 +353,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
         .or(thread.root_moves.first())
         .unwrap();
 
-    if print && thread.id == 0 {
+    if print && last {
         print_info(overall_best_score, depth, thread);
         println!("bestmove {}", best_move.display(thread.chess960));
     }
