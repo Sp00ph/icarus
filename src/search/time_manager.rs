@@ -21,7 +21,7 @@ pub struct TimeManager {
     base_time: AtomicU64,
     soft_time: AtomicU64,
     hard_time: AtomicU64,
-    
+
     move_overhead: AtomicU16,
     // TODO: Implement soft nodes for datagen.
 }
@@ -147,7 +147,9 @@ impl TimeManager {
             return;
         }
 
-        let factor = 2.5 - 1.5 * (best_move_nodes as f64) / (total_nodes as f64);
+        let ratio = (best_move_nodes as f64) / (total_nodes.max(1) as f64);
+
+        let factor = 2.5 - 1.5 * ratio;
         let new_target = ((self.base_time.load(Relaxed) as f64 * factor) as u64)
             .min(self.hard_time.load(Relaxed));
         self.soft_time.store(new_target, Relaxed);
