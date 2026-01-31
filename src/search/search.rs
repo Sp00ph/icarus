@@ -68,7 +68,7 @@ pub fn search<Node: NodeType>(
     }
 
     thread.sel_depth = thread.sel_depth.max(ply);
-    if !Node::ROOT && Node::PV {
+    if Node::PV {
         thread.search_stack[ply as usize].pv.clear();
     }
 
@@ -296,14 +296,14 @@ pub fn search<Node: NodeType>(
 
         if Node::ROOT {
             thread.root_move_nodes[mv.from()][mv.to()] += thread.nodes.local() - initial_nodes;
+
+            if moves_seen == 1 {
+                update_pv(thread, ply, mv);
+            }
         }
 
         if thread.abort_now {
             return Score::ZERO;
-        }
-
-        if Node::ROOT && moves_seen == 1 {
-            update_pv(thread, ply, mv);
         }
 
         if score > best_score {
@@ -378,7 +378,7 @@ pub fn qsearch<Node: NodeType>(
     }
 
     thread.sel_depth = thread.sel_depth.max(ply);
-    if !Node::ROOT && Node::PV {
+    if Node::PV {
         thread.search_stack[ply as usize].pv.clear();
     }
 
@@ -445,12 +445,12 @@ pub fn qsearch<Node: NodeType>(
         pos.unmake_move();
         moves_seen += 1;
 
-        if thread.abort_now {
-            return Score::ZERO;
-        }
-
         if Node::ROOT && moves_seen == 1 {
             update_pv(thread, ply, mv);
+        }
+
+        if thread.abort_now {
+            return Score::ZERO;
         }
 
         if score > best_score {
