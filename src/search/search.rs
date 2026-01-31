@@ -68,7 +68,7 @@ pub fn search<Node: NodeType>(
     }
 
     thread.sel_depth = thread.sel_depth.max(ply);
-    if Node::PV {
+    if !Node::ROOT && Node::PV {
         thread.search_stack[ply as usize].pv.clear();
     }
 
@@ -378,7 +378,7 @@ pub fn qsearch<Node: NodeType>(
     }
 
     thread.sel_depth = thread.sel_depth.max(ply);
-    if Node::PV {
+    if !Node::ROOT && Node::PV {
         thread.search_stack[ply as usize].pv.clear();
     }
 
