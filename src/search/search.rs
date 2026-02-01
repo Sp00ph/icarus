@@ -160,7 +160,11 @@ pub fn search<Node: NodeType>(
             }
 
             if score >= beta {
-                return beta;
+                if score.is_win() {
+                    return beta;
+                } else {
+                    return score;
+                }
             }
         }
     }
