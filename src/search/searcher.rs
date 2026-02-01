@@ -59,6 +59,9 @@ pub struct ThreadCtx {
     pub search_stack: Box<[SearchStackEntry; MAX_PLY as usize + 1]>,
     pub root_pv: PrincipalVariation,
 
+    // Used for NMP verification search
+    pub min_nmp_ply: u16,
+
     // boxed because of stack size concerns
     pub history: Box<History>,
 
@@ -270,6 +273,7 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
         root_moves: vec![],
         root_move_nodes: [[0; 64]; 64],
         sel_depth: 0,
+        min_nmp_ply: 0,
         abort_now: false,
         search_stack: vec![Default::default(); MAX_PLY as usize + 1]
             .try_into()
