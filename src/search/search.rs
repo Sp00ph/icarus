@@ -554,6 +554,7 @@ pub fn qsearch<Node: NodeType>(
 
     let in_check = pos.board().checkers().is_non_empty();
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
+    let tt_move = tt_entry.and_then(|e| e.mv);
 
     let mut static_eval = Score::new_mated(ply);
 
@@ -604,7 +605,7 @@ pub fn qsearch<Node: NodeType>(
 
     let mut best_score = static_eval;
     let mut moves_seen = 0;
-    let mut move_picker = MovePicker::new(None, !in_check, qs_see_threshold());
+    let mut move_picker = MovePicker::new(tt_move, !in_check, qs_see_threshold());
     let futility = static_eval.saturating_add(qsfp_margin());
 
     while let Some(mv) = move_picker.next(pos, thread) {
