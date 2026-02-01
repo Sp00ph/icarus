@@ -144,7 +144,7 @@ pub fn search<Node: NodeType>(
         let nmp_depth = 3;
         if depth >= nmp_depth && static_eval >= beta && pos.prev_move(1).is_some() {
             pos.make_null_move();
-            let nmp_reduction = nmp_depth + depth / 3;
+            let nmp_reduction = 3 + depth / 3;
             let score = -search::<NonPV>(
                 pos,
                 depth - nmp_reduction,
@@ -160,10 +160,18 @@ pub fn search<Node: NodeType>(
             }
 
             if score >= beta {
-                if score.is_win() {
-                    return beta;
-                } else {
-                    return score;
+                if depth <= 14 {
+                    if score.is_win() {
+                        return beta;
+                    } else {
+                        return score;
+                    }
+                }
+
+                let verif_score =
+                    search::<NonPV>(pos, depth - nmp_reduction, ply, beta - 1, beta, thread);
+                if verif_score >= beta {
+                    return verif_score;
                 }
             }
         }
