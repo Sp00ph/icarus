@@ -26,7 +26,7 @@ use crate::{
     },
 };
 
-pub const MAX_THREADS: usize = 512;
+pub const MAX_THREADS: u32 = 512;
 
 pub struct GlobalCtx {
     pub time_manager: TimeManager,
@@ -105,11 +105,14 @@ impl Default for Searcher {
             num_searching: AtomicU32::new(0),
             ttable: TTable::new(DEFAULT_TT_SIZE),
         });
-        let (tx, rx) = channel(1);
+        let (tx, mut rx) = channel(1);
         let search_thread = thread::spawn({
             let global_ctx = global_ctx.clone();
             move || {
-                if std::panic::catch_unwind(move || worker_thread_loop(rx, global_ctx, 0)).is_err()
+                if std::panic::catch_unwind(move || {
+                    worker_thread_loop(rx.next().unwrap(), global_ctx, 0)
+                })
+                .is_err()
                 {
                     std::process::exit(-1);
                 }
@@ -207,7 +210,7 @@ impl Searcher {
             .send(ThreadCmd::SetGlobal(self.global_ctx.clone()));
     }
 
-    pub fn change_threads(&mut self, threads: usize) {
+    pub fn change_threads(&mut self, threads: u32) {
         assert!(
             !self.is_running(),
             "Called `change_threads()` while searching"
@@ -220,11 +223,11 @@ impl Searcher {
             .for_each(|t| t.join().unwrap());
 
         let (tx, rx) = channel(threads);
-        self.search_threads = (0..threads)
-            .map(|i| {
+        self.search_threads = rx
+            .enumerate()
+            .map(|(i, rx)| {
                 thread::spawn({
                     let global_ctx = self.global_ctx.clone();
-                    let rx = rx.clone();
                     move || {
                         if std::panic::catch_unwind(move || worker_thread_loop(rx, global_ctx, i))
                             .is_err()

@@ -1,108 +1,124 @@
 //! One-capacity spmc broadcast channel, allowing the UCI thread to send a message
-//! to all search threads. If a message has been sent but has not yet been handled by
-//! all receivers, the next send operation will block until all receivers have handled
-//! the previous message.
+//! to all search threads. The sending thread blocks until all receiving threads have
+//! handled a sent message.
 
-use std::sync::{Arc, Condvar, Mutex};
-
-struct MsgState<M> {
-    msg: M,
-    handled: usize,
-    generation: usize,
-}
+use std::{
+    cell::UnsafeCell,
+    panic::RefUnwindSafe,
+    sync::{
+        Arc,
+        atomic::{
+            AtomicU32,
+            Ordering::{Acquire, Relaxed, Release},
+        },
+    },
+};
 
 struct Shared<M> {
-    msg: Mutex<Option<MsgState<M>>>,
-    tx_condvar: Condvar,
-    rx_condvar: Condvar,
-    num_receivers: usize,
+    msg: UnsafeCell<Option<M>>,
+    futex: AtomicU32,
+    num_receivers: u32,
 }
+
+unsafe impl<M: Sync> Sync for Shared<M> {}
+impl<M> RefUnwindSafe for Shared<M> {}
 
 pub struct Sender<M> {
     shared: Arc<Shared<M>>,
 }
 
-#[derive(Clone)]
 pub struct Receiver<M> {
     shared: Arc<Shared<M>>,
-    generation: usize,
+    generation: bool,
 }
 
-/// Creates a channel that expects exactly `num_receivers` receivers. Each message must therefore
-/// be handled by exactly `num_receivers` clones of the returned receiver before the next message
-/// can be sent. Calling `.recv()` on fewer receivers will block the next send indefinitely,
-/// while calling it on more receivers may panic or lead to unexpected behavior.
-pub fn channel<M>(num_receivers: usize) -> (Sender<M>, Receiver<M>) {
+/// Creates a channel with exactly `num_receivers` receivers. The returned values are
+/// the singular sender, and an iterator yielding the `num_receivers` receivers. Note that
+/// sending a message will block the sender until all receivers have handled the message,
+/// so dropping any of the receivers will lead to a deadlock in the sender thread.
+pub fn channel<M>(num_receivers: u32) -> (Sender<M>, impl Iterator<Item = Receiver<M>>) {
     let shared = Arc::new(Shared {
-        msg: Mutex::new(None),
-        tx_condvar: Condvar::new(),
-        rx_condvar: Condvar::new(),
+        msg: UnsafeCell::new(None),
+        futex: AtomicU32::new(0),
         num_receivers,
     });
 
     let tx = Sender {
         shared: shared.clone(),
     };
-    let rx = Receiver {
+    let rx_iter = std::iter::repeat_n(shared, num_receivers as usize).map(|shared| Receiver {
         shared,
-        generation: 1,
-    };
-    (tx, rx)
+        generation: true,
+    });
+
+    (tx, rx_iter)
+}
+
+fn pack_futex(threads: u32, generation: bool) -> u32 {
+    debug_assert!(threads < (u32::MAX >> 1));
+    threads | (generation as u32) << 31
+}
+
+fn unpack_futex(futex: u32) -> (u32, bool) {
+    let threads = futex & (u32::MAX >> 1);
+    let generation = (futex >> 31) as u8;
+    (threads, generation != 0)
 }
 
 impl<M> Sender<M> {
-    /// Sends a message to all receivers. Will block if a previously sent message has not yet been
-    /// handled by all receivers.
+    /// Sends a message to all receivers. Will block until all receivers have handled the message.
     pub fn send(&mut self, m: M) {
         let shared = &*self.shared;
-        let mut msg = shared.msg.lock().unwrap();
+        let (threads, generation) = unpack_futex(shared.futex.load(Relaxed));
+        // Because any previous `send` call waited until all receivers handled the message, there should be no outstanding receivers.
+        debug_assert!(threads == 0);
 
-        while let Some(state) = &*msg
-            && state.handled < shared.num_receivers
-        {
-            msg = shared.tx_condvar.wait(msg).unwrap();
+        // SAFETY: Any previously sent message has been handled by all receivers, and they won't access `msg` again until we signal them to.
+        unsafe { *shared.msg.get() = Some(m) };
+
+        let next_gen = !generation;
+        // After writing the message, we update the generation and wake the receivers. We use Release here, and Acquire in the receivers,
+        // to make sure that writing the message happens-before the receivers read it.
+        shared
+            .futex
+            .store(pack_futex(shared.num_receivers, next_gen), Release);
+        atomic_wait::wake_all(&shared.futex);
+
+        // Now we wait until the number of outstanding receivers reaches 0. The receivers all decrement using Release, and we load
+        // using Acquire here, to ensure that any accesses of `msg` from receivers happen-before we return from `send`.
+        let mut futex = shared.futex.load(Acquire);
+        while unpack_futex(futex).0 != 0 {
+            atomic_wait::wait(&shared.futex, futex);
+            futex = shared.futex.load(Acquire);
         }
-
-        let generation = msg.as_ref().map_or(1, |m| m.generation + 1);
-        *msg = Some(MsgState {
-            msg: m,
-            handled: 0,
-            generation,
-        });
-
-        shared.rx_condvar.notify_all();
-        drop(msg);
     }
 }
 
 impl<M> Receiver<M> {
     /// Waits for a message from the sending thread, calls `handler` on it and returns the result.
-    /// Note that a mutex will be held for the entire duration of the `handler` call.
     pub fn recv<R, F: FnOnce(&M) -> R>(&mut self, handler: F) -> R {
         let shared = &*self.shared;
-        let mut msg = shared.msg.lock().unwrap();
 
-        while msg
-            .as_ref()
-            .is_none_or(|msg| msg.generation < self.generation)
-        {
-            msg = shared.rx_condvar.wait(msg).unwrap();
+        // Wait until the message generation matches our local generation.
+        let mut futex = shared.futex.load(Acquire);
+        while unpack_futex(futex).1 != self.generation {
+            atomic_wait::wait(&shared.futex, futex);
+            futex = shared.futex.load(Acquire);
         }
 
-        let msg_inner = msg.as_mut().unwrap();
-        assert!(
-            msg_inner.handled < shared.num_receivers && msg_inner.generation == self.generation,
-            "Used too many receivers"
-        );
-        let res = handler(&msg_inner.msg);
+        // SAFETY: The loop above, combined with the Release store in `send()` ensures that
+        // the sender thread is done touching the message, so we can access it safely.
+        let msg = unsafe { &*shared.msg.get() };
+        let ret = handler(msg.as_ref().unwrap());
 
-        msg_inner.handled += 1;
-        if msg_inner.handled == shared.num_receivers {
-            shared.tx_condvar.notify_one();
+        self.generation = !self.generation;
+
+        // We've handled the message, so we can decrement the outstanding receiver count.
+        // If we're the last thread to do so, we wake the sender thread.
+        if unpack_futex(shared.futex.fetch_sub(1, Release)).0 == 1 {
+            atomic_wait::wake_all(&shared.futex);
         }
 
-        self.generation += 1;
-
-        res
+        ret
     }
 }
