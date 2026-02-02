@@ -173,7 +173,7 @@ impl Engine {
                     return;
                 }
 
-                let Ok(val) = value.parse::<usize>() else {
+                let Ok(val) = value.parse::<u32>() else {
                     println!("info string Unknown value {value}");
                     return;
                 };
