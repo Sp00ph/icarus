@@ -3,25 +3,21 @@
 //! handled a sent message.
 
 use std::{
-    cell::UnsafeCell,
-    panic::RefUnwindSafe,
+    ptr,
     sync::{
         Arc,
         atomic::{
-            AtomicU32,
+            AtomicPtr, AtomicU32,
             Ordering::{Acquire, Relaxed, Release},
         },
     },
 };
 
 struct Shared<M> {
-    msg: UnsafeCell<Option<M>>,
+    msg_ptr: AtomicPtr<M>,
     futex: AtomicU32,
     num_receivers: u32,
 }
-
-unsafe impl<M: Sync> Sync for Shared<M> {}
-impl<M> RefUnwindSafe for Shared<M> {}
 
 pub struct Sender<M> {
     shared: Arc<Shared<M>>,
@@ -38,7 +34,7 @@ pub struct Receiver<M> {
 /// so dropping any of the receivers will lead to a deadlock in the sender thread.
 pub fn channel<M>(num_receivers: u32) -> (Sender<M>, impl Iterator<Item = Receiver<M>>) {
     let shared = Arc::new(Shared {
-        msg: UnsafeCell::new(None),
+        msg_ptr: AtomicPtr::new(ptr::null_mut()),
         futex: AtomicU32::new(0),
         num_receivers,
     });
@@ -67,14 +63,17 @@ fn unpack_futex(futex: u32) -> (u32, bool) {
 
 impl<M> Sender<M> {
     /// Sends a message to all receivers. Will block until all receivers have handled the message.
-    pub fn send(&mut self, m: M) {
+    pub fn send(&mut self, msg: M) {
         let shared = &*self.shared;
         let (threads, generation) = unpack_futex(shared.futex.load(Relaxed));
         // Because any previous `send` call waited until all receivers handled the message, there should be no outstanding receivers.
         debug_assert!(threads == 0);
 
-        // SAFETY: Any previously sent message has been handled by all receivers, and they won't access `msg` again until we signal them to.
-        unsafe { *shared.msg.get() = Some(m) };
+        // SAFETY: Because the sender waits until all receivers handled the message, we can safely store a pointer to the local message
+        // and have the receivers dereference that pointer.
+        let msg_ref = &msg;
+        let msg_ptr = ptr::from_ref(msg_ref).cast_mut();
+        shared.msg_ptr.store(msg_ptr, Relaxed);
 
         let next_gen = !generation;
         // After writing the message, we update the generation and wake the receivers. We use Release here, and Acquire in the receivers,
@@ -91,6 +90,11 @@ impl<M> Sender<M> {
             atomic_wait::wait(&shared.futex, futex);
             futex = shared.futex.load(Acquire);
         }
+
+        // Sanity check to make any rogue readers trap immediately.
+        shared.msg_ptr.store(ptr::null_mut(), Relaxed);
+        // Sanity check to ensure that nothing invalidated `msg_ref`. Specifically, `msg` itself can't have been moved.
+        let _ = msg_ref;
     }
 }
 
@@ -108,8 +112,8 @@ impl<M> Receiver<M> {
 
         // SAFETY: The loop above, combined with the Release store in `send()` ensures that
         // the sender thread is done touching the message, so we can access it safely.
-        let msg = unsafe { &*shared.msg.get() };
-        let ret = handler(msg.as_ref().unwrap());
+        let msg_ref = unsafe { &*shared.msg_ptr.load(Relaxed) };
+        let ret = handler(msg_ref);
 
         self.generation = !self.generation;
 
