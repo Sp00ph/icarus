@@ -7,16 +7,11 @@ use icarus_board::{board::Board, r#move::Move, movegen::Abort, perft::perft};
 use rustyline::{Config, Editor, error::ReadlineError, history::MemHistory};
 
 use crate::{
-    bench::DEFAULT_BENCH_DEPTH,
-    pesto::eval,
-    position::Position,
-    search::{
+    bench::DEFAULT_BENCH_DEPTH, datagen::genfens, pesto::eval, position::Position, search::{
         searcher::{MAX_THREADS, Searcher},
         time_manager::DEFAULT_MOVE_OVERHEAD,
         transposition_table::{DEFAULT_TT_SIZE, MAX_TT_SIZE},
-    },
-    uci::{SearchLimit, UciCommand},
-    util::atomic_instant::EPOCH,
+    }, uci::{SearchLimit, UciCommand}, util::atomic_instant::EPOCH
 };
 
 pub struct Engine {
@@ -99,6 +94,7 @@ impl Engine {
             UciCommand::Bench { depth, .. } => self.bench(depth, false),
             UciCommand::Perft { depth, bulk } => self.perft(depth, bulk),
             UciCommand::SplitPerft { depth, bulk } => self.splitperft(depth, bulk),
+            UciCommand::GenFens { n, seed, dfrc, random_moves } => genfens(n, seed, dfrc, random_moves),
             UciCommand::Stop => self.stop(),
             UciCommand::Quit => {
                 self.quit();
