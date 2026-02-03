@@ -12,14 +12,36 @@ pub enum UciCommand {
     Uci,
     NewGame,
     IsReady,
-    SetOption { name: String, value: String },
-    Position { board: Board, moves: Vec<Move> },
+    SetOption {
+        name: String,
+        value: String,
+    },
+    Position {
+        board: Board,
+        moves: Vec<Move>,
+    },
     Go(Vec<SearchLimit>),
     Eval,
     Display,
-    Bench { depth: u8, threads: u16, hash: u32 },
-    Perft { depth: u8, bulk: bool },
-    SplitPerft { depth: u8, bulk: bool },
+    Bench {
+        depth: u8,
+        threads: u16,
+        hash: u32,
+    },
+    Perft {
+        depth: u8,
+        bulk: bool,
+    },
+    SplitPerft {
+        depth: u8,
+        bulk: bool,
+    },
+    GenFens {
+        n: usize,
+        seed: u64,
+        dfrc: bool,
+        random_moves: usize,
+    },
     Stop,
     Quit,
     Wait,
@@ -59,6 +81,24 @@ pub enum UciParseError {
     MissingFrcNumber,
     #[error("Scharnagl number is too large: {0}")]
     InvalidFrcNumber(usize),
+    #[error("Missing number of fens in `genfens` command")]
+    MissingGenFensNumber,
+    #[error("Missing `seed` token in `genfens` command")]
+    MissingSeedToken,
+    #[error("Missing `seed` value in `genfens` command")]
+    MissingSeedValue,
+    #[error("Missing `book` token in `genfens` command")]
+    MissingBookToken,
+    #[error("`book` value in `genfens` isn't None")]
+    InvalidBookValue,
+    #[error("Missing `dfrc` token in `genfens` command")]
+    MissingDfrcToken,
+    #[error("Missing `dfrc` value in `genfens` command")]
+    MissingDfrcValue,
+    #[error("Missing `random_moves` token in `genfens` command")]
+    MissingRandomMovesToken,
+    #[error("Missing `random_moves` value in `genfens` command")]
+    MissingRandomMovesValue,
     #[error("Invalid FEN `{0}`")]
     InvalidFen(String),
     #[error("Missing `moves` token on `position` command")]
@@ -275,6 +315,38 @@ impl UciCommand {
                 }
 
                 Ok(Go(limits))
+            }
+            "genfens" => {
+                let n = reader
+                    .next()
+                    .ok_or(MissingGenFensNumber)?
+                    .parse::<usize>()?;
+                if reader.next() != Some("seed") {
+                    return Err(MissingSeedToken);
+                }
+                let seed = reader.next().ok_or(MissingSeedValue)?.parse()?;
+                if reader.next() != Some("book") {
+                    return Err(MissingBookToken);
+                }
+                if reader.next() != Some("None") {
+                    return Err(InvalidBookValue);
+                }
+
+                if reader.next() != Some("dfrc") {
+                    return Err(MissingDfrcToken);
+                }
+                let dfrc = reader.next().ok_or(MissingDfrcValue)?.parse()?;
+                if reader.next() != Some("random_moves") {
+                    return Err(MissingRandomMovesToken);
+                }
+                let random_moves = reader.next().ok_or(MissingRandomMovesValue)?.parse()?;
+
+                Ok(GenFens {
+                    n,
+                    seed,
+                    dfrc,
+                    random_moves,
+                })
             }
             _ => Err(UnknownCommand(cmd.into())),
         }

@@ -8,6 +8,7 @@ use rustyline::{Config, Editor, error::ReadlineError, history::MemHistory};
 
 use crate::{
     bench::DEFAULT_BENCH_DEPTH,
+    datagen::genfens,
     nnue::network::Nnue,
     position::Position,
     search::{
@@ -99,6 +100,12 @@ impl Engine {
             UciCommand::Bench { depth, .. } => self.bench(depth, false),
             UciCommand::Perft { depth, bulk } => self.perft(depth, bulk),
             UciCommand::SplitPerft { depth, bulk } => self.splitperft(depth, bulk),
+            UciCommand::GenFens {
+                n,
+                seed,
+                dfrc,
+                random_moves,
+            } => genfens(n, seed, dfrc, random_moves, self.searcher.network.clone()),
             UciCommand::Stop => self.stop(),
             UciCommand::Quit => {
                 self.quit();
