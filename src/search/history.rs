@@ -18,6 +18,7 @@ pub struct History {
     tactic: [[[i16; 64]; 6]; 2],
     /// [stm][prev piece][prev dst][piece][dst]
     cont_oneply: [[[[[i16; 64]; 6]; 64]; 6]; 2],
+    cont_twoply: [[[[[i16; 64]; 6]; 64]; 6]; 2],
 
     /// [stm][pawn hash % PAWN_CORR_SIZE]
     pawn_corr: [[i16; PAWN_CORR_SIZE]; 2],
@@ -41,13 +42,18 @@ impl History {
 
     pub fn score_quiet(&self, pos: &Position, mv: Move) -> i16 {
         let board = pos.board();
-        let prev = pos.prev_move(1);
+        let oneply = pos.prev_move(1);
+        let twoply = pos.prev_move(2);
         self.quiet[board.stm()][mv.from()][board.attacked().contains(mv.from()) as usize][mv.to()]
             [board.attacked().contains(mv.to()) as usize]
-            + prev.map_or(0, |prev| {
-                self.cont_oneply[board.stm()][prev.0][prev.1.to()]
+            .saturating_add(oneply.map_or(0, |oneply| {
+                self.cont_oneply[board.stm()][oneply.0][oneply.1.to()]
                     [board.piece_on(mv.from()).unwrap()][mv.to()]
-            })
+            }))
+            .saturating_add(twoply.map_or(0, |twoply| {
+                self.cont_twoply[board.stm()][twoply.0][twoply.1.to()]
+                    [board.piece_on(mv.from()).unwrap()][mv.to()]
+            }))
     }
 
     pub fn score_tactic(&self, board: &Board, mv: Move) -> i16 {
@@ -102,7 +108,8 @@ impl History {
         depth: i16,
     ) {
         let board = pos.board();
-        let prev = pos.prev_move(1);
+        let oneply = pos.prev_move(1);
+        let twoply = pos.prev_move(2);
 
         let bonus_base = 128;
         let bonus_scale = 128;
@@ -118,9 +125,16 @@ impl History {
             Self::update_value(self.tactic_mut(board, mv), bonus);
         } else {
             Self::update_value(self.quiet_mut(board, mv), bonus);
-            if let Some(prev) = prev {
+            if let Some(prev) = oneply {
                 Self::update_value(
                     &mut self.cont_oneply[board.stm()][prev.0][prev.1.to()]
+                        [board.piece_on(mv.from()).unwrap()][mv.to()],
+                    bonus,
+                );
+            }
+            if let Some(prev) = twoply {
+                Self::update_value(
+                    &mut self.cont_twoply[board.stm()][prev.0][prev.1.to()]
                         [board.piece_on(mv.from()).unwrap()][mv.to()],
                     bonus,
                 );
@@ -128,9 +142,16 @@ impl History {
 
             for &quiet in quiets {
                 Self::update_value(self.quiet_mut(board, quiet), -malus);
-                if let Some(prev) = prev {
+                if let Some(oneply) = oneply {
                     Self::update_value(
-                        &mut self.cont_oneply[board.stm()][prev.0][prev.1.to()]
+                        &mut self.cont_oneply[board.stm()][oneply.0][oneply.1.to()]
+                            [board.piece_on(quiet.from()).unwrap()][quiet.to()],
+                        -malus,
+                    );
+                }
+                if let Some(twoply) = twoply {
+                    Self::update_value(
+                        &mut self.cont_twoply[board.stm()][twoply.0][twoply.1.to()]
                             [board.piece_on(quiet.from()).unwrap()][quiet.to()],
                         -malus,
                     );
