@@ -231,8 +231,8 @@ pub fn search<Node: NodeType>(
                     // History pruning
                     let hist = thread.history.score_quiet(pos, mv);
                     let hist_scale = 2000;
-                    let hist_margin = -hist_scale * lmr_depth;
-                    if depth <= 5 && hist < hist_margin {
+                    let hist_margin = -hist_scale * lmr_depth as i32;
+                    if depth <= 5 && (hist as i32) < hist_margin {
                         move_picker.skip_quiets();
                     }
                 }
