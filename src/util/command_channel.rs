@@ -110,12 +110,15 @@ impl<M> Receiver<M> {
             futex = shared.futex.load(Acquire);
         }
 
+        // We toggle the generation bit before calling the user defined handler. Otherwise, if the handler
+        // unwinds and gets caught by `catch_unwind`, another `recv()` invocation would falsely believe there
+        // is an available message, and dereference the (probably null) msg_ptr.
+        self.generation = !self.generation;
+
         // SAFETY: The loop above, combined with the Release store in `send()` ensures that
         // the sender thread is done touching the message, so we can access it safely.
         let msg_ref = unsafe { &*shared.msg_ptr.load(Relaxed) };
         let ret = handler(msg_ref);
-
-        self.generation = !self.generation;
 
         // We've handled the message, so we can decrement the outstanding receiver count.
         // If we're the last thread to do so, we wake the sender thread.
