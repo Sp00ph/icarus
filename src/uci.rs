@@ -89,8 +89,8 @@ pub enum UciParseError {
     MissingSeedValue,
     #[error("Missing `book` token in `genfens` command")]
     MissingBookToken,
-    #[error("`book` value in `genfens` isn't None")]
-    InvalidBookValue,
+    #[error("Missing `book` value in `genfens` command")]
+    MissingBookValue,
     #[error("Missing `dfrc` token in `genfens` command")]
     MissingDfrcToken,
     #[error("Missing `dfrc` value in `genfens` command")]
@@ -328,8 +328,8 @@ impl UciCommand {
                 if reader.next() != Some("book") {
                     return Err(MissingBookToken);
                 }
-                if reader.next() != Some("None") {
-                    return Err(InvalidBookValue);
+                if reader.next().is_none() {
+                    return Err(MissingBookValue);
                 }
 
                 if reader.next() != Some("dfrc") {
