@@ -234,6 +234,7 @@ pub fn search<Node: NodeType>(
                     let hist_margin = -hist_scale * lmr_depth as i32;
                     if depth <= 5 && (hist as i32) < hist_margin {
                         move_picker.skip_quiets();
+                        continue;
                     }
                 }
 
