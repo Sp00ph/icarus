@@ -1,6 +1,10 @@
 use std::{env, fs, path::PathBuf, str::FromStr};
 
 use sha2::{Digest, Sha256};
+use ureq::{
+    config::Config,
+    tls::{RootCerts, TlsConfig, TlsProvider},
+};
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
@@ -23,14 +27,26 @@ fn main() {
             return;
         }
 
-        let network = ureq::get(format!(
-            "https://github.com/Sp00ph/icarus-nets/releases/download/{name}/{name}.nnue"
-        ))
-        .call()
-        .unwrap()
-        .into_body()
-        .read_to_vec()
-        .unwrap();
+        let config = Config::builder()
+            .tls_config(
+                TlsConfig::builder()
+                    .provider(TlsProvider::NativeTls)
+                    .root_certs(RootCerts::PlatformVerifier)
+                    .build(),
+            )
+            .build();
+
+        let agent = config.new_agent();
+
+        let network = agent
+            .get(format!(
+                "https://github.com/Sp00ph/icarus-nets/releases/download/{name}/{name}.nnue"
+            ))
+            .call()
+            .unwrap()
+            .into_body()
+            .read_to_vec()
+            .unwrap();
 
         assert!(
             Sha256::digest(&network)[..] == hash[..],
