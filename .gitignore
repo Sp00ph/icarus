@@ -6,5 +6,8 @@
 /icarus
 /icarus.exe
 
+# Nets
+*.nnue
+
 .idea/**
 *.iml
