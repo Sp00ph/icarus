@@ -1,7 +1,7 @@
 use arrayvec::ArrayVec;
 use icarus_common::{
     piece::{Color, Piece},
-    square::Square,
+    square::{File, Square},
     util::enum_map::EnumMap,
 };
 
@@ -22,11 +22,15 @@ pub struct Feature {
 }
 
 impl Feature {
-    pub fn idx(&self, perspective: Color) -> usize {
-        let (square, color) = match perspective {
+    pub fn idx(&self, perspective: Color, king: Square) -> usize {
+        let (mut square, color) = match perspective {
             Color::White => (self.square, self.color),
             Color::Black => (self.square.flip_rank(), !self.color),
         };
+
+        if king.file() > File::D {
+            square = square.flip_file();
+        }
 
         square as usize + Square::COUNT * (self.piece as usize + Piece::COUNT * color as usize)
     }

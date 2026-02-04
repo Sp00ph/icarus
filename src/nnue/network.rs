@@ -7,7 +7,7 @@ use icarus_board::{
 };
 use icarus_common::{
     piece::{Color, Piece},
-    square::{Rank, Square},
+    square::{File, Rank, Square},
     util::enum_map::enum_map,
 };
 
@@ -92,6 +92,7 @@ impl Nnue {
 
     pub fn reset(&mut self, board: &Board, perspective: Color) {
         self.stack[self.idx].values[perspective].copy_from_slice(&self.network.ft_bias);
+        let king = board.king(perspective);
 
         let adds: ArrayVec<usize, 64> = Square::all()
             .filter(|&square| board.piece_on(square).is_some())
@@ -103,7 +104,7 @@ impl Nnue {
                     piece,
                     color,
                 }
-                .idx(perspective)
+                .idx(perspective, king)
             })
             .collect();
 
@@ -115,7 +116,7 @@ impl Nnue {
         self.stack[self.idx].dirty[perspective] = false;
     }
 
-    pub fn make_move(&mut self, old_board: &Board, mv: Move) {
+    pub fn make_move(&mut self, old_board: &Board, new_board: &Board, mv: Move) {
         let mut updates = Updates::default();
         let (from, to) = (mv.from(), mv.to());
         let (piece, stm) = (mv.piece_type(old_board), old_board.stm());
@@ -143,21 +144,25 @@ impl Nnue {
         self.stack[self.idx].updates = updates;
         self.stack[self.idx + 1].dirty = enum_map! { _ => true };
         self.idx += 1;
+
+        if piece == Piece::King && (from.file() > File::D) != (to.file() > File::D) {
+            self.reset(new_board, stm);
+        }
     }
 
     pub fn unmake_move(&mut self) {
         self.idx -= 1;
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, board: &Board) {
         for perspective in Color::all() {
             if self.stack[self.idx].dirty[perspective] {
-                self.update_color(perspective);
+                self.update_color(perspective, board.king(perspective));
             }
         }
     }
 
-    fn update_color(&mut self, perspective: Color) {
+    fn update_color(&mut self, perspective: Color, king: Square) {
         let clean_idx = (0..self.idx)
             .rev()
             .find(|&i| !self.stack[i].dirty[perspective])
@@ -173,25 +178,25 @@ impl Nnue {
                     clean_acc,
                     dirty_acc,
                     network,
-                    add.idx(perspective),
-                    sub.idx(perspective),
+                    add.idx(perspective, king),
+                    sub.idx(perspective, king),
                 ),
                 (&[add], &[sub1, sub2]) => acc_add_sub2(
                     clean_acc,
                     dirty_acc,
                     network,
-                    add.idx(perspective),
-                    sub1.idx(perspective),
-                    sub2.idx(perspective),
+                    add.idx(perspective, king),
+                    sub1.idx(perspective, king),
+                    sub2.idx(perspective, king),
                 ),
                 (&[add1, add2], &[sub1, sub2]) => acc_add2_sub2(
                     clean_acc,
                     dirty_acc,
                     network,
-                    add1.idx(perspective),
-                    add2.idx(perspective),
-                    sub1.idx(perspective),
-                    sub2.idx(perspective),
+                    add1.idx(perspective, king),
+                    add2.idx(perspective, king),
+                    sub1.idx(perspective, king),
+                    sub2.idx(perspective, king),
                 ),
                 _ => unreachable!("Invalid Updates"),
             };
