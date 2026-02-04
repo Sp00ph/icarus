@@ -29,12 +29,12 @@ impl Position {
     }
 
     pub fn make_move(&mut self, mv: Move, nnue: Option<&mut Nnue>) {
-        if let Some(nnue) = nnue {
-            nnue.make_move(&self.board, mv);
-        }
         let piece = mv.piece_type(&self.board);
         self.history.push(self.board);
         self.board.make_move(mv);
+        if let Some(nnue) = nnue {
+            nnue.make_move(self.history.last().unwrap(), &self.board, mv);
+        }
         self.moves.push(Some((piece, mv)));
     }
 
@@ -59,7 +59,7 @@ impl Position {
     }
 
     pub fn eval(&self, nnue: &mut Nnue) -> Score {
-        nnue.update();
+        nnue.update(&self.board);
         let eval = nnue.eval(self.board.stm());
         Score::clamp_nomate(eval.clamp(i16::MIN as i32, i16::MAX as i32) as i16)
     }
