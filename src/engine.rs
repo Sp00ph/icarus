@@ -22,6 +22,7 @@ use crate::{
 
 pub struct Engine {
     position: Position,
+    use_soft_nodes: bool,
     chess960: bool,
     searcher: Searcher,
 }
@@ -30,6 +31,7 @@ impl Engine {
     pub fn new() -> Self {
         Self {
             position: Position::new(Board::start_pos()),
+            use_soft_nodes: false,
             chess960: false,
             searcher: Searcher::default(),
         }
@@ -122,6 +124,7 @@ impl Engine {
         println!("id name Icarus {version}-dev");
         println!("id author Sp00ph");
         println!("option name UCI_Chess960 type check default false");
+        println!("option name UseSoftNodes type check default false");
         println!(
             "option name MoveOverhead type spin default {} min 0 max {}",
             DEFAULT_MOVE_OVERHEAD,
@@ -145,6 +148,14 @@ impl Engine {
                 };
                 self.chess960 = val;
                 println!("info string Set Chess960 to {val}");
+            }
+            "UseSoftNodes" => {
+                let Ok(val) = value.parse::<bool>() else {
+                    println!("info string Unknown value {value}");
+                    return;
+                };
+                self.use_soft_nodes = val;
+                println!("info string Set UseSoftNodes to {val}");
             }
             "MoveOverhead" => {
                 let Ok(val) = value.parse::<u16>() else {
@@ -258,8 +269,13 @@ impl Engine {
             println!("info string already searching");
             return;
         }
-        self.searcher
-            .search(self.position.clone(), search_limits, self.chess960, true);
+        self.searcher.search(
+            self.position.clone(),
+            search_limits,
+            self.use_soft_nodes,
+            self.chess960,
+            true,
+        );
     }
 
     fn stop(&mut self) {

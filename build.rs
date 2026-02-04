@@ -12,7 +12,9 @@ fn main() {
         .unwrap()
         .join("icarus.nnue");
 
-    if let Ok(path) = env::var("EVALFILE") && !path.is_empty() {
+    if let Ok(path) = env::var("EVALFILE")
+        && !path.is_empty()
+    {
         fs::copy(path, output_path).unwrap();
     } else {
         let contents = fs::read_to_string("network.txt").unwrap();

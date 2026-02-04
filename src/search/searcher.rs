@@ -144,6 +144,7 @@ impl Searcher {
         &mut self,
         pos: Position,
         limits: Vec<SearchLimit>,
+        use_soft_nodes: bool,
         chess960: bool,
         print_info: bool,
     ) {
@@ -158,7 +159,7 @@ impl Searcher {
         self.global_ctx.num_searching.store(1, Relaxed);
         self.global_ctx
             .time_manager
-            .init(pos.board().stm(), &limits);
+            .init(pos.board().stm(), &limits, use_soft_nodes);
 
         let root_moves = limits.into_iter().find_map(|limit| match limit {
             SearchLimit::SearchMoves(moves) => Some(moves),

@@ -73,7 +73,7 @@ impl Engine {
         for fen in FENS {
             let pos = Position::new(Board::read_fen(fen).unwrap());
             let start = Instant::now();
-            searcher.search(pos, limits.clone(), false, false);
+            searcher.search(pos, limits.clone(), false, false, false);
             searcher.wait();
             duration += start.elapsed();
             nodes += searcher.global_ctx.nodes.load(Ordering::Relaxed);

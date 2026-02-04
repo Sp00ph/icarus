@@ -17,7 +17,8 @@ pub struct TimeManager {
 
     // Supported limits for a `go` command. If these are not set by the command, the maximum values are used.
     max_depth: AtomicU16,
-    max_nodes: AtomicU64,
+    soft_nodes: AtomicU64,
+    hard_nodes: AtomicU64,
     base_time: AtomicU64,
     soft_time: AtomicU64,
     hard_time: AtomicU64,
@@ -35,7 +36,8 @@ impl Default for TimeManager {
             infinite: AtomicBool::new(false),
             stop: AtomicU32::new(0),
             max_depth: AtomicU16::new(0),
-            max_nodes: AtomicU64::new(0),
+            soft_nodes: AtomicU64::new(0),
+            hard_nodes: AtomicU64::new(0),
             base_time: AtomicU64::new(0),
             soft_time: AtomicU64::new(0),
             hard_time: AtomicU64::new(0),
@@ -45,7 +47,7 @@ impl Default for TimeManager {
 }
 
 impl TimeManager {
-    pub fn init(&self, stm: Color, limits: &[SearchLimit]) {
+    pub fn init(&self, stm: Color, limits: &[SearchLimit], use_soft_nodes: bool) {
         self.set_stop_flag(false);
 
         let mut time = enum_map! { _ => u64::MAX };
@@ -81,7 +83,9 @@ impl TimeManager {
         self.infinite.store(infinite, Relaxed);
 
         self.max_depth.store(max_depth.min(MAX_PLY), Relaxed);
-        self.max_nodes.store(max_nodes, Relaxed);
+        self.soft_nodes.store(max_nodes, Relaxed);
+        let hard_nodes = max_nodes.saturating_mul(if use_soft_nodes { 200 } else { 1 });
+        self.hard_nodes.store(hard_nodes, Relaxed);
 
         let (time, inc) = (time[stm], inc[stm]);
         let move_overhead = self.move_overhead.load(Relaxed) as u64;
@@ -120,7 +124,7 @@ impl TimeManager {
 
     pub fn stop_search(&self, nodes: &BufferedCounter) -> bool {
         self.stop_flag()
-            || nodes.global() >= self.max_nodes.load(Relaxed)
+            || nodes.global() >= self.hard_nodes.load(Relaxed)
             || (nodes.local().is_multiple_of(1024)
                 && self.elapsed().as_millis() as u64 > self.hard_time.load(Relaxed))
     }
@@ -128,7 +132,7 @@ impl TimeManager {
     pub fn stop_id(&self, depth: u16, nodes: u64) -> bool {
         self.stop_flag()
             || depth >= self.max_depth.load(Relaxed)
-            || nodes >= self.max_nodes.load(Relaxed)
+            || nodes >= self.soft_nodes.load(Relaxed)
             || self.elapsed().as_millis() as u64 > self.soft_time.load(Relaxed)
     }
 
