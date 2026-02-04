@@ -1,10 +1,7 @@
 use std::{env, fs, path::PathBuf, str::FromStr};
 
+use curl::easy::Easy;
 use sha2::{Digest, Sha256};
-use ureq::{
-    config::Config,
-    tls::{RootCerts, TlsConfig, TlsProvider},
-};
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
@@ -15,7 +12,7 @@ fn main() {
         .unwrap()
         .join("icarus.nnue");
 
-    if let Ok(path) = env::var("EVALFILE") {
+    if let Ok(path) = env::var("EVALFILE") && !path.is_empty() {
         fs::copy(path, output_path).unwrap();
     } else {
         let contents = fs::read_to_string("network.txt").unwrap();
@@ -27,26 +24,24 @@ fn main() {
             return;
         }
 
-        let config = Config::builder()
-            .tls_config(
-                TlsConfig::builder()
-                    .provider(TlsProvider::NativeTls)
-                    .root_certs(RootCerts::PlatformVerifier)
-                    .build(),
-            )
-            .build();
-
-        let agent = config.new_agent();
-
-        let network = agent
-            .get(format!(
-                "https://github.com/Sp00ph/icarus-nets/releases/download/{name}/{name}.nnue"
-            ))
-            .call()
-            .unwrap()
-            .into_body()
-            .read_to_vec()
-            .unwrap();
+        let mut network = vec![];
+        let mut curl = Easy::new();
+        curl.follow_location(true).unwrap();
+        curl.url(&format!(
+            "https://github.com/Sp00ph/icarus-nets/releases/download/{name}/{name}.nnue"
+        ))
+        .unwrap();
+        curl.get(true).unwrap();
+        {
+            let mut transfer = curl.transfer();
+            transfer
+                .write_function(|data| {
+                    network.extend_from_slice(data);
+                    Ok(data.len())
+                })
+                .unwrap();
+            transfer.perform().unwrap();
+        }
 
         assert!(
             Sha256::digest(&network)[..] == hash[..],
