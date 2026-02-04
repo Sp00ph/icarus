@@ -18,5 +18,10 @@ members = ["icarus-board", "icarus-common"]
 
 [features]
 use-bmi2 = ["icarus-board/use-bmi2"]
-test-islegal=["icarus-board/test-islegal"]
+test-islegal = ["icarus-board/test-islegal"]
 default = ["use-bmi2"]
+
+[build-dependencies]
+curl = "0.4.49"
+hex = "0.4.3"
+sha2 = "0.10.9"

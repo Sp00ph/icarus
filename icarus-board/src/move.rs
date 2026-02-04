@@ -7,7 +7,7 @@ use icarus_common::{
     square::{File, Square},
 };
 
-use crate::board::Board;
+use crate::{board::Board, castling::CastlingDirection};
 
 /// Bit packed move type
 /// Bits 0-5:   src square
@@ -100,6 +100,17 @@ impl Move {
             MoveFlag::Castle => None,
             MoveFlag::EnPassant => Some(Piece::Pawn),
             _ => board.mailbox[self.to()],
+        }
+    }
+
+    #[inline]
+    pub fn castling_dir(self) -> Option<CastlingDirection> {
+        if self.flag() != MoveFlag::Castle {
+            None
+        } else if self.to().file() < self.from().file() {
+            Some(CastlingDirection::Long)
+        } else {
+            Some(CastlingDirection::Short)
         }
     }
 

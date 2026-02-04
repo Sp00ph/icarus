@@ -9,7 +9,7 @@ use icarus_common::{
     square::Square,
 };
 
-use crate::weights::see_val;
+use crate::{nnue::network::Nnue, score::Score, weights::see_val};
 
 #[derive(Clone)]
 pub struct Position {
@@ -28,8 +28,11 @@ impl Position {
         }
     }
 
-    pub fn make_move(&mut self, mv: Move) {
-        let piece = self.board.piece_on(mv.from()).unwrap();
+    pub fn make_move(&mut self, mv: Move, nnue: Option<&mut Nnue>) {
+        if let Some(nnue) = nnue {
+            nnue.make_move(&self.board, mv);
+        }
+        let piece = mv.piece_type(&self.board);
         self.history.push(self.board);
         self.board.make_move(mv);
         self.moves.push(Some((piece, mv)));
@@ -41,7 +44,10 @@ impl Position {
         self.moves.push(None);
     }
 
-    pub fn unmake_move(&mut self) {
+    pub fn unmake_move(&mut self, nnue: Option<&mut Nnue>) {
+        if let Some(nnue) = nnue {
+            nnue.unmake_move();
+        }
         self.board = self.history.pop().unwrap();
         self.moves.pop();
     }
@@ -50,6 +56,12 @@ impl Position {
     pub fn unmake_null_move(&mut self) {
         self.board = self.history.pop().unwrap();
         self.moves.pop();
+    }
+
+    pub fn eval(&self, nnue: &mut Nnue) -> Score {
+        nnue.update();
+        let eval = nnue.eval(self.board.stm());
+        Score::clamp_nomate(eval.clamp(i16::MIN as i32, i16::MAX as i32) as i16)
     }
 
     pub fn prev_move(&self, ply: usize) -> Option<(Piece, Move)> {

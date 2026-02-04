@@ -8,7 +8,7 @@ use rustyline::{Config, Editor, error::ReadlineError, history::MemHistory};
 
 use crate::{
     bench::DEFAULT_BENCH_DEPTH,
-    pesto::eval,
+    nnue::network::Nnue,
     position::Position,
     search::{
         searcher::{MAX_THREADS, Searcher},
@@ -188,7 +188,7 @@ impl Engine {
     fn position(&mut self, board: Board, moves: Vec<Move>) {
         self.position = Position::new(board);
         for mv in moves {
-            self.position.make_move(mv);
+            self.position.make_move(mv, None);
         }
     }
 
@@ -286,7 +286,8 @@ impl Engine {
     }
 
     fn eval(&self) {
-        let score = eval(self.position.board());
+        let mut nnue = Nnue::new(self.position.board(), self.searcher.network.clone());
+        let score = self.position.eval(&mut nnue);
         println!("Static eval: {score:#}");
     }
 }
