@@ -37,7 +37,7 @@ impl Engine {
         }
     }
 
-    pub fn run(&mut self) -> Result<(), rootcause::Report> {
+    pub fn run(&mut self) -> anyhow::Result<()> {
         // Initialize the epoch used for `AtomicInstant`.
         LazyLock::force(&EPOCH);
 
