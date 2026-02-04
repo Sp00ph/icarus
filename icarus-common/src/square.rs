@@ -147,6 +147,11 @@ impl Square {
             _ => None,
         }
     }
+
+    #[inline]
+    pub fn flip_rank(self) -> Self {
+        Self::from_idx(self.idx() ^ 56)
+    }
 }
 
 impl fmt::Display for Square {

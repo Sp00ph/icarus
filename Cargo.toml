@@ -20,3 +20,8 @@ members = ["icarus-board", "icarus-common"]
 use-bmi2 = ["icarus-board/use-bmi2"]
 test-islegal=["icarus-board/test-islegal"]
 default = ["use-bmi2"]
+
+[build-dependencies]
+hex = "0.4.3"
+sha2 = "0.10.9"
+ureq = "3.1.4"

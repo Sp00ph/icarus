@@ -3,7 +3,6 @@ use icarus_board::{board::TerminalState, r#move::Move};
 use smallvec::SmallVec;
 
 use crate::{
-    pesto::eval,
     position::Position,
     score::Score,
     search::{
@@ -115,7 +114,7 @@ pub fn search<Node: NodeType>(
 
     let raw_eval = tt_entry
         .map(|e| e.eval)
-        .unwrap_or_else(|| eval(pos.board()));
+        .unwrap_or_else(|| pos.eval(&mut thread.nnue));
     let static_eval =
         Score::clamp_nomate(raw_eval.0.saturating_add(thread.history.corr(pos.board())));
     let in_check = pos.board().checkers().is_non_empty();
@@ -278,7 +277,7 @@ pub fn search<Node: NodeType>(
 
         let initial_nodes = thread.nodes.local();
         let new_depth = depth + extension - 1;
-        pos.make_move(mv);
+        pos.make_move(mv, Some(&mut thread.nnue));
 
         // PVS
         if moves_seen == 0 {
@@ -296,7 +295,7 @@ pub fn search<Node: NodeType>(
             }
         }
 
-        pos.unmake_move();
+        pos.unmake_move(Some(&mut thread.nnue));
         moves_seen += 1;
 
         if Node::ROOT {
@@ -399,7 +398,7 @@ pub fn qsearch<Node: NodeType>(
     }
 
     if ply >= MAX_PLY {
-        return eval(pos.board());
+        return pos.eval(&mut thread.nnue);
     }
 
     thread.sel_depth = thread.sel_depth.max(ply);
@@ -411,7 +410,7 @@ pub fn qsearch<Node: NodeType>(
     if !in_check {
         let raw_eval = tt_entry
             .map(|e| e.eval)
-            .unwrap_or_else(|| eval(pos.board()));
+            .unwrap_or_else(|| pos.eval(&mut thread.nnue));
         let static_eval = raw_eval + thread.history.corr(pos.board());
 
         if static_eval >= beta {
@@ -445,9 +444,9 @@ pub fn qsearch<Node: NodeType>(
             break;
         }
 
-        pos.make_move(mv);
+        pos.make_move(mv, Some(&mut thread.nnue));
         let score = -qsearch::<Node::Next>(pos, ply + 1, -beta, -alpha, thread);
-        pos.unmake_move();
+        pos.unmake_move(Some(&mut thread.nnue));
         moves_seen += 1;
 
         if Node::ROOT && moves_seen == 1 {

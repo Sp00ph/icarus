@@ -3,6 +3,7 @@ use std::{fmt, ops::Not};
 use crate::define_enum;
 
 define_enum!(
+    #[derive(Debug)]
     pub enum Piece {
         Pawn,
         Knight,
