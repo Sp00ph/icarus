@@ -9,5 +9,5 @@ native:
 ifndef EVALFILE
 	python3 ./download-net.py
 endif
-	cargo +stable build --release -p icarus
+	cargo build --release -p icarus
 	cp target/release/icarus$(EXT) ./$(EXE)$(EXT)
