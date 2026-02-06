@@ -23,6 +23,7 @@ use crate::{
 
 pub const INPUT: usize = 768;
 pub const HL: usize = 512;
+pub const OUT_BUCKETS: usize = 8;
 
 const DEFAULT_NET: &[u8; size_of::<Network>()] =
     include_bytes!(concat!(env!("OUT_DIR"), "/icarus.nnue"));
@@ -31,8 +32,8 @@ const DEFAULT_NET: &[u8; size_of::<Network>()] =
 pub struct Network {
     pub ft_weight: [i16; INPUT * HL],
     pub ft_bias: [i16; HL],
-    pub out_weight: [i16; 2 * HL],
-    pub out_bias: i16,
+    pub out_weight: [i16; 2 * HL * OUT_BUCKETS],
+    pub out_bias: [i16; OUT_BUCKETS],
 }
 
 impl Network {
@@ -204,10 +205,12 @@ impl Nnue {
         }
     }
 
-    pub fn eval(&self, stm: Color) -> i32 {
+    pub fn eval(&self, stm: Color, num_pieces: u8) -> i32 {
         let acc = &self.stack[self.idx];
         let (us, them) = (&acc.values[stm], &acc.values[!stm]);
+        let divisor = 32u8.div_ceil(OUT_BUCKETS as u8);
+        let bucket = (num_pieces - 2) / divisor;
 
-        forward(us, them, &self.network)
+        forward(us, them, &self.network, bucket as usize)
     }
 }

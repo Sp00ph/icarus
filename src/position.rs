@@ -60,7 +60,7 @@ impl Position {
 
     pub fn eval(&self, nnue: &mut Nnue) -> Score {
         nnue.update(&self.board);
-        let eval = nnue.eval(self.board.stm());
+        let eval = nnue.eval(self.board.stm(), self.board.occupied().popcnt());
         Score::clamp_nomate(eval.clamp(i16::MIN as i32, i16::MAX as i32) as i16)
     }
 
