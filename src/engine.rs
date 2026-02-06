@@ -11,7 +11,7 @@ use crate::search::params::{list_params, print_params_ob, valid_param_name};
 use crate::{
     bench::DEFAULT_BENCH_DEPTH,
     datagen::genfens,
-    nnue::network::Nnue,
+    nnue::network::{Nnue, OUT_BUCKETS},
     position::Position,
     search::{
         searcher::{MAX_THREADS, Searcher},
@@ -348,8 +348,16 @@ impl Engine {
 
     fn eval(&self) {
         let mut nnue = Nnue::new(self.position.board());
-        let score = self.position.eval(&mut nnue);
-        println!("Static eval: {score:#}");
+        let active_bucket = nnue.active_bucket(self.position.board());
+        for bucket in 0..OUT_BUCKETS {
+            let score = self.position.eval_bucket(&mut nnue, bucket);
+            let active_str = if bucket == active_bucket {
+                " (active)"
+            } else {
+                ""
+            };
+            println!("Bucket {bucket}: {score:#}{active_str}");
+        }
     }
 }
 

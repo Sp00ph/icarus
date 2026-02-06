@@ -1,8 +1,7 @@
 #![allow(clippy::identity_op)]
 
 use cfg_if::cfg_if;
-
-use crate::nnue::network::NET;
+use crate::nnue::network::{NET, OUT_BUCKETS};
 
 use super::network::HL;
 
