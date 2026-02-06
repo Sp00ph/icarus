@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-import requests
+import urllib.request
 import hashlib
+
 
 def main():
     name, hash = open("network.txt").read().strip().split()
@@ -12,11 +13,11 @@ def main():
             return
     except OSError:
         pass
-    
+
     print(f"Downloading net {name} to {path}")
-    net = requests.get(
+    net = urllib.request.urlopen(
         f"https://github.com/Sp00ph/icarus-nets/releases/download/{name}/{name}.nnue"
-    ).content
+    ).read()
     if hashlib.sha256(net).digest().hex() != hash:
         print("Invalid hash!")
         exit(1)
