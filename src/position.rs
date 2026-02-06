@@ -59,7 +59,13 @@ impl Position {
 
     pub fn eval(&self, nnue: &mut Nnue) -> Score {
         nnue.update(&self.board);
-        let eval = nnue.eval(self.board.stm());
+        let eval = nnue.eval(self.board());
+        Score::clamp_nomate(eval.clamp(i16::MIN as i32, i16::MAX as i32) as i16)
+    }
+
+    pub fn eval_bucket(&self, nnue: &mut Nnue, bucket: usize) -> Score {
+        nnue.update(&self.board);
+        let eval = nnue.eval_bucket(self.board().stm(), bucket);
         Score::clamp_nomate(eval.clamp(i16::MIN as i32, i16::MAX as i32) as i16)
     }
 

@@ -22,6 +22,7 @@ use crate::{
 
 pub const INPUT: usize = 768;
 pub const HL: usize = 1024;
+pub const OUT_BUCKETS: usize = 8;
 pub const NUM_KING_BUCKETS: usize = 4;
 #[rustfmt::skip]
 pub static KING_BUCKET_LAYOUT: [u8; 64] = [
@@ -51,8 +52,8 @@ pub static NET: Network =
 pub struct Network {
     pub ft_weight: [[[i16; HL]; INPUT]; NUM_KING_BUCKETS],
     pub ft_bias: [i16; HL],
-    pub out_weight: [[i16; HL]; 2],
-    pub out_bias: i16,
+    pub out_weight: [[[i16; HL]; 2]; OUT_BUCKETS],
+    pub out_bias: [i16; OUT_BUCKETS],
 }
 
 pub struct Nnue {
@@ -268,10 +269,22 @@ impl Nnue {
         }
     }
 
-    pub fn eval(&self, stm: Color) -> i32 {
+    pub fn eval(&self, board: &Board) -> i32 {
+        let bucket = self.active_bucket(board);
+
+        self.eval_bucket(board.stm(), bucket)
+    }
+
+    pub fn eval_bucket(&self, stm: Color, bucket: usize) -> i32 {
         let acc = &self.stack[self.idx];
         let (us, them) = (&acc.values[stm], &acc.values[!stm]);
 
-        forward(us, them)
+        forward(us, them, bucket)
+    }
+
+    pub fn active_bucket(&self, board: &Board) -> usize {
+        let num_pieces = board.occupied().popcnt();
+        let divisor = 32u8.div_ceil(OUT_BUCKETS as u8);
+        ((num_pieces - 2) / divisor) as usize
     }
 }
