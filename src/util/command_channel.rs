@@ -13,17 +13,17 @@ use std::{
     },
 };
 
-struct Shared<M> {
+struct Shared<M: Sync> {
     msg_ptr: AtomicPtr<M>,
     futex: AtomicU32,
     num_receivers: u32,
 }
 
-pub struct Sender<M> {
+pub struct Sender<M: Sync> {
     shared: Arc<Shared<M>>,
 }
 
-pub struct Receiver<M> {
+pub struct Receiver<M: Sync> {
     shared: Arc<Shared<M>>,
     generation: bool,
 }
@@ -32,7 +32,7 @@ pub struct Receiver<M> {
 /// the singular sender, and an iterator yielding the `num_receivers` receivers. Note that
 /// sending a message will block the sender until all receivers have handled the message,
 /// so dropping any of the receivers will lead to a deadlock in the sender thread.
-pub fn channel<M>(num_receivers: u32) -> (Sender<M>, impl Iterator<Item = Receiver<M>>) {
+pub fn channel<M: Sync>(num_receivers: u32) -> (Sender<M>, impl Iterator<Item = Receiver<M>>) {
     let shared = Arc::new(Shared {
         msg_ptr: AtomicPtr::new(ptr::null_mut()),
         futex: AtomicU32::new(0),
@@ -61,7 +61,7 @@ fn unpack_futex(futex: u32) -> (u32, bool) {
     (threads, generation != 0)
 }
 
-impl<M> Sender<M> {
+impl<M: Sync> Sender<M> {
     /// Sends a message to all receivers. Will block until all receivers have handled the message.
     pub fn send(&mut self, msg: M) {
         let shared = &*self.shared;
@@ -98,7 +98,7 @@ impl<M> Sender<M> {
     }
 }
 
-impl<M> Receiver<M> {
+impl<M: Sync> Receiver<M> {
     /// Waits for a message from the sending thread, calls `handler` on it and returns the result.
     pub fn recv<R, F: FnOnce(&M) -> R>(&mut self, handler: F) -> R {
         let shared = &*self.shared;
