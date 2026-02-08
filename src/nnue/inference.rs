@@ -17,6 +17,7 @@ cfg_if!(
         mod avx2;
         pub use avx2::forward;
     } else {
+        error!("Non avx2 disabled for SPRT purposes");
         mod generic;
         pub use generic::forward;
     }
