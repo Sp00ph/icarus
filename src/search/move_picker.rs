@@ -29,16 +29,10 @@ pub struct MovePicker {
     skip_quiets: bool,
     tt_move: Option<Move>,
     see_threshold: i16,
-    skip_bad_noisies: bool,
 }
 
 impl MovePicker {
-    pub fn new(
-        tt_move: Option<Move>,
-        skip_quiets: bool,
-        see_threshold: i16,
-        skip_bad_noisies: bool,
-    ) -> Self {
+    pub fn new(tt_move: Option<Move>, skip_quiets: bool, see_threshold: i16) -> Self {
         Self {
             moves: MoveList::new(),
             bad_noisies: 0,
@@ -47,7 +41,6 @@ impl MovePicker {
             skip_quiets,
             tt_move,
             see_threshold,
-            skip_bad_noisies,
         }
     }
 
@@ -161,7 +154,7 @@ impl MovePicker {
         }
 
         assert_eq!(self.stage, Stage::YieldBadNoisy);
-        if self.skip_bad_noisies || self.index >= self.bad_noisies {
+        if self.index >= self.bad_noisies {
             return None;
         }
         let mv = self.moves[self.index].0;
