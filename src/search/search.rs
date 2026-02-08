@@ -168,7 +168,7 @@ pub fn search<Node: NodeType>(
         }
     }
 
-    let mut move_picker = MovePicker::new(tt_move, false, 0);
+    let mut move_picker = MovePicker::new(tt_move, false, Some(0));
     let mut best_score = -Score::INFINITE;
     let mut moves_seen = 0;
     let mut best_move = None;
@@ -437,17 +437,14 @@ pub fn qsearch<Node: NodeType>(
 
     let mut best_score = -Score::INFINITE;
     let mut moves_seen = 0;
-    let mut move_picker = MovePicker::new(None, !in_check, 0);
+    let mut move_picker = MovePicker::new(None, !in_check, in_check.then_some(0));
 
     while let Some(mv) = move_picker.next(pos, thread) {
-        if !best_score.is_loss() && !in_check {
-            if moves_seen > 2 {
-                break;
-            }
-
-            if move_picker.stage() >= Stage::YieldBadNoisy && !pos.cmp_see(mv, 0) {
-                continue;
-            }
+        if !best_score.is_loss() && !in_check && moves_seen > 2 {
+            break;
+        }
+        if !best_score.is_loss() && !pos.cmp_see(mv, 0) {
+            continue;
         }
 
         pos.make_move(mv, Some(&mut thread.nnue));
