@@ -28,11 +28,11 @@ pub struct MovePicker {
     stage: Stage,
     skip_quiets: bool,
     tt_move: Option<Move>,
-    see_threshold: Option<i16>,
+    see_threshold: i16,
 }
 
 impl MovePicker {
-    pub fn new(tt_move: Option<Move>, skip_quiets: bool, see_threshold: Option<i16>) -> Self {
+    pub fn new(tt_move: Option<Move>, skip_quiets: bool, see_threshold: i16) -> Self {
         Self {
             moves: MoveList::new(),
             bad_noisies: 0,
@@ -115,9 +115,7 @@ impl MovePicker {
             self.moves.swap(self.index, i);
             self.index += 1;
 
-            if self
-                .see_threshold
-                .is_none_or(|see_threshold| pos.cmp_see(mv, see_threshold))
+            if pos.cmp_see(mv, self.see_threshold)
             {
                 return Some(mv);
             }
