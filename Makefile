@@ -1,4 +1,7 @@
+ifeq ($(EXE),)
 EXE = icarus
+endif
+
 EXT = 
 ifeq ($(OS),Windows_NT)
 EXT := .exe

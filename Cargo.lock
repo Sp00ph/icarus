@@ -132,6 +132,7 @@ dependencies = [
  "anyhow",
  "arrayvec",
  "atomic-wait",
+ "cfg-if",
  "icarus-board",
  "icarus-common",
  "rand",
