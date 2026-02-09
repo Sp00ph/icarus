@@ -134,9 +134,11 @@ pub fn search<Node: NodeType>(
         // RFP
         let rfp_depth = 6;
         let rfp_margin = 80;
-        if depth < rfp_depth && static_eval - rfp_margin * (depth - improving as i16).max(0) >= beta
+        if depth < rfp_depth
+            && !beta.is_win()
+            && static_eval - rfp_margin * (depth - improving as i16).max(0) >= beta
         {
-            return static_eval;
+            return Score(static_eval.0.midpoint(beta.0));
         }
 
         // NMP
