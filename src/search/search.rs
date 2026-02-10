@@ -112,19 +112,27 @@ pub fn search<Node: NodeType>(
         }
     }
 
-    let raw_eval = tt_entry
-        .map(|e| e.eval)
-        .unwrap_or_else(|| pos.eval(&mut thread.nnue));
-    let static_eval =
-        Score::clamp_nomate(raw_eval.0.saturating_add(thread.history.corr(pos.board())));
     let in_check = pos.board().checkers().is_non_empty();
+
+    let (raw_eval, static_eval) = if in_check {
+        (Score::NONE, Score::NONE)
+    } else if singular_search {
+        (Score::NONE, thread.search_stack[ply as usize].static_eval)
+    } else {
+        let raw_eval = tt_entry
+            .map(|e| e.eval)
+            .unwrap_or_else(|| pos.eval(&mut thread.nnue));
+        let static_eval =
+            Score::clamp_nomate(raw_eval.0.saturating_add(thread.history.corr(pos.board())));
+        (raw_eval, static_eval)
+    };
 
     thread.search_stack[ply as usize].static_eval = static_eval;
     let improving = if in_check {
         false
-    } else if ply >= 2 && thread.search_stack[ply as usize - 2].static_eval != -Score::INFINITE {
+    } else if ply >= 2 && thread.search_stack[ply as usize - 2].static_eval != Score::NONE {
         static_eval > thread.search_stack[ply as usize - 2].static_eval
-    } else if ply >= 4 && thread.search_stack[ply as usize - 4].static_eval != -Score::INFINITE {
+    } else if ply >= 4 && thread.search_stack[ply as usize - 4].static_eval != Score::NONE {
         static_eval > thread.search_stack[ply as usize - 4].static_eval
     } else {
         true
@@ -145,7 +153,7 @@ pub fn search<Node: NodeType>(
         let nmp_depth = 3;
         if depth >= nmp_depth && static_eval >= beta && pos.prev_move(1).is_some() {
             pos.make_null_move();
-            let nmp_reduction = nmp_depth + depth / 3;
+            let nmp_reduction = 3 + depth / 3;
             let score = -search::<NonPV>(
                 pos,
                 depth - nmp_reduction,
