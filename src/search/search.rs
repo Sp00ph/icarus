@@ -442,11 +442,20 @@ pub fn qsearch<Node: NodeType>(
     let mut move_picker = MovePicker::new(None, !in_check, 0);
 
     while let Some(mv) = move_picker.next(pos, thread) {
-        if !best_score.is_loss() && !in_check && moves_seen > 2 {
-            break;
-        }
-        if !best_score.is_loss() && move_picker.stage() >= Stage::YieldBadNoisy {
-            break;
+        if !best_score.is_loss() {
+            // LMP
+            if !in_check && moves_seen > 2 {
+                break;
+            }
+            // SEE Pruning
+            if move_picker.stage() >= Stage::YieldBadNoisy {
+                break;
+            }
+            // Skip quiets if non-mated evasion was found
+            move_picker.skip_quiets();
+            if pos.board().is_quiet(mv) {
+                continue;
+            }
         }
 
         pos.make_move(mv, Some(&mut thread.nnue));
