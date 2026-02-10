@@ -326,6 +326,7 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
     let mut best_score = -Score::INFINITE;
     let mut prev_move = None;
     let mut move_stability = 0;
+    let mut root_qs = Score::NONE;
 
     'id: loop {
         thread.sel_depth = 0;
@@ -368,6 +369,10 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
         }
 
         if thread.id == 0 {
+            if depth == 1 {
+                root_qs = best_score;
+            }
+
             let best_move = thread.search_stack[0].pv[0];
             if prev_move == Some(best_move) {
                 move_stability += 1;
@@ -381,6 +386,8 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
                 thread.nodes.local(),
                 thread.root_move_nodes[best_move.from()][best_move.to()],
                 move_stability,
+                best_score,
+                root_qs,
             );
         }
 
