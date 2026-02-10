@@ -91,7 +91,7 @@ impl TimeManager {
         let move_overhead = self.move_overhead.load(Relaxed) as u64;
 
         let hard_time = (time / 2).min(time.saturating_sub(move_overhead));
-        let soft_time = ((time / 64).saturating_sub(move_overhead) + inc).min(hard_time);
+        let soft_time = ((time / 32).saturating_sub(move_overhead) + inc).min(hard_time);
 
         self.soft_time.store(soft_time, Relaxed);
         self.base_time.store(soft_time, Relaxed);
