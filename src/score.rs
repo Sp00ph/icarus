@@ -62,6 +62,7 @@ impl Score {
     pub const MAX_MATE: Self = Self(i16::MAX - (2 * MAX_PLY) as i16);
     pub const ZERO: Self = Self(0);
     pub const INFINITE: Self = Self(Self::MIN_MATE.0 + 1);
+    pub const NONE: Self = Self(i16::MIN);
 }
 
 impl fmt::Display for Score {
