@@ -149,15 +149,18 @@ impl TTable {
         pv: bool,
     ) {
         let old = self.fetch(hash, ply);
-        let new = TTData {
-            depth,
-            eval,
-            score: Self::score_to_tt(score, ply),
-            mv: mv.or(old.and_then(|d| d.mv)),
-            flags: Flags::new(self.age.load(Relaxed), pv, tt_flag),
-        };
 
-        self.entries[self.index(hash)].store(hash, new);
+        if tt_flag == TTFlag::Exact || old.is_none_or(|old| depth > old.depth) {
+            let new = TTData {
+                depth,
+                eval,
+                score: Self::score_to_tt(score, ply),
+                mv: mv.or(old.and_then(|d| d.mv)),
+                flags: Flags::new(self.age.load(Relaxed), pv, tt_flag),
+            };
+
+            self.entries[self.index(hash)].store(hash, new);
+        }
     }
 
     pub fn clear(&self) {
