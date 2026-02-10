@@ -1,7 +1,10 @@
 use std::{
     sync::{
         Arc,
-        atomic::{AtomicU32, AtomicU64, Ordering::Relaxed},
+        atomic::{
+            AtomicU32, AtomicU64,
+            Ordering::{Acquire, Relaxed, Release},
+        },
     },
     thread::{self, JoinHandle},
 };
@@ -89,6 +92,8 @@ struct SearchParams {
 
 #[derive(Clone)]
 enum ThreadCmd {
+    /// Used when creating the search threads to ensure they are all ready
+    Ping,
     Search(Box<SearchParams>),
     SetGlobal(Arc<GlobalCtx>),
     NewGame,
@@ -112,7 +117,7 @@ impl Default for Searcher {
             ttable: TTable::new(DEFAULT_TT_SIZE),
             network: network.clone(),
         });
-        let (tx, mut rx) = channel(1);
+        let (mut tx, mut rx) = channel(1);
         let search_thread = thread::spawn({
             let global_ctx = global_ctx.clone();
             move || {
@@ -125,6 +130,7 @@ impl Default for Searcher {
                 }
             }
         });
+        tx.send(ThreadCmd::Ping);
 
         Self {
             global_ctx,
@@ -197,10 +203,10 @@ impl Searcher {
 
     /// Suspends the calling thread until this search is over
     pub fn wait(&self) {
-        let mut num_searching = self.global_ctx.num_searching.load(Relaxed);
+        let mut num_searching = self.global_ctx.num_searching.load(Acquire);
         while num_searching != 0 {
             atomic_wait::wait(&self.global_ctx.num_searching, num_searching);
-            num_searching = self.global_ctx.num_searching.load(Relaxed);
+            num_searching = self.global_ctx.num_searching.load(Acquire);
         }
     }
 
@@ -249,6 +255,7 @@ impl Searcher {
             })
             .collect();
         self.command_sender = tx;
+        self.command_sender.send(ThreadCmd::Ping);
     }
 }
 
@@ -274,6 +281,7 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
 
     loop {
         match rx.recv(|cmd| cmd.clone()) {
+            ThreadCmd::Ping => {}
             ThreadCmd::Search(search_params) => {
                 thread_ctx.global.num_searching.fetch_add(1, Relaxed);
                 thread_ctx.nodes.reset_local();
@@ -378,11 +386,30 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
         thread.global.time_manager.wait_for_stop();
     }
 
-    // If we are the last thread to decrement, then set num_searching to 0
-    // to signal that no thread is still searching.
-    let last = thread.global.num_searching.fetch_sub(1, Relaxed) == 2;
-    if last {
-        thread.global.num_searching.store(0, Relaxed);
+    let last = thread.global.num_searching.fetch_sub(1, Release) == 2;
+    // If we are the last thread to decrement, we want to wake the main thread,
+    // unless we ourselves are the main thread.
+    if last && thread.id != 0 {
+        // Note that this will wake any threads that called `searcher.wait()`, but since
+        // the searcher count by this point will be 1, they will keep waiting.
+        atomic_wait::wake_all(&thread.global.num_searching);
+    }
+
+    if thread.id == 0 {
+        // The main thread must ensure that all other searchers are done before it prints
+        // the bestmove, so we wait here unless we were the last thread already.
+        if !last {
+            let mut n = thread.global.num_searching.load(Acquire);
+            while n != 1 {
+                atomic_wait::wait(&thread.global.num_searching, n);
+                n = thread.global.num_searching.load(Acquire);
+            }
+        }
+
+        // Because of the Release-Acquire pairs, we know that all other threads are now
+        // done searching, so we can set `num_searching` to 0, signaling to the searcher
+        // that we can accept commands again.
+        thread.global.num_searching.store(0, Release);
     }
 
     let best_move = *thread
@@ -391,13 +418,13 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
         .or(thread.root_moves.first())
         .unwrap();
 
-    if print && last {
+    if print && thread.id == 0 {
         print_info(overall_best_score, depth, thread);
         println!("bestmove {}", best_move.display(thread.chess960));
     }
 
     // We want the waiters to wake up after the bestmove print
-    if last {
+    if thread.id == 0 {
         atomic_wait::wake_all(&thread.global.num_searching);
         thread.global.ttable.age();
     }

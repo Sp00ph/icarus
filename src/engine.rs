@@ -54,7 +54,10 @@ impl Engine {
         }
 
         let mut editor = Editor::<(), MemHistory>::with_history(
-            Config::builder().auto_add_history(true).build(),
+            Config::builder()
+                .auto_add_history(true)
+                .enable_signals(true)
+                .build(),
             MemHistory::new(),
         )?;
 
