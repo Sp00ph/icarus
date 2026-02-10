@@ -150,7 +150,11 @@ impl TTable {
     ) {
         let old = self.fetch(hash, ply);
 
-        if tt_flag == TTFlag::Exact || old.is_none_or(|old| depth > old.depth) {
+        if tt_flag == TTFlag::Exact
+            || old.is_none_or(|old| {
+                depth + 4 > old.depth || self.age.load(Relaxed) != old.flags.age()
+            })
+        {
             let new = TTData {
                 depth,
                 eval,
