@@ -153,7 +153,7 @@ impl TimeManager {
 
         let ratio = (best_move_nodes as f64) / (total_nodes.max(1) as f64);
 
-        let node_tm_factor = 2.5 - 1.5 * ratio;
+        let node_tm_factor = 2.5 - 1.5 * ratio.sqrt();
         let move_stability_factor = (1.8 - 0.1 * (move_stability as f64)).max(0.9);
 
         let new_target =
