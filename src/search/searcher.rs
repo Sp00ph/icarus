@@ -373,6 +373,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
                 .time_manager
                 .stop_id(depth, thread.nodes.global())
         {
+            thread.global.time_manager.set_stop_flag(true);
             break 'id;
         }
         if print && thread.id == 0 {
