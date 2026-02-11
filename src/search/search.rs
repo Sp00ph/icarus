@@ -62,7 +62,9 @@ pub fn search<Node: NodeType>(
     thread: &mut ThreadCtx,
 ) -> Score {
     if !Node::ROOT && (thread.abort_now || thread.global.time_manager.stop_search(&thread.nodes)) {
-        thread.global.time_manager.set_stop_flag(true);
+        if thread.id == 0 {
+            thread.global.time_manager.set_stop_flag(true);
+        }
         thread.abort_now = true;
         return Score::ZERO;
     }
