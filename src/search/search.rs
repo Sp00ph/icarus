@@ -452,14 +452,7 @@ pub fn qsearch<Node: NodeType>(
     let mut move_picker = MovePicker::new(None, !in_check, 0);
 
     while let Some(mv) = move_picker.next(pos, thread) {
-        if moves_seen == 0 && move_picker.stage() >= Stage::YieldBadNoisy {
-            if static_eval == Score::NONE {
-                let raw_eval = tt_entry
-                    .map(|e| e.eval)
-                    .unwrap_or_else(|| pos.eval(&mut thread.nnue));
-                static_eval = raw_eval + thread.history.corr(pos.board());
-            }
-
+        if !in_check && moves_seen == 0 && move_picker.stage() >= Stage::YieldBadNoisy {
             return static_eval;
         }
 
