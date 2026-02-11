@@ -128,7 +128,7 @@ impl TTable {
         let idx = self.index(hash);
         let (key, mut data) = self.entries[idx].key_and_data();
 
-        if key != hash || data.flags.tt_flag() == TTFlag::None {
+        if key != hash {
             None
         } else {
             data.score = Self::tt_to_score(data.score, ply);
@@ -152,7 +152,9 @@ impl TTable {
 
         if tt_flag == TTFlag::Exact
             || old.is_none_or(|old| {
-                depth + 4 > old.depth || self.age.load(Relaxed) != old.flags.age()
+                old.flags.tt_flag() == TTFlag::None
+                    || depth + 4 > old.depth
+                    || self.age.load(Relaxed) != old.flags.age()
             })
         {
             let new = TTData {

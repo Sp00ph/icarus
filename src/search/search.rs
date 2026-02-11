@@ -131,6 +131,20 @@ pub fn search<Node: NodeType>(
     };
 
     thread.search_stack[ply as usize].static_eval = static_eval;
+
+    if !singular_search && !in_check && tt_entry.is_none() {
+        thread.global.ttable.store(
+            pos.board().hash(),
+            0,
+            ply,
+            raw_eval,
+            Score::NONE,
+            None,
+            TTFlag::None,
+            true,
+        );
+    }
+
     let improving = if in_check {
         false
     } else if ply >= 2 && thread.search_stack[ply as usize - 2].static_eval != Score::NONE {
