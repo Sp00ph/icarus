@@ -417,7 +417,7 @@ pub fn qsearch<Node: NodeType>(
     let in_check = pos.board().checkers().is_non_empty();
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
 
-    let mut static_eval = Score::NONE;
+    let mut static_eval = Score::new_mated(ply);
 
     if !in_check {
         let raw_eval = tt_entry
@@ -447,15 +447,11 @@ pub fn qsearch<Node: NodeType>(
         }
     }
 
-    let mut best_score = -Score::INFINITE;
+    let mut best_score = static_eval;
     let mut moves_seen = 0;
     let mut move_picker = MovePicker::new(None, !in_check, 0);
 
     while let Some(mv) = move_picker.next(pos, thread) {
-        if !in_check && moves_seen == 0 && move_picker.stage() >= Stage::YieldBadNoisy {
-            return static_eval;
-        }
-
         if !best_score.is_loss() {
             // LMP
             if !in_check && moves_seen > 2 {
