@@ -417,11 +417,13 @@ pub fn qsearch<Node: NodeType>(
     let in_check = pos.board().checkers().is_non_empty();
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
 
+    let mut static_eval = Score::NONE;
+
     if !in_check {
         let raw_eval = tt_entry
             .map(|e| e.eval)
             .unwrap_or_else(|| pos.eval(&mut thread.nnue));
-        let static_eval = raw_eval + thread.history.corr(pos.board());
+        static_eval = raw_eval + thread.history.corr(pos.board());
 
         if static_eval >= beta {
             return static_eval;
@@ -450,6 +452,17 @@ pub fn qsearch<Node: NodeType>(
     let mut move_picker = MovePicker::new(None, !in_check, 0);
 
     while let Some(mv) = move_picker.next(pos, thread) {
+        if moves_seen == 0 && move_picker.stage() >= Stage::YieldBadNoisy {
+            if static_eval == Score::NONE {
+                let raw_eval = tt_entry
+                    .map(|e| e.eval)
+                    .unwrap_or_else(|| pos.eval(&mut thread.nnue));
+                static_eval = raw_eval + thread.history.corr(pos.board());
+            }
+
+            return static_eval;
+        }
+
         if !best_score.is_loss() {
             // LMP
             if !in_check && moves_seen > 2 {
