@@ -20,7 +20,7 @@ use crate::{
 };
 
 pub const INPUT: usize = 768;
-pub const HL: usize = 768;
+pub const HL: usize = 1024;
 pub const NUM_KING_BUCKETS: usize = 4;
 #[rustfmt::skip]
 pub static KING_BUCKET_LAYOUT: [u8; 64] = [
