@@ -5,7 +5,7 @@ use icarus_common::{
     util::enum_map::EnumMap,
 };
 
-use crate::nnue::network::{HL, NET};
+use crate::nnue::network::{HL, NET, king_bucket};
 
 #[derive(Debug, Clone)]
 pub struct Accumulator {
@@ -32,7 +32,12 @@ impl Feature {
             square = square.flip_file();
         }
 
-        square as usize + Square::COUNT * (self.piece as usize + Piece::COUNT * color as usize)
+        let king_bucket = king_bucket(king, perspective);
+
+        square as usize
+            + Square::COUNT
+                * (self.piece as usize
+                    + Piece::COUNT * (color as usize + Color::COUNT * king_bucket))
     }
 }
 
@@ -69,25 +74,36 @@ impl Updates {
 
 pub fn acc_add(acc: &mut [i16; HL], adds: &[usize]) {
     for &add in adds {
-        for (acc, weight) in acc.iter_mut().zip(&NET.ft_weight[add * HL..]) {
+        for (acc, weight) in acc.iter_mut().zip(&NET.ft_weight[add]) {
             *acc += *weight;
         }
     }
 }
 
-pub fn acc_add_sub(src: &[i16; HL], dst: &mut [i16; HL], add: usize, sub: usize) {
-    let add: &[i16; HL] = NET.ft_weight[add * HL..][..HL].try_into().unwrap();
-    let sub: &[i16; HL] = NET.ft_weight[sub * HL..][..HL].try_into().unwrap();
+pub fn acc_add_sub(
+    src: &[i16; HL],
+    dst: &mut [i16; HL],
+    add: usize,
+    sub: usize,
+) {
+    let add: &[i16; HL] = &NET.ft_weight[add];
+    let sub: &[i16; HL] = &NET.ft_weight[sub];
 
     for i in 0..HL {
         dst[i] = src[i] + add[i] - sub[i];
     }
 }
 
-pub fn acc_add_sub2(src: &[i16; HL], dst: &mut [i16; HL], add: usize, sub1: usize, sub2: usize) {
-    let add: &[i16; HL] = NET.ft_weight[add * HL..][..HL].try_into().unwrap();
-    let sub1: &[i16; HL] = NET.ft_weight[sub1 * HL..][..HL].try_into().unwrap();
-    let sub2: &[i16; HL] = NET.ft_weight[sub2 * HL..][..HL].try_into().unwrap();
+pub fn acc_add_sub2(
+    src: &[i16; HL],
+    dst: &mut [i16; HL],
+    add: usize,
+    sub1: usize,
+    sub2: usize,
+) {
+    let add: &[i16; HL] = &NET.ft_weight[add];
+    let sub1: &[i16; HL] = &NET.ft_weight[sub1];
+    let sub2: &[i16; HL] = &NET.ft_weight[sub2];
 
     for i in 0..HL {
         dst[i] = src[i] + add[i] - sub1[i] - sub2[i];
@@ -102,10 +118,10 @@ pub fn acc_add2_sub2(
     sub1: usize,
     sub2: usize,
 ) {
-    let add1: &[i16; HL] = NET.ft_weight[add1 * HL..][..HL].try_into().unwrap();
-    let add2: &[i16; HL] = NET.ft_weight[add2 * HL..][..HL].try_into().unwrap();
-    let sub1: &[i16; HL] = NET.ft_weight[sub1 * HL..][..HL].try_into().unwrap();
-    let sub2: &[i16; HL] = NET.ft_weight[sub2 * HL..][..HL].try_into().unwrap();
+    let add1: &[i16; HL] = &NET.ft_weight[add1];
+    let add2: &[i16; HL] = &NET.ft_weight[add2];
+    let sub1: &[i16; HL] = &NET.ft_weight[sub1];
+    let sub2: &[i16; HL] = &NET.ft_weight[sub2];
 
     for i in 0..HL {
         dst[i] = src[i] + add1[i] + add2[i] - sub1[i] - sub2[i];

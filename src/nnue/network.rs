@@ -20,14 +20,31 @@ use crate::{
 };
 
 pub const INPUT: usize = 768;
-pub const HL: usize = 1024;
+pub const HL: usize = 768;
+pub const NUM_KING_BUCKETS: usize = 4;
+#[rustfmt::skip]
+pub static KING_BUCKET_LAYOUT: [u8; 64] = [
+    0, 0, 1, 1, 1, 1, 0, 0,
+    2, 2, 2, 2, 2, 2, 2, 2,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+];
+
+pub fn king_bucket(king: Square, perspective: Color) -> usize {
+    let king = Square::new(king.file(), king.rank().relative_to(perspective));
+    KING_BUCKET_LAYOUT[king] as usize
+}
 
 pub static NET: Network =
     unsafe { std::mem::transmute(*include_bytes!(concat!(env!("OUT_DIR"), "/icarus.nnue"))) };
 
 #[repr(C, align(64))]
 pub struct Network {
-    pub ft_weight: [i16; INPUT * HL],
+    pub ft_weight: [[i16; HL]; INPUT * NUM_KING_BUCKETS],
     pub ft_bias: [i16; HL],
     pub out_weight: [i16; 2 * HL],
     pub out_bias: i16,
@@ -116,7 +133,10 @@ impl Nnue {
         self.stack[self.idx + 1].dirty = enum_map! { _ => true };
         self.idx += 1;
 
-        if piece == Piece::King && (from.file() > File::D) != (to.file() > File::D) {
+        if piece == Piece::King
+            && (king_bucket(from, stm) != king_bucket(to, stm)
+                || (from.file() > File::D) != (to.file() > File::D))
+        {
             self.reset(new_board, stm);
         }
     }
