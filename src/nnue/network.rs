@@ -22,7 +22,7 @@ use crate::{
 };
 
 pub const INPUT: usize = 768;
-pub const HL: usize = 1024;
+pub const HL: usize = 1536;
 
 const DEFAULT_NET: &[u8; size_of::<Network>()] =
     include_bytes!(concat!(env!("OUT_DIR"), "/icarus.nnue"));
