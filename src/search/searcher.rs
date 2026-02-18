@@ -347,7 +347,7 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
                 beta = beta.max(alpha + 1);
             }
 
-            let new_score = search::<Root>(&mut pos, depth as i16, 0, alpha, beta, thread);
+            let new_score = search::<Root>(&mut pos, depth as i16, 0, alpha, beta, false, thread);
             thread.nodes.flush();
 
             if depth > 1 && thread.abort_now {
