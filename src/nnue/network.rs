@@ -1,5 +1,3 @@
-use std::{ptr, sync::Arc};
-
 use arrayvec::ArrayVec;
 use icarus_board::{
     board::Board,
@@ -24,8 +22,8 @@ use crate::{
 pub const INPUT: usize = 768;
 pub const HL: usize = 1024;
 
-const DEFAULT_NET: &[u8; size_of::<Network>()] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/icarus.nnue"));
+pub static NET: Network =
+    unsafe { std::mem::transmute(*include_bytes!(concat!(env!("OUT_DIR"), "/icarus.nnue"))) };
 
 #[repr(C, align(64))]
 pub struct Network {
@@ -35,35 +33,13 @@ pub struct Network {
     pub out_bias: i16,
 }
 
-impl Network {
-    pub fn load(bytes: &[u8]) -> Arc<Self> {
-        assert_eq!(bytes.len(), size_of::<Self>());
-
-        let mut this = Arc::<Self>::new_uninit();
-        unsafe {
-            ptr::copy_nonoverlapping(
-                bytes.as_ptr(),
-                ptr::from_mut(Arc::get_mut(&mut this).unwrap()).cast(),
-                bytes.len(),
-            );
-
-            this.assume_init()
-        }
-    }
-
-    pub fn default_net() -> Arc<Self> {
-        Self::load(DEFAULT_NET)
-    }
-}
-
 pub struct Nnue {
     stack: Box<[Accumulator; MAX_PLY as usize + 1]>,
     idx: usize,
-    network: Arc<Network>,
 }
 
 impl Nnue {
-    pub fn new(board: &Board, network: Arc<Network>) -> Self {
+    pub fn new(board: &Board) -> Self {
         let mut this = Self {
             stack: vec![
                 Accumulator {
@@ -77,7 +53,6 @@ impl Nnue {
             .try_into()
             .unwrap(),
             idx: 0,
-            network,
         };
 
         this.full_reset(board);
@@ -91,7 +66,7 @@ impl Nnue {
     }
 
     pub fn reset(&mut self, board: &Board, perspective: Color) {
-        self.stack[self.idx].values[perspective].copy_from_slice(&self.network.ft_bias);
+        self.stack[self.idx].values[perspective].copy_from_slice(&NET.ft_bias);
         let king = board.king(perspective);
 
         let adds: ArrayVec<usize, 64> = Square::all()
@@ -108,11 +83,7 @@ impl Nnue {
             })
             .collect();
 
-        acc_add(
-            &mut self.stack[self.idx].values[perspective],
-            &self.network,
-            &adds,
-        );
+        acc_add(&mut self.stack[self.idx].values[perspective], &adds);
         self.stack[self.idx].dirty[perspective] = false;
     }
 
@@ -172,19 +143,16 @@ impl Nnue {
             let [clean, dirty] = self.stack.get_disjoint_mut([idx, idx + 1]).unwrap();
             let clean_acc = &clean.values[perspective];
             let dirty_acc = &mut dirty.values[perspective];
-            let network = &self.network;
             match (&clean.updates.adds[..], &clean.updates.subs[..]) {
                 (&[add], &[sub]) => acc_add_sub(
                     clean_acc,
                     dirty_acc,
-                    network,
                     add.idx(perspective, king),
                     sub.idx(perspective, king),
                 ),
                 (&[add], &[sub1, sub2]) => acc_add_sub2(
                     clean_acc,
                     dirty_acc,
-                    network,
                     add.idx(perspective, king),
                     sub1.idx(perspective, king),
                     sub2.idx(perspective, king),
@@ -192,7 +160,6 @@ impl Nnue {
                 (&[add1, add2], &[sub1, sub2]) => acc_add2_sub2(
                     clean_acc,
                     dirty_acc,
-                    network,
                     add1.idx(perspective, king),
                     add2.idx(perspective, king),
                     sub1.idx(perspective, king),
@@ -208,6 +175,6 @@ impl Nnue {
         let acc = &self.stack[self.idx];
         let (us, them) = (&acc.values[stm], &acc.values[!stm]);
 
-        forward(us, them, &self.network)
+        forward(us, them)
     }
 }

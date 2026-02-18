@@ -110,7 +110,7 @@ impl Engine {
                 seed,
                 dfrc,
                 random_moves,
-            } => genfens(n, seed, dfrc, random_moves, self.searcher.network.clone()),
+            } => genfens(n, seed, dfrc, random_moves),
             UciCommand::Stop => self.stop(),
             UciCommand::Quit => {
                 self.quit();
@@ -312,7 +312,7 @@ impl Engine {
     }
 
     fn eval(&self) {
-        let mut nnue = Nnue::new(self.position.board(), self.searcher.network.clone());
+        let mut nnue = Nnue::new(self.position.board());
         let score = self.position.eval(&mut nnue);
         println!("Static eval: {score:#}");
     }

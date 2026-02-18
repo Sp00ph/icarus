@@ -1,6 +1,6 @@
 use cfg_if::cfg_if;
 
-use crate::nnue::network::Network;
+use crate::nnue::network::NET;
 
 use super::network::HL;
 

@@ -13,7 +13,7 @@ use arrayvec::ArrayVec;
 use icarus_board::{board::Board, r#move::Move};
 
 use crate::{
-    nnue::network::{Network, Nnue},
+    nnue::network::Nnue,
     position::Position,
     score::Score,
     search::{
@@ -40,7 +40,6 @@ pub struct GlobalCtx {
     /// If not in search, 0.
     pub num_searching: AtomicU32,
     pub ttable: TTable,
-    pub network: Arc<Network>,
 }
 
 pub type PrincipalVariation = ArrayVec<Move, { MAX_PLY as usize }>;
@@ -107,18 +106,15 @@ pub struct Searcher {
     pub global_ctx: Arc<GlobalCtx>,
     search_threads: Vec<JoinHandle<()>>,
     command_sender: Sender<ThreadCmd>,
-    pub network: Arc<Network>,
 }
 
 impl Default for Searcher {
     fn default() -> Self {
-        let network = Network::default_net();
         let global_ctx = Arc::new(GlobalCtx {
             time_manager: TimeManager::default(),
             nodes: Arc::new(AtomicU64::new(0)),
             num_searching: AtomicU32::new(0),
             ttable: TTable::new(DEFAULT_TT_SIZE),
-            network: network.clone(),
         });
         let (mut tx, mut rx) = channel(1);
         let search_thread = thread::spawn({
@@ -139,7 +135,6 @@ impl Default for Searcher {
             global_ctx,
             search_threads: vec![search_thread],
             command_sender: tx,
-            network,
         }
     }
 }
@@ -223,7 +218,6 @@ impl Searcher {
             nodes: Default::default(),
             num_searching: Default::default(),
             ttable: TTable::new(mb),
-            network: self.network.clone(),
         });
         self.command_sender
             .send(ThreadCmd::SetGlobal(self.global_ctx.clone()));
@@ -264,7 +258,6 @@ impl Searcher {
 
 fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: usize) {
     let nodes = global.nodes.clone();
-    let network = global.network.clone();
     let mut thread_ctx = ThreadCtx {
         global,
         id,
@@ -280,7 +273,7 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
             .unwrap(),
         root_pv: Default::default(),
         history: History::new(),
-        nnue: Nnue::new(&Board::start_pos(), network),
+        nnue: Nnue::new(&Board::start_pos()),
     };
 
     loop {

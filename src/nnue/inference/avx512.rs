@@ -1,12 +1,12 @@
 use super::*;
 use std::arch::x86_64::*;
 
-pub fn forward(us: &[i16; HL], them: &[i16; HL], network: &Network) -> i32 {
-    unsafe { forward_impl(us, them, network) }
+pub fn forward(us: &[i16; HL], them: &[i16; HL]) -> i32 {
+    unsafe { forward_impl(us, them) }
 }
 
 #[target_feature(enable = "avx512bw")]
-fn forward_impl(us: &[i16; HL], them: &[i16; HL], network: &Network) -> i32 {
+fn forward_impl(us: &[i16; HL], them: &[i16; HL]) -> i32 {
     const { assert!(HL.is_multiple_of(128)) };
     let zero = _mm512_setzero_si512();
     let qa = _mm512_set1_epi16(QA);
@@ -14,8 +14,8 @@ fn forward_impl(us: &[i16; HL], them: &[i16; HL], network: &Network) -> i32 {
     let us_ptr = us.as_ptr().cast::<__m512i>();
     let them_ptr = them.as_ptr().cast::<__m512i>();
 
-    let us_weights = network.out_weight.as_ptr().cast::<__m512i>();
-    let them_weights = network.out_weight[HL..].as_ptr().cast::<__m512i>();
+    let us_weights = NET.out_weight.as_ptr().cast::<__m512i>();
+    let them_weights = NET.out_weight[HL..].as_ptr().cast::<__m512i>();
 
     let mut sums0 = _mm512_setzero_si512();
     let mut sums1 = _mm512_setzero_si512();
@@ -103,7 +103,7 @@ fn forward_impl(us: &[i16; HL], them: &[i16; HL], network: &Network) -> i32 {
     let mut output = reduce_sum(sums);
 
     output /= i32::from(QA);
-    output += i32::from(network.out_bias);
+    output += i32::from(NET.out_bias);
 
     output *= SCALE;
 

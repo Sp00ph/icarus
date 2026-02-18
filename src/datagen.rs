@@ -1,14 +1,8 @@
-use std::sync::Arc;
-
 use arrayvec::ArrayVec;
 use icarus_board::{board::Board, r#move::Move};
 use rand::{Rng, SeedableRng, rngs::SmallRng};
 
-use crate::{
-    nnue::network::{Network, Nnue},
-    position::Position,
-    search::move_picker::MAX_MOVES,
-};
+use crate::{nnue::network::Nnue, position::Position, search::move_picker::MAX_MOVES};
 
 fn startpos(rng: &mut SmallRng, dfrc: bool) -> Board {
     if dfrc {
@@ -20,12 +14,7 @@ fn startpos(rng: &mut SmallRng, dfrc: bool) -> Board {
     }
 }
 
-fn try_generate_fen(
-    rng: &mut SmallRng,
-    dfrc: bool,
-    random_moves: usize,
-    network: Arc<Network>,
-) -> Option<String> {
+fn try_generate_fen(rng: &mut SmallRng, dfrc: bool, random_moves: usize) -> Option<String> {
     let random_moves = random_moves + rng.random_bool(0.5) as usize;
 
     let mut board = startpos(rng, dfrc);
@@ -39,7 +28,7 @@ fn try_generate_fen(
         board.make_move(mv);
     }
 
-    let mut nnue = Nnue::new(&board, network);
+    let mut nnue = Nnue::new(&board);
     if Position::new(board).eval(&mut nnue).0.abs() > 1000 {
         return None;
     }
@@ -51,12 +40,11 @@ fn try_generate_fen(
     Some(board.fen(dfrc))
 }
 
-pub fn genfens(n: usize, seed: u64, dfrc: bool, random_moves: usize, network: Arc<Network>) {
+pub fn genfens(n: usize, seed: u64, dfrc: bool, random_moves: usize) {
     let mut rng = SmallRng::seed_from_u64(seed);
-    for fen in
-        std::iter::repeat_with(|| try_generate_fen(&mut rng, dfrc, random_moves, network.clone()))
-            .flatten()
-            .take(n)
+    for fen in std::iter::repeat_with(|| try_generate_fen(&mut rng, dfrc, random_moves))
+        .flatten()
+        .take(n)
     {
         println!("info string genfens {fen}")
     }
