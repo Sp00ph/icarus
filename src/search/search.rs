@@ -171,6 +171,8 @@ pub fn search<Node: NodeType>(
             && pos.prev_move(1).is_some()
         {
             pos.make_null_move();
+            thread.global.ttable.prefetch(pos.board());
+
             let nmp_reduction = 3 + depth / 3;
             let score = -search::<NonPV>(
                 pos,
@@ -317,6 +319,7 @@ pub fn search<Node: NodeType>(
         let initial_nodes = thread.nodes.local();
         let new_depth = depth + extension - 1;
         pos.make_move(mv, Some(&mut thread.nnue));
+        thread.global.ttable.prefetch(pos.board());
 
         // PVS
         if moves_seen == 0 {
@@ -498,6 +501,7 @@ pub fn qsearch<Node: NodeType>(
         }
 
         pos.make_move(mv, Some(&mut thread.nnue));
+        thread.global.ttable.prefetch(pos.board());
         let score = -qsearch::<Node::Next>(pos, ply + 1, -beta, -alpha, thread);
         pos.unmake_move(Some(&mut thread.nnue));
         moves_seen += 1;

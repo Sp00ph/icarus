@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicU8, AtomicU64, Ordering::Relaxed};
 
-use icarus_board::r#move::Move;
+use icarus_board::{board::Board, r#move::Move};
 
 use crate::score::Score;
 
@@ -134,6 +134,21 @@ impl TTable {
             data.score = Self::tt_to_score(data.score, ply);
             Some(data)
         }
+    }
+
+    pub fn prefetch(&self, board: &Board) {
+        #[cfg(target_feature = "sse")]
+        {
+            use std::arch::x86_64::{_MM_HINT_T0, _mm_prefetch};
+            unsafe {
+                _mm_prefetch(
+                    self.entries.as_ptr().add(self.index(board.hash())).cast(),
+                    _MM_HINT_T0,
+                );
+            }
+        }
+
+        let _ = board;
     }
 
     #[allow(clippy::too_many_arguments)]
