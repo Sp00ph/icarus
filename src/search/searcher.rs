@@ -314,7 +314,7 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
 
 fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
     let mut depth = 1;
-    let mut overall_best_score = -Score::INFINITE;
+    let mut best_score = -Score::INFINITE;
     let mut prev_move = None;
     let mut move_stability = 0;
 
@@ -325,14 +325,19 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
         let asp_widen_factor = 64;
         let asp_min_depth = 5;
         let mut delta = asp_initial_window;
-        let mut alpha = overall_best_score.saturating_add(-delta);
-        let mut beta = overall_best_score.saturating_add(delta);
+        let mut alpha = best_score.saturating_add(-delta);
+        let mut beta = best_score.saturating_add(delta);
 
         if depth < asp_min_depth {
             (alpha, beta) = (-Score::INFINITE, Score::INFINITE);
         }
 
         'asp_window: loop {
+            if best_score.is_mate() {
+                alpha = alpha.max(best_score - 1);
+                beta = beta.max(alpha + 1);
+            }
+
             let new_score = search::<Root>(&mut pos, depth as i16, 0, alpha, beta, thread);
             thread.nodes.flush();
 
@@ -346,7 +351,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
             } else if new_score >= beta {
                 beta = new_score.saturating_add(delta);
             } else {
-                overall_best_score = new_score;
+                best_score = new_score;
                 break 'asp_window;
             }
 
@@ -383,7 +388,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
             break 'id;
         }
         if print && thread.id == 0 {
-            print_info(overall_best_score, depth, thread);
+            print_info(best_score, depth, thread);
         }
 
         depth += 1;
@@ -426,7 +431,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
         .unwrap();
 
     if print && thread.id == 0 {
-        print_info(overall_best_score, depth, thread);
+        print_info(best_score, depth, thread);
         println!("bestmove {}", best_move.display(thread.chess960));
     }
 

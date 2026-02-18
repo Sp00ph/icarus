@@ -58,7 +58,7 @@ pub fn search<Node: NodeType>(
     depth: i16,
     ply: u16,
     mut alpha: Score,
-    beta: Score,
+    mut beta: Score,
     thread: &mut ThreadCtx,
 ) -> Score {
     if !Node::ROOT && (thread.abort_now || thread.global.time_manager.stop_search(&thread.nodes)) {
@@ -72,6 +72,17 @@ pub fn search<Node: NodeType>(
     thread.sel_depth = thread.sel_depth.max(ply);
     if Node::PV {
         thread.search_stack[ply as usize].pv.clear();
+    }
+
+    // Mate distance pruning
+    if !Node::ROOT {
+        alpha = alpha.max(Score::new_mated(ply));
+        beta = beta.min(Score::new_mate(ply + 1));
+
+        if alpha >= beta {
+            thread.nodes.inc();
+            return alpha;
+        }
     }
 
     if let Some(terminal) = pos.board().terminal_state() {
