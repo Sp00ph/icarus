@@ -136,8 +136,7 @@ pub fn search<Node: NodeType>(
         let raw_eval = tt_entry
             .map(|e| e.eval)
             .unwrap_or_else(|| pos.eval(&mut thread.nnue));
-        let static_eval =
-            Score::clamp_nomate(raw_eval.0.saturating_add(thread.history.corr(pos.board())));
+        let static_eval = Score::clamp_nomate(raw_eval.0.saturating_add(thread.history.corr(pos)));
         (raw_eval, static_eval)
     };
 
@@ -405,7 +404,7 @@ pub fn search<Node: NodeType>(
     {
         thread
             .history
-            .update_corr(pos.board(), depth, best_score, static_eval);
+            .update_corr(pos, depth, best_score, static_eval);
     }
 
     best_score
@@ -455,7 +454,7 @@ pub fn qsearch<Node: NodeType>(
         let raw_eval = tt_entry
             .map(|e| e.eval)
             .unwrap_or_else(|| pos.eval(&mut thread.nnue));
-        static_eval = raw_eval + thread.history.corr(pos.board());
+        static_eval = raw_eval + thread.history.corr(pos);
 
         if static_eval >= beta {
             return static_eval;
