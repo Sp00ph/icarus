@@ -333,6 +333,7 @@ pub fn search<Node: NodeType>(
             } else {
                 lmr += !Node::PV as i16;
                 lmr -= tt_pv as i16;
+                lmr -= pos.board().checkers().is_non_empty() as i16;
             }
 
             let lmr_depth = (new_depth - lmr).max(1).min(new_depth);
