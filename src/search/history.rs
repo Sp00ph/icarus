@@ -31,6 +31,7 @@ pub struct History {
     black_nonpawn_corr: [[i16; NONPAWN_CORR_SIZE]; 2],
     /// [stm][prev piece][prev dst][piece][dst]
     contcorr_oneply: [[[[[i16; 64]; 6]; 64]; 6]; 2],
+    contcorr_twoply: [[[[[i16; 64]; 6]; 64]; 6]; 2],
 }
 
 impl History {
@@ -65,14 +66,15 @@ impl History {
 
     pub fn corr(&self, pos: &Position) -> i16 {
         let board = pos.board();
-        let (prev, cur) = (pos.prev_move(2), pos.prev_move(1));
+        let (twoply, oneply, cur) = (pos.prev_move(3), pos.prev_move(2), pos.prev_move(1));
 
         let pawn_factor = 64;
         let minor_factor = 64;
         let major_factor = 64;
         let white_factor = 64;
         let black_factor = 64;
-        let cont_factor = 64;
+        let cont1_factor = 64;
+        let cont2_factor = 64;
 
         let mut corr = 0;
         corr += (self.pawn_corr[board.stm()][board.pawn_hash() as usize % PAWN_CORR_SIZE] as i32)
@@ -91,10 +93,15 @@ impl History {
             [board.nonpawn_hash(Color::Black) as usize % NONPAWN_CORR_SIZE]
             as i32)
             * black_factor;
-        if let (Some((prev_piece, prev_mv)), Some((piece, mv))) = (prev, cur) {
+        if let (Some((prev_piece, prev_mv)), Some((piece, mv))) = (oneply, cur) {
             corr += self.contcorr_oneply[board.stm()][prev_piece][prev_mv.to()][piece][mv.to()]
                 as i32
-                * cont_factor;
+                * cont1_factor;
+        }
+        if let (Some((prev_piece, prev_mv)), Some((piece, mv))) = (twoply, cur) {
+            corr += self.contcorr_twoply[board.stm()][prev_piece][prev_mv.to()][piece][mv.to()]
+                as i32
+                * cont2_factor;
         }
 
         (corr / MAX_CORR_VALUE) as i16
@@ -177,7 +184,7 @@ impl History {
 
     pub fn update_corr(&mut self, pos: &Position, depth: i16, score: Score, static_eval: Score) {
         let board = pos.board();
-        let (prev, cur) = (pos.prev_move(2), pos.prev_move(1));
+        let (twoply, oneply, cur) = (pos.prev_move(3), pos.prev_move(2), pos.prev_move(1));
 
         let bonus_scale = 128;
 
@@ -207,9 +214,16 @@ impl History {
             amount,
         );
 
-        if let (Some((prev_piece, prev_mv)), Some((piece, mv))) = (prev, cur) {
+        if let (Some((prev_piece, prev_mv)), Some((piece, mv))) = (oneply, cur) {
             Self::update_corr_val(
                 &mut self.contcorr_oneply[board.stm()][prev_piece][prev_mv.to()][piece][mv.to()],
+                amount,
+            );
+        }
+
+        if let (Some((prev_piece, prev_mv)), Some((piece, mv))) = (twoply, cur) {
+            Self::update_corr_val(
+                &mut self.contcorr_twoply[board.stm()][prev_piece][prev_mv.to()][piece][mv.to()],
                 amount,
             );
         }
