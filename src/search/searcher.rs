@@ -378,7 +378,7 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
             }
             prev_move = Some(best_move);
 
-            if prev_score.is_some_and(|s| best_score.0.abs_diff(s.0) < 30) {
+            if prev_score.is_some_and(|s| best_score.0.abs_diff(s.0) < 15) {
                 score_stability += 1;
             } else {
                 score_stability = 0;
