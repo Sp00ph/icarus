@@ -1,6 +1,13 @@
+<div align="center">
+
 # Icarus
 
-A superhuman UCI chess engine, supporting standard and (Double) Fischer Random chess, with NNUE evaluation trained exclusively on self-play data. This repository contains no LLM-generated or LLM-assisted code.
+![LGBTQ+ friendly][lgbtqp-badge]
+![trans rights][trans-rights-badge]
+
+</div>
+
+A superhuman UCI chess engine written in Rust, supporting standard and (Double) Fischer Random chess, with NNUE evaluation trained exclusively on self-play data. This repository contains no LLM-generated or LLM-assisted code.
 
 ## Features
 ### Move Generation
@@ -63,3 +70,7 @@ Additionally, there are many individuals who have made developing Icarus easier 
 - [Dan Kelsey](https://github.com/kelseyde), author of Hobbes and contributor to Icarus
 - [Jonathan Hallström](https://github.com/JonathanHallstrom), author of [pawnocchio](https://github.com/JonathanHallstrom/pawnocchio) and co-author of [vine](https://github.com/vine-chess/vine)
 - [lily](https://github.com/87flowers), author of Rose and SIMD wizard
+
+
+[lgbtqp-badge]: https://pride-badges.pony.workers.dev/static/v1?label=lgbtq%2B%20friendly&stripeWidth=6&stripeColors=E40303,FF8C00,FFED00,008026,24408E,732982
+[trans-rights-badge]: https://pride-badges.pony.workers.dev/static/v1?label=trans%20rights&stripeWidth=6&stripeColors=5BCEFA,F5A9B8,FFFFFF,F5A9B8,5BCEFA
