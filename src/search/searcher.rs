@@ -326,6 +326,8 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
     let mut best_score = -Score::INFINITE;
     let mut prev_move = None;
     let mut move_stability = 0;
+    let mut prev_score: Option<Score> = None;
+    let mut score_stability = 0;
 
     'id: loop {
         thread.sel_depth = 0;
@@ -376,11 +378,19 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
             }
             prev_move = Some(best_move);
 
+            if prev_score.is_some_and(|s| best_score.0.abs_diff(s.0) < 30) {
+                score_stability += 1;
+            } else {
+                score_stability = 0;
+            }
+            prev_score = Some(best_score);
+
             thread.global.time_manager.deepen(
                 depth,
                 thread.nodes.local(),
                 thread.root_move_nodes[best_move.from()][best_move.to()],
                 move_stability,
+                score_stability,
             );
         }
 
