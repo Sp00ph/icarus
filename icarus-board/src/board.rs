@@ -374,12 +374,7 @@ impl Board {
 
                 let file = match ch.to_ascii_lowercase() {
                     b'a'..=b'h' => File::from_idx(ch.to_ascii_lowercase() - b'a'),
-                    b'k' => (king.file().idx()..8).map(File::from_idx).find(|&f| {
-                        board
-                            .colored_pieces(Piece::Rook, color)
-                            .contains(Square::new(f, king.rank()))
-                    })?,
-                    b'q' => (0..king.file().idx())
+                    b'k' => (king.file().idx()..8)
                         .rev()
                         .map(File::from_idx)
                         .find(|&f| {
@@ -387,6 +382,11 @@ impl Board {
                                 .colored_pieces(Piece::Rook, color)
                                 .contains(Square::new(f, king.rank()))
                         })?,
+                    b'q' => (0..king.file().idx()).map(File::from_idx).find(|&f| {
+                        board
+                            .colored_pieces(Piece::Rook, color)
+                            .contains(Square::new(f, king.rank()))
+                    })?,
                     _ => return None,
                 };
 

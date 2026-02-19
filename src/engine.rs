@@ -144,7 +144,7 @@ impl Engine {
 
     fn setoption(&mut self, name: String, value: String) {
         match name.as_str() {
-            "UCI_Chess960" => {
+            "UCI_Chess960" | "960" => {
                 let Ok(val) = value.parse::<bool>() else {
                     println!("info string Unknown value {value}");
                     return;

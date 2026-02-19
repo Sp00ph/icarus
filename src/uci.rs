@@ -182,7 +182,7 @@ impl UciCommand {
                 depth: reader.next().unwrap_or("6").parse()?,
                 bulk: reader.next().unwrap_or("true").parse()?,
             }),
-            "position" => {
+            "position" | "pos" | "p" => {
                 let startpos = match reader.next() {
                     Some("startpos") => Board::start_pos(),
                     Some("kiwipete") => Board::read_fen(
