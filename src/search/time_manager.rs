@@ -174,7 +174,7 @@ impl TimeManager {
 
         let node_tm_factor = 2.5 - 1.5 * ratio;
         let move_stability_factor = (1.8 - 0.1 * (move_stability as f64)).max(0.9);
-        let score_stability_factor = (1.8 - 0.1 * (score_stability as f64)).max(0.9);
+        let score_stability_factor = (1.2 - 0.05 * (score_stability as f64)).max(0.9);
 
         let new_target = ((self.base_time.load(Relaxed) as f64
             * node_tm_factor

@@ -383,7 +383,7 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
             } else {
                 score_stability = 0;
             }
-            prev_score = Some(prev_score.map_or(best_score, |p| Score(p.0.midpoint(best_score.0))));
+            prev_score = Some(best_score);
 
             thread.global.time_manager.deepen(
                 depth,
