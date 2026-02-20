@@ -1,37 +1,45 @@
+pub mod cont;
+pub mod contcorr;
+pub mod corr;
+pub mod main;
+pub mod tactic;
+
 use icarus_board::{board::Board, r#move::Move};
 use icarus_common::piece::Color;
 
-use crate::{position::Position, score::Score};
+use crate::{
+    position::Position,
+    score::Score,
+    search::history::{
+        cont::ContHist, contcorr::ContCorrHist, corr::CorrHist, main::MainHist, tactic::TacticHist,
+    },
+};
 
 const MAX_CORR_VALUE: i32 = 1024;
 const MAX_HIST_VALUE: i32 = 16384;
 
-const PAWN_CORR_SIZE: usize = 16384;
-const MINOR_CORR_SIZE: usize = 16384;
-const MAJOR_CORR_SIZE: usize = 16384;
-const NONPAWN_CORR_SIZE: usize = 16384;
+const CORR_SIZE: usize = 16384;
 
 pub struct History {
-    /// [stm][from][from attacked][to][to attacked]
-    quiet: [[[[[i16; 2]; 64]; 2]; 64]; 2],
-    /// [stm][attacker][victim][to]
-    tactic: [[[i16; 64]; 6]; 2],
-    /// [stm][prev piece][prev dst][piece][dst]
-    cont_oneply: [[[[[i16; 64]; 6]; 64]; 6]; 2],
-    cont_twoply: [[[[[i16; 64]; 6]; 64]; 6]; 2],
+    main: MainHist,
+    tactic: TacticHist,
+    cont_oneply: ContHist,
+    cont_twoply: ContHist,
 
-    /// [stm][pawn hash % PAWN_CORR_SIZE]
-    pawn_corr: [[i16; PAWN_CORR_SIZE]; 2],
-    /// [stm][minor hash % MINOR_CORR_SIZE]
-    minor_corr: [[i16; MINOR_CORR_SIZE]; 2],
-    /// [stm][major hash % MAJOR_CORR_SIZE]
-    major_corr: [[i16; MAJOR_CORR_SIZE]; 2],
-    /// [stm][nonpawn hash % NONPAWN_CORR_SIZE]
-    white_nonpawn_corr: [[i16; NONPAWN_CORR_SIZE]; 2],
-    black_nonpawn_corr: [[i16; NONPAWN_CORR_SIZE]; 2],
-    /// [stm][prev piece][prev dst][piece][dst]
-    contcorr_oneply: [[[[[i16; 64]; 6]; 64]; 6]; 2],
-    contcorr_twoply: [[[[[i16; 64]; 6]; 64]; 6]; 2],
+    pawn_corr: CorrHist,
+    minor_corr: CorrHist,
+    major_corr: CorrHist,
+    white_nonpawn_corr: CorrHist,
+    black_nonpawn_corr: CorrHist,
+
+    contcorr_oneply: ContCorrHist,
+    contcorr_twoply: ContCorrHist,
+}
+
+fn apply_gravity<const MAX_BONUS: i32, const MAX_VALUE: i32>(entry: &mut i16, amount: i32) {
+    let amount = amount.clamp(-MAX_BONUS, MAX_BONUS);
+    let decay = (*entry as i32 * amount.abs() / MAX_VALUE) as i16;
+    *entry += amount as i16 - decay;
 }
 
 impl History {
@@ -47,25 +55,19 @@ impl History {
         let board = pos.board();
         let oneply = pos.prev_move(1);
         let twoply = pos.prev_move(2);
-        self.quiet[board.stm()][mv.from()][board.attacked().contains(mv.from()) as usize][mv.to()]
-            [board.attacked().contains(mv.to()) as usize]
-            .saturating_add(oneply.map_or(0, |oneply| {
-                self.cont_oneply[board.stm()][oneply.0][oneply.1.to()]
-                    [board.piece_on(mv.from()).unwrap()][mv.to()]
-            }))
-            .saturating_add(twoply.map_or(0, |twoply| {
-                self.cont_twoply[board.stm()][twoply.0][twoply.1.to()]
-                    [board.piece_on(mv.from()).unwrap()][mv.to()]
-            }))
+        self.main
+            .get(pos.board(), mv)
+            .saturating_add(self.cont_oneply.get(board, mv, oneply))
+            .saturating_add(self.cont_twoply.get(board, mv, twoply))
     }
 
     pub fn score_tactic(&self, board: &Board, mv: Move) -> i16 {
-        let attacker = board.piece_on(mv.from()).unwrap();
-        self.tactic[board.stm()][attacker][mv.to()]
+        self.tactic.get(board, mv)
     }
 
     pub fn corr(&self, pos: &Position) -> i16 {
         let board = pos.board();
+        let stm = board.stm();
         let (twoply, oneply, cur) = (pos.prev_move(3), pos.prev_move(2), pos.prev_move(1));
 
         let pawn_factor = 64;
@@ -77,44 +79,22 @@ impl History {
         let cont2_factor = 64;
 
         let mut corr = 0;
-        corr += (self.pawn_corr[board.stm()][board.pawn_hash() as usize % PAWN_CORR_SIZE] as i32)
-            * pawn_factor;
-        corr += (self.minor_corr[board.stm()][board.minor_hash() as usize % MINOR_CORR_SIZE]
-            as i32)
-            * minor_factor;
-        corr += (self.major_corr[board.stm()][board.major_hash() as usize % MAJOR_CORR_SIZE]
-            as i32)
-            * major_factor;
-        corr += (self.white_nonpawn_corr[board.stm()]
-            [board.nonpawn_hash(Color::White) as usize % NONPAWN_CORR_SIZE]
-            as i32)
+        corr += (self.pawn_corr.get(stm, board.pawn_hash()) as i32) * pawn_factor;
+        corr += (self.minor_corr.get(stm, board.minor_hash()) as i32) * minor_factor;
+        corr += (self.major_corr.get(stm, board.major_hash()) as i32) * major_factor;
+        corr += (self
+            .white_nonpawn_corr
+            .get(stm, board.nonpawn_hash(Color::White)) as i32)
             * white_factor;
-        corr += (self.black_nonpawn_corr[board.stm()]
-            [board.nonpawn_hash(Color::Black) as usize % NONPAWN_CORR_SIZE]
-            as i32)
+        corr += (self
+            .black_nonpawn_corr
+            .get(stm, board.nonpawn_hash(Color::Black)) as i32)
             * black_factor;
-        if let (Some((prev_piece, prev_mv)), Some((piece, mv))) = (oneply, cur) {
-            corr += self.contcorr_oneply[board.stm()][prev_piece][prev_mv.to()][piece][mv.to()]
-                as i32
-                * cont1_factor;
-        }
-        if let (Some((prev_piece, prev_mv)), Some((piece, mv))) = (twoply, cur) {
-            corr += self.contcorr_twoply[board.stm()][prev_piece][prev_mv.to()][piece][mv.to()]
-                as i32
-                * cont2_factor;
-        }
+
+        corr += self.contcorr_oneply.get(stm, cur, oneply) as i32 * cont1_factor;
+        corr += self.contcorr_twoply.get(stm, cur, twoply) as i32 * cont2_factor;
 
         (corr / MAX_CORR_VALUE) as i16
-    }
-
-    fn quiet_mut(&mut self, board: &Board, mv: Move) -> &mut i16 {
-        &mut self.quiet[board.stm()][mv.from()][board.attacked().contains(mv.from()) as usize]
-            [mv.to()][board.attacked().contains(mv.to()) as usize]
-    }
-
-    fn tactic_mut(&mut self, board: &Board, mv: Move) -> &mut i16 {
-        let attacker = board.piece_on(mv.from()).unwrap();
-        &mut self.tactic[board.stm()][attacker][mv.to()]
     }
 
     pub fn update(
@@ -129,117 +109,43 @@ impl History {
         let oneply = pos.prev_move(1);
         let twoply = pos.prev_move(2);
 
-        let bonus_base = 128;
-        let bonus_scale = 128;
-        let bonus_max = 2048;
-        let bonus = (bonus_base + (depth as i32) * bonus_scale).min(bonus_max);
-
-        let malus_base = 128;
-        let malus_scale = 128;
-        let malus_max = 2048;
-        let malus = (malus_base + (depth as i32) * malus_scale).min(malus_max);
-
         if board.is_tactic(mv) {
-            Self::update_value(self.tactic_mut(board, mv), bonus);
+            self.tactic.apply_bonus(board, mv, depth);
         } else {
-            Self::update_value(self.quiet_mut(board, mv), bonus);
-            if let Some(prev) = oneply {
-                Self::update_value(
-                    &mut self.cont_oneply[board.stm()][prev.0][prev.1.to()]
-                        [board.piece_on(mv.from()).unwrap()][mv.to()],
-                    bonus,
-                );
-            }
-            if let Some(prev) = twoply {
-                Self::update_value(
-                    &mut self.cont_twoply[board.stm()][prev.0][prev.1.to()]
-                        [board.piece_on(mv.from()).unwrap()][mv.to()],
-                    bonus,
-                );
-            }
+            self.main.apply_bonus(board, mv, depth);
+            self.cont_oneply.apply_bonus(board, mv, oneply, depth);
+            self.cont_twoply.apply_bonus(board, mv, twoply, depth);
 
             for &quiet in quiets {
-                Self::update_value(self.quiet_mut(board, quiet), -malus);
-                if let Some(oneply) = oneply {
-                    Self::update_value(
-                        &mut self.cont_oneply[board.stm()][oneply.0][oneply.1.to()]
-                            [board.piece_on(quiet.from()).unwrap()][quiet.to()],
-                        -malus,
-                    );
-                }
-                if let Some(twoply) = twoply {
-                    Self::update_value(
-                        &mut self.cont_twoply[board.stm()][twoply.0][twoply.1.to()]
-                            [board.piece_on(quiet.from()).unwrap()][quiet.to()],
-                        -malus,
-                    );
-                }
+                self.main.apply_malus(board, quiet, depth);
+                self.cont_oneply.apply_malus(board, quiet, oneply, depth);
+                self.cont_twoply.apply_malus(board, quiet, twoply, depth);
             }
         }
 
         for &tactic in tactics {
-            Self::update_value(self.tactic_mut(board, tactic), -malus);
+            self.tactic.apply_malus(board, tactic, depth);
         }
     }
 
     pub fn update_corr(&mut self, pos: &Position, depth: i16, score: Score, static_eval: Score) {
         let board = pos.board();
+        let stm = board.stm();
         let (twoply, oneply, cur) = (pos.prev_move(3), pos.prev_move(2), pos.prev_move(1));
 
-        let bonus_scale = 128;
-
         let delta = score.0 as i32 - static_eval.0 as i32;
-        let amount = (delta * (depth as i32) * bonus_scale) / 1024;
 
-        Self::update_corr_val(
-            &mut self.pawn_corr[board.stm()][board.pawn_hash() as usize % PAWN_CORR_SIZE],
-            amount,
-        );
-        Self::update_corr_val(
-            &mut self.minor_corr[board.stm()][board.minor_hash() as usize % MINOR_CORR_SIZE],
-            amount,
-        );
-        Self::update_corr_val(
-            &mut self.major_corr[board.stm()][board.major_hash() as usize % MAJOR_CORR_SIZE],
-            amount,
-        );
-        Self::update_corr_val(
-            &mut self.white_nonpawn_corr[board.stm()]
-                [board.nonpawn_hash(Color::White) as usize % NONPAWN_CORR_SIZE],
-            amount,
-        );
-        Self::update_corr_val(
-            &mut self.black_nonpawn_corr[board.stm()]
-                [board.nonpawn_hash(Color::Black) as usize % NONPAWN_CORR_SIZE],
-            amount,
-        );
+        let amount = CorrHist::amount(delta, depth);
 
-        if let (Some((prev_piece, prev_mv)), Some((piece, mv))) = (oneply, cur) {
-            Self::update_corr_val(
-                &mut self.contcorr_oneply[board.stm()][prev_piece][prev_mv.to()][piece][mv.to()],
-                amount,
-            );
-        }
+        self.pawn_corr.update(stm, board.pawn_hash(), amount);
+        self.minor_corr.update(stm, board.minor_hash(), amount);
+        self.major_corr.update(stm, board.major_hash(), amount);
+        self.white_nonpawn_corr
+            .update(stm, board.nonpawn_hash(Color::White), amount);
+        self.black_nonpawn_corr
+            .update(stm, board.nonpawn_hash(Color::Black), amount);
 
-        if let (Some((prev_piece, prev_mv)), Some((piece, mv))) = (twoply, cur) {
-            Self::update_corr_val(
-                &mut self.contcorr_twoply[board.stm()][prev_piece][prev_mv.to()][piece][mv.to()],
-                amount,
-            );
-        }
-    }
-
-    fn update_value(value: &mut i16, amount: i32) {
-        let amount = amount.clamp(-MAX_HIST_VALUE, MAX_HIST_VALUE);
-        let decay = (*value as i32 * amount.abs() / MAX_HIST_VALUE) as i16;
-
-        *value += amount as i16 - decay;
-    }
-
-    fn update_corr_val(value: &mut i16, amount: i32) {
-        let amount = amount.clamp(-MAX_CORR_VALUE / 4, MAX_CORR_VALUE / 4);
-        let decay = (*value as i32 * amount.abs() / MAX_CORR_VALUE) as i16;
-
-        *value += amount as i16 - decay;
+        self.contcorr_oneply.update(stm, cur, oneply, amount);
+        self.contcorr_twoply.update(stm, cur, twoply, amount);
     }
 }
