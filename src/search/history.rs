@@ -18,7 +18,7 @@ pub struct History {
     tactic: [[[i16; 64]; 6]; 2],
     /// [stm][prev piece][prev dst][piece][dst]
     cont_oneply: [[[[[i16; 64]; 6]; 64]; 6]; 2],
-    cont_twoply: [[[[[i16; 64]; 6]; 64]; 6]; 2],
+    cont_twofourply: [[[[[i16; 64]; 6]; 64]; 6]; 2],
 
     /// [stm][pawn hash % PAWN_CORR_SIZE]
     pawn_corr: [[i16; PAWN_CORR_SIZE]; 2],
@@ -47,6 +47,7 @@ impl History {
         let board = pos.board();
         let oneply = pos.prev_move(1);
         let twoply = pos.prev_move(2);
+        let fourply = pos.prev_move(4);
         self.quiet[board.stm()][mv.from()][board.attacked().contains(mv.from()) as usize][mv.to()]
             [board.attacked().contains(mv.to()) as usize]
             .saturating_add(oneply.map_or(0, |oneply| {
@@ -54,7 +55,11 @@ impl History {
                     [board.piece_on(mv.from()).unwrap()][mv.to()]
             }))
             .saturating_add(twoply.map_or(0, |twoply| {
-                self.cont_twoply[board.stm()][twoply.0][twoply.1.to()]
+                self.cont_twofourply[board.stm()][twoply.0][twoply.1.to()]
+                    [board.piece_on(mv.from()).unwrap()][mv.to()]
+            }))
+            .saturating_add(fourply.map_or(0, |fourply| {
+                self.cont_twofourply[board.stm()][fourply.0][fourply.1.to()]
                     [board.piece_on(mv.from()).unwrap()][mv.to()]
             }))
     }
@@ -128,6 +133,7 @@ impl History {
         let board = pos.board();
         let oneply = pos.prev_move(1);
         let twoply = pos.prev_move(2);
+        let fourply = pos.prev_move(4);
 
         let bonus_base = 128;
         let bonus_scale = 128;
@@ -152,7 +158,14 @@ impl History {
             }
             if let Some(prev) = twoply {
                 Self::update_value(
-                    &mut self.cont_twoply[board.stm()][prev.0][prev.1.to()]
+                    &mut self.cont_twofourply[board.stm()][prev.0][prev.1.to()]
+                        [board.piece_on(mv.from()).unwrap()][mv.to()],
+                    bonus,
+                );
+            }
+            if let Some(fourply) = fourply {
+                Self::update_value(
+                    &mut self.cont_twofourply[board.stm()][fourply.0][fourply.1.to()]
                         [board.piece_on(mv.from()).unwrap()][mv.to()],
                     bonus,
                 );
@@ -169,7 +182,14 @@ impl History {
                 }
                 if let Some(twoply) = twoply {
                     Self::update_value(
-                        &mut self.cont_twoply[board.stm()][twoply.0][twoply.1.to()]
+                        &mut self.cont_twofourply[board.stm()][twoply.0][twoply.1.to()]
+                            [board.piece_on(quiet.from()).unwrap()][quiet.to()],
+                        -malus,
+                    );
+                }
+                if let Some(fourply) = fourply {
+                    Self::update_value(
+                        &mut self.cont_twofourply[board.stm()][fourply.0][fourply.1.to()]
                             [board.piece_on(quiet.from()).unwrap()][quiet.to()],
                         -malus,
                     );
