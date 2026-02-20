@@ -150,6 +150,7 @@ impl Searcher {
         limits: Vec<SearchLimit>,
         use_soft_nodes: bool,
         chess960: bool,
+        move_overhead: u64,
         print_info: bool,
     ) {
         assert!(
@@ -161,9 +162,12 @@ impl Searcher {
         // We store one "pseudo"-searcher, to make sure that `is_running` never falsely
         // returns false
         self.global_ctx.num_searching.store(1, Relaxed);
-        self.global_ctx
-            .time_manager
-            .init(pos.board().stm(), &limits, use_soft_nodes);
+        self.global_ctx.time_manager.init(
+            pos.board().stm(),
+            &limits,
+            use_soft_nodes,
+            move_overhead,
+        );
 
         let root_moves = limits.into_iter().find_map(|limit| match limit {
             SearchLimit::SearchMoves(moves) => Some(moves),

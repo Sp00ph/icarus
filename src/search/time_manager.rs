@@ -1,18 +1,21 @@
 use std::{
     sync::atomic::{AtomicBool, AtomicU16, AtomicU32, AtomicU64, Ordering::Relaxed},
     time::{Duration, Instant},
+    u64,
 };
 
 use icarus_common::{piece::Color, util::enum_map::enum_map};
 
 use crate::{
+    search::searcher::ThreadCtx,
     uci::SearchLimit,
-    util::{MAX_PLY, atomic_instant::AtomicInstant, buffered_counter::BufferedCounter},
+    util::{MAX_PLY, atomic_instant::AtomicInstant},
 };
 
 pub struct TimeManager {
     start: AtomicInstant,
     infinite: AtomicBool,
+    check_time: AtomicBool,
     stop: AtomicU32,
 
     // Supported limits for a `go` command. If these are not set by the command, the maximum values are used.
@@ -22,18 +25,16 @@ pub struct TimeManager {
     base_time: AtomicU64,
     soft_time: AtomicU64,
     hard_time: AtomicU64,
-
-    move_overhead: AtomicU16,
-    // TODO: Implement soft nodes for datagen.
 }
 
-pub const DEFAULT_MOVE_OVERHEAD: u16 = 20;
+pub const DEFAULT_MOVE_OVERHEAD: u64 = 20;
 
 impl Default for TimeManager {
     fn default() -> Self {
         Self {
             start: AtomicInstant::now(),
             infinite: AtomicBool::new(false),
+            check_time: AtomicBool::new(true),
             stop: AtomicU32::new(0),
             max_depth: AtomicU16::new(0),
             soft_nodes: AtomicU64::new(0),
@@ -41,13 +42,18 @@ impl Default for TimeManager {
             base_time: AtomicU64::new(0),
             soft_time: AtomicU64::new(0),
             hard_time: AtomicU64::new(0),
-            move_overhead: AtomicU16::new(DEFAULT_MOVE_OVERHEAD),
         }
     }
 }
 
 impl TimeManager {
-    pub fn init(&self, stm: Color, limits: &[SearchLimit], use_soft_nodes: bool) {
+    pub fn init(
+        &self,
+        stm: Color,
+        limits: &[SearchLimit],
+        use_soft_nodes: bool,
+        move_overhead: u64,
+    ) {
         self.set_stop_flag(false);
 
         let mut time = enum_map! { _ => u64::MAX };
@@ -56,6 +62,7 @@ impl TimeManager {
         let mut max_depth = u16::MAX;
         let mut max_nodes = u64::MAX;
         let mut infinite = true;
+        let mut check_time = false;
 
         for limit in limits {
             use SearchLimit::*;
@@ -78,9 +85,14 @@ impl TimeManager {
             ) {
                 infinite = false;
             }
+
+            if matches!(limit, WhiteTime(..) | BlackTime(..) | MoveTime(..)) {
+                check_time = true;
+            }
         }
 
         self.infinite.store(infinite, Relaxed);
+        self.check_time.store(check_time, Relaxed);
 
         self.max_depth.store(max_depth.min(MAX_PLY), Relaxed);
         self.soft_nodes.store(max_nodes, Relaxed);
@@ -88,7 +100,6 @@ impl TimeManager {
         self.hard_nodes.store(hard_nodes, Relaxed);
 
         let (time, inc) = (time[stm], inc[stm]);
-        let move_overhead = self.move_overhead.load(Relaxed) as u64;
 
         let hard_time = (time / 2).min(time.saturating_sub(move_overhead));
         let soft_time = ((time / 64).saturating_sub(move_overhead) + inc).min(hard_time);
@@ -110,10 +121,6 @@ impl TimeManager {
         }
     }
 
-    pub fn set_move_overhead(&self, overhead: u16) {
-        self.move_overhead.store(overhead, Relaxed);
-    }
-
     pub fn stop_flag(&self) -> bool {
         self.stop.load(Relaxed) != 0
     }
@@ -122,10 +129,12 @@ impl TimeManager {
         self.infinite.load(Relaxed)
     }
 
-    pub fn stop_search(&self, nodes: &BufferedCounter) -> bool {
+    pub fn stop_search(&self, thread: &ThreadCtx) -> bool {
         self.stop_flag()
-            || nodes.global() >= self.hard_nodes.load(Relaxed)
-            || (nodes.local().is_multiple_of(1024)
+            || thread.nodes.global() >= self.hard_nodes.load(Relaxed)
+            || (thread.nodes.local().is_multiple_of(1024)
+                && thread.id == 0
+                && self.check_time.load(Relaxed)
                 && self.elapsed().as_millis() as u64 > self.hard_time.load(Relaxed))
     }
 
@@ -133,7 +142,8 @@ impl TimeManager {
         self.stop_flag()
             || depth >= self.max_depth.load(Relaxed)
             || nodes >= self.soft_nodes.load(Relaxed)
-            || self.elapsed().as_millis() as u64 > self.soft_time.load(Relaxed)
+            || (self.check_time.load(Relaxed)
+                && self.elapsed().as_millis() as u64 > self.soft_time.load(Relaxed))
     }
 
     pub fn elapsed(&self) -> Duration {

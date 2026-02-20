@@ -5,7 +5,12 @@ use std::{
 
 use icarus_board::board::Board;
 
-use crate::{engine::Engine, position::Position, search::searcher::Searcher, uci::SearchLimit};
+use crate::{
+    engine::Engine,
+    position::Position,
+    search::{searcher::Searcher, time_manager::DEFAULT_MOVE_OVERHEAD},
+    uci::SearchLimit,
+};
 
 pub static FENS: [&str; 50] = [
     "r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq - 0 14",
@@ -73,7 +78,14 @@ impl Engine {
         for fen in FENS {
             let pos = Position::new(Board::read_fen(fen).unwrap());
             let start = Instant::now();
-            searcher.search(pos, limits.clone(), false, false, false);
+            searcher.search(
+                pos,
+                limits.clone(),
+                false,
+                false,
+                DEFAULT_MOVE_OVERHEAD,
+                false,
+            );
             searcher.wait();
             duration += start.elapsed();
             nodes += searcher.global_ctx.nodes.load(Ordering::Relaxed);

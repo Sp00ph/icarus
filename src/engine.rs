@@ -24,6 +24,7 @@ pub struct Engine {
     position: Position,
     use_soft_nodes: bool,
     chess960: bool,
+    move_overhead: u64,
     searcher: Searcher,
 }
 
@@ -33,6 +34,7 @@ impl Engine {
             position: Position::new(Board::start_pos()),
             use_soft_nodes: false,
             chess960: false,
+            move_overhead: DEFAULT_MOVE_OVERHEAD,
             searcher: Searcher::default(),
         }
     }
@@ -161,11 +163,11 @@ impl Engine {
                 println!("info string Set UseSoftNodes to {val}");
             }
             "MoveOverhead" => {
-                let Ok(val) = value.parse::<u16>() else {
+                let Ok(val) = value.parse::<u64>() else {
                     println!("info string Unknown value {value}");
                     return;
                 };
-                self.searcher.global_ctx.time_manager.set_move_overhead(val);
+                self.move_overhead = val;
                 println!("info string Set move overhead to {val}");
             }
             "Hash" => {
@@ -277,6 +279,7 @@ impl Engine {
             search_limits,
             self.use_soft_nodes,
             self.chess960,
+            self.move_overhead,
             true,
         );
     }
