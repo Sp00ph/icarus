@@ -75,6 +75,16 @@ impl Board {
     }
 
     #[inline]
+    pub fn piece_bbs(&self) -> &EnumMap<Piece, Bitboard> {
+        &self.pieces
+    }
+
+    #[inline]
+    pub fn color_bbs(&self) -> &EnumMap<Color, Bitboard> {
+        &self.colors
+    }
+
+    #[inline]
     pub fn colored_pieces(&self, piece: Piece, color: Color) -> Bitboard {
         self.pieces[piece] & self.colors[color]
     }

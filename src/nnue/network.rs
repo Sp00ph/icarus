@@ -12,7 +12,8 @@ use icarus_common::{
 use crate::{
     nnue::{
         accumulator::{
-            Accumulator, Feature, Updates, acc_add, acc_add_sub, acc_add_sub2, acc_add2_sub2,
+            Accumulator, Feature, KingBucketCache, Updates, acc_add, acc_add_sub, acc_add_sub2,
+            acc_add2_sub2, acc_add4, acc_sub, acc_sub4,
         },
         inference::forward,
     },
@@ -21,21 +22,43 @@ use crate::{
 
 pub const INPUT: usize = 768;
 pub const HL: usize = 1024;
+pub const NUM_KING_BUCKETS: usize = 4;
+#[rustfmt::skip]
+pub static KING_BUCKET_LAYOUT: [u8; 64] = [
+    0, 0, 1, 1, 1, 1, 0, 0,
+    2, 2, 2, 2, 2, 2, 2, 2,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+];
+
+pub fn king_bucket(king: Square, perspective: Color) -> usize {
+    let king = Square::new(king.file(), king.rank().relative_to(perspective));
+    KING_BUCKET_LAYOUT[king] as usize
+}
+
+pub fn should_mirror(king: Square) -> bool {
+    king.file() > File::D
+}
 
 pub static NET: Network =
     unsafe { std::mem::transmute(*include_bytes!(concat!(env!("OUT_DIR"), "/icarus.nnue"))) };
 
 #[repr(C, align(64))]
 pub struct Network {
-    pub ft_weight: [i16; INPUT * HL],
+    pub ft_weight: [[[i16; HL]; INPUT]; NUM_KING_BUCKETS],
     pub ft_bias: [i16; HL],
-    pub out_weight: [i16; 2 * HL],
+    pub out_weight: [[i16; HL]; 2],
     pub out_bias: i16,
 }
 
 pub struct Nnue {
     stack: Box<[Accumulator; MAX_PLY as usize + 1]>,
     idx: usize,
+    cache: Box<KingBucketCache>,
 }
 
 impl Nnue {
@@ -44,8 +67,9 @@ impl Nnue {
             stack: vec![
                 Accumulator {
                     values: enum_map! { _ => [0; HL] },
-                    dirty: enum_map! { _ => false },
-                    updates: Updates::default(),
+                    dirty: Default::default(),
+                    needs_refresh: Default::default(),
+                    updates: Default::default(),
                 };
                 MAX_PLY as usize + 1
             ]
@@ -53,6 +77,7 @@ impl Nnue {
             .try_into()
             .unwrap(),
             idx: 0,
+            cache: Default::default(),
         };
 
         this.full_reset(board);
@@ -61,36 +86,81 @@ impl Nnue {
 
     pub fn full_reset(&mut self, board: &Board) {
         self.idx = 0;
+        *self.cache = Default::default();
         self.reset(board, Color::White);
         self.reset(board, Color::Black);
     }
 
     pub fn reset(&mut self, board: &Board, perspective: Color) {
-        self.stack[self.idx].values[perspective].copy_from_slice(&NET.ft_bias);
         let king = board.king(perspective);
+        let mirror = should_mirror(king);
+        let bucket = king_bucket(king, perspective);
 
-        let adds: ArrayVec<usize, 64> = Square::all()
-            .filter(|&square| board.piece_on(square).is_some())
-            .map(|square| {
-                let piece = board.piece_on(square).unwrap();
-                let color = Color::from_idx(board.occupied_by(Color::Black).contains(square) as u8);
-                Feature {
-                    square,
-                    piece,
-                    color,
+        let entry = &mut self.cache.entries[perspective][mirror as usize][bucket];
+
+        let mut adds: ArrayVec<usize, 64> = ArrayVec::new();
+        let mut subs: ArrayVec<usize, 64> = ArrayVec::new();
+
+        for color in Color::all() {
+            for piece in Piece::all() {
+                let current = board.colored_pieces(piece, color);
+                let cached = entry.colors[color] & entry.pieces[piece];
+
+                for add in current & !cached {
+                    adds.push(
+                        Feature {
+                            piece,
+                            color,
+                            square: add,
+                        }
+                        .idx(perspective, king),
+                    );
                 }
-                .idx(perspective, king)
-            })
-            .collect();
 
-        acc_add(&mut self.stack[self.idx].values[perspective], &adds);
+                for sub in cached & !current {
+                    subs.push(
+                        Feature {
+                            piece,
+                            color,
+                            square: sub,
+                        }
+                        .idx(perspective, king),
+                    );
+                }
+            }
+        }
+
+        let weights = &NET.ft_weight[bucket];
+        let values = &mut entry.features;
+
+        let (chunks, rem) = adds.as_chunks();
+        for &[add1, add2, add3, add4] in chunks {
+            acc_add4(values, weights, add1, add2, add3, add4);
+        }
+        for &add in rem {
+            acc_add(values, weights, add);
+        }
+
+        let (chunks, rem) = subs.as_chunks();
+        for &[sub1, sub2, sub3, sub4] in chunks {
+            acc_sub4(values, weights, sub1, sub2, sub3, sub4);
+        }
+        for &sub in rem {
+            acc_sub(values, weights, sub);
+        }
+
+        entry.pieces = *board.piece_bbs();
+        entry.colors = *board.color_bbs();
+
+        self.stack[self.idx].values[perspective].copy_from_slice(&entry.features);
         self.stack[self.idx].dirty[perspective] = false;
+        self.stack[self.idx].needs_refresh[perspective] = false;
     }
 
-    pub fn make_move(&mut self, old_board: &Board, new_board: &Board, mv: Move) {
+    pub fn make_move(&mut self, board: &Board, mv: Move) {
         let mut updates = Updates::default();
-        let (from, to) = (mv.from(), mv.to());
-        let (piece, stm) = (mv.piece_type(old_board), old_board.stm());
+        let (from, mut to) = (mv.from(), mv.to());
+        let (piece, stm) = (mv.piece_type(board), board.stm());
 
         if let Some(dir) = mv.castling_dir() {
             let (king, rook) = (dir.king_dst(), dir.rook_dst());
@@ -98,6 +168,7 @@ impl Nnue {
 
             updates.move_piece(from, Square::new(king, rank), Piece::King, stm);
             updates.move_piece(to, Square::new(rook, rank), Piece::Rook, stm);
+            to = Square::new(dir.king_dst(), to.rank());
         } else if let Some(promo) = mv.promotes_to() {
             updates.remove_piece(from, piece, stm);
             updates.add_piece(to, promo, stm);
@@ -108,16 +179,20 @@ impl Nnue {
         if mv.flag() == MoveFlag::EnPassant {
             let victim_sq = Square::new(to.file(), from.rank());
             updates.remove_piece(victim_sq, Piece::Pawn, !stm);
-        } else if let Some(victim) = mv.captures(old_board) {
+        } else if let Some(victim) = mv.captures(board) {
             updates.remove_piece(to, victim, !stm);
         }
 
         self.stack[self.idx].updates = updates;
-        self.stack[self.idx + 1].dirty = enum_map! { _ => true };
         self.idx += 1;
+        self.stack[self.idx].dirty = enum_map! { _ => true };
+        self.stack[self.idx].needs_refresh = self.stack[self.idx - 1].needs_refresh;
 
-        if piece == Piece::King && (from.file() > File::D) != (to.file() > File::D) {
-            self.reset(new_board, stm);
+        if piece == Piece::King
+            && (king_bucket(from, stm) != king_bucket(to, stm)
+                || should_mirror(from) != should_mirror(to))
+        {
+            self.stack[self.idx].needs_refresh[stm] = true;
         }
     }
 
@@ -127,17 +202,36 @@ impl Nnue {
 
     pub fn update(&mut self, board: &Board) {
         for perspective in Color::all() {
-            if self.stack[self.idx].dirty[perspective] {
-                self.update_color(perspective, board.king(perspective));
+            if self.stack[self.idx].needs_refresh[perspective] {
+                self.reset(board, perspective);
+            } else if self.stack[self.idx].dirty[perspective] {
+                self.update_color(perspective, board);
             }
         }
     }
 
-    fn update_color(&mut self, perspective: Color, king: Square) {
-        let clean_idx = (0..self.idx)
-            .rev()
-            .find(|&i| !self.stack[i].dirty[perspective])
-            .unwrap();
+    fn update_color(&mut self, perspective: Color, board: &Board) {
+        let mut clean_idx = None;
+
+        for i in (0..self.idx).rev() {
+            if self.stack[i].needs_refresh[perspective] {
+                break;
+            }
+            if !self.stack[i].dirty[perspective] {
+                clean_idx = Some(i);
+                break;
+            }
+        }
+
+        let king = board.king(perspective);
+        let bucket = king_bucket(king, perspective);
+
+        let Some(clean_idx) = clean_idx else {
+            self.reset(board, perspective);
+            return;
+        };
+
+        let weights = &NET.ft_weight[bucket];
 
         for idx in clean_idx..self.idx {
             let [clean, dirty] = self.stack.get_disjoint_mut([idx, idx + 1]).unwrap();
@@ -147,12 +241,14 @@ impl Nnue {
                 (&[add], &[sub]) => acc_add_sub(
                     clean_acc,
                     dirty_acc,
+                    weights,
                     add.idx(perspective, king),
                     sub.idx(perspective, king),
                 ),
                 (&[add], &[sub1, sub2]) => acc_add_sub2(
                     clean_acc,
                     dirty_acc,
+                    weights,
                     add.idx(perspective, king),
                     sub1.idx(perspective, king),
                     sub2.idx(perspective, king),
@@ -160,6 +256,7 @@ impl Nnue {
                 (&[add1, add2], &[sub1, sub2]) => acc_add2_sub2(
                     clean_acc,
                     dirty_acc,
+                    weights,
                     add1.idx(perspective, king),
                     add2.idx(perspective, king),
                     sub1.idx(perspective, king),

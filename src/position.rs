@@ -30,11 +30,11 @@ impl Position {
 
     pub fn make_move(&mut self, mv: Move, nnue: Option<&mut Nnue>) {
         let piece = mv.piece_type(&self.board);
+        if let Some(nnue) = nnue {
+            nnue.make_move(&self.board, mv);
+        }
         self.history.push(self.board);
         self.board.make_move(mv);
-        if let Some(nnue) = nnue {
-            nnue.make_move(self.history.last().unwrap(), &self.board, mv);
-        }
         self.moves.push(Some((piece, mv)));
     }
 
@@ -52,7 +52,6 @@ impl Position {
         self.moves.pop();
     }
 
-    // Only here for completeness when I add NNUE :3
     pub fn unmake_null_move(&mut self) {
         self.board = self.history.pop().unwrap();
         self.moves.pop();
