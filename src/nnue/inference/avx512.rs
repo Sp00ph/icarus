@@ -14,8 +14,8 @@ fn forward_impl(us: &[i16; HL], them: &[i16; HL]) -> i32 {
     let us_ptr = us.as_ptr().cast::<__m512i>();
     let them_ptr = them.as_ptr().cast::<__m512i>();
 
-    let us_weights = NET.out_weight.as_ptr().cast::<__m512i>();
-    let them_weights = NET.out_weight[HL..].as_ptr().cast::<__m512i>();
+    let us_weights = NET.out_weight[0].as_ptr().cast::<__m512i>();
+    let them_weights = NET.out_weight[1].as_ptr().cast::<__m512i>();
 
     let mut sums0 = _mm512_setzero_si512();
     let mut sums1 = _mm512_setzero_si512();
