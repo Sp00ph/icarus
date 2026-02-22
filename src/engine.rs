@@ -100,7 +100,11 @@ impl Engine {
             UciCommand::NewGame => self.searcher.newgame(),
             UciCommand::IsReady => self.isready(),
             UciCommand::SetOption { name, value } => self.setoption(name, value),
-            UciCommand::Position { board, moves } => self.position(board, moves),
+            UciCommand::Position {
+                board,
+                moves,
+                enable_960,
+            } => self.position(board, moves, enable_960),
             UciCommand::Go(search_limits) => self.go(search_limits),
             UciCommand::Eval => self.eval(),
             UciCommand::Display => self.display(),
@@ -208,7 +212,12 @@ impl Engine {
         }
     }
 
-    fn position(&mut self, board: Board, moves: Vec<Move>) {
+    fn position(&mut self, board: Board, moves: Vec<Move>, enable_960: bool) {
+        if enable_960 && !self.chess960 {
+            println!("info string Enabling Chess960");
+            self.chess960 = true;
+        }
+
         self.position = Position::new(board);
         for mv in moves {
             self.position.make_move(mv, None);

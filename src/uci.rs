@@ -19,6 +19,7 @@ pub enum UciCommand {
     Position {
         board: Board,
         moves: Vec<Move>,
+        enable_960: bool,
     },
     Go(Vec<SearchLimit>),
     Eval,
@@ -75,8 +76,6 @@ pub enum UciParseError {
     MissingOptionValue,
     #[error("Missing `fen` or `startpos` on `position` command")]
     MissingPositionType,
-    #[error("Chess960 mode isn't enabled")]
-    FrcNotEnabled,
     #[error("Missing a Scharnagl number")]
     MissingFrcNumber,
     #[error("Scharnagl number is too large: {0}")]
@@ -183,6 +182,7 @@ impl UciCommand {
                 bulk: reader.next().unwrap_or("true").parse()?,
             }),
             "position" | "pos" | "p" => {
+                let mut enable_960 = false;
                 let startpos = match reader.next() {
                     Some("startpos") => Board::start_pos(),
                     Some("kiwipete") => Board::read_fen(
@@ -190,9 +190,7 @@ impl UciCommand {
                     )
                     .unwrap(),
                     Some("frc") => {
-                        if !chess960 {
-                            return Err(FrcNotEnabled);
-                        }
+                        enable_960 = true;
                         let n = reader.next().ok_or(MissingFrcNumber)?.parse()?;
                         if n >= 960 {
                             return Err(InvalidFrcNumber(n));
@@ -202,9 +200,7 @@ impl UciCommand {
                     }
 
                     Some("dfrc") => {
-                        if !chess960 {
-                            return Err(FrcNotEnabled);
-                        }
+                        enable_960 = true;
                         let w: usize = reader.next().ok_or(MissingFrcNumber)?.parse()?;
                         let b: usize = reader.next().ok_or(MissingFrcNumber)?.parse()?;
                         if w.max(b) >= 960 {
@@ -236,7 +232,7 @@ impl UciCommand {
                 let mut moves = vec![];
                 for part in reader {
                     let mv = current
-                        .parse_move(part, chess960)
+                        .parse_move(part, chess960 || enable_960)
                         .ok_or_else(|| InvalidMove(part.to_string()))?;
 
                     if !current.is_legal_thorough(mv) {
@@ -249,6 +245,7 @@ impl UciCommand {
                 Ok(Position {
                     board: startpos,
                     moves,
+                    enable_960,
                 })
             }
             "go" => {
