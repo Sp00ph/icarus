@@ -224,7 +224,7 @@ pub fn search<Node: NodeType>(
         }
 
         let is_tactic = pos.board().is_tactic(mv);
-        let lmr = get_lmr(is_tactic, depth as u8, moves_seen);
+        let mut lmr = get_lmr(is_tactic, depth as u8, moves_seen);
         let mut extension = 0;
         let mut score;
 
@@ -324,6 +324,12 @@ pub fn search<Node: NodeType>(
         if moves_seen == 0 {
             score = -search::<Node::Next>(pos, new_depth, ply + 1, -beta, -alpha, thread);
         } else {
+            if depth < 2 {
+                lmr = 0;
+            } else {
+                lmr += !Node::PV as i16;
+            }
+
             let lmr_depth = (new_depth - lmr).max(1).min(new_depth);
 
             score = -search::<NonPV>(pos, lmr_depth, ply + 1, -alpha - 1, -alpha, thread);
