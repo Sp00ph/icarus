@@ -68,6 +68,29 @@ pub struct ThreadCtx {
     pub nnue: Nnue,
 }
 
+impl ThreadCtx {
+    pub fn new(global: Arc<GlobalCtx>, id: usize, chess960: bool) -> Self {
+        let nodes = BufferedCounter::new(global.nodes.clone());
+        ThreadCtx {
+            id,
+            global,
+            chess960,
+            abort_now: false,
+            nodes,
+            root_moves: vec![],
+            root_move_nodes: [[0; 64]; 64],
+            sel_depth: 0,
+            search_stack: vec![Default::default(); MAX_PLY as usize + 1]
+                .try_into()
+                .unwrap(),
+            root_pv: Default::default(),
+            history: History::new(),
+            nnue: Nnue::new(&Board::start_pos()),
+            min_nmp_ply: 0,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct SearchStackEntry {
     pub pv: PrincipalVariation,
@@ -262,24 +285,7 @@ impl Searcher {
 }
 
 fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: usize) {
-    let nodes = global.nodes.clone();
-    let mut thread_ctx = ThreadCtx {
-        global,
-        id,
-        chess960: false,
-        nodes: BufferedCounter::new(nodes),
-        root_moves: vec![],
-        root_move_nodes: [[0; 64]; 64],
-        sel_depth: 0,
-        min_nmp_ply: 0,
-        abort_now: false,
-        search_stack: vec![Default::default(); MAX_PLY as usize + 1]
-            .try_into()
-            .unwrap(),
-        root_pv: Default::default(),
-        history: History::new(),
-        nnue: Nnue::new(&Board::start_pos()),
-    };
+    let mut thread_ctx = ThreadCtx::new(global, id, false);
 
     loop {
         match rx.recv(|cmd| cmd.clone()) {
