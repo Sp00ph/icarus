@@ -30,12 +30,12 @@ fn startpos(rng: &mut SmallRng, dfrc: bool) -> Board {
     }
 }
 
-fn try_generate_fen(
+pub fn try_generate_pos(
     rng: &mut SmallRng,
     dfrc: bool,
     random_moves: usize,
     thread: &mut ThreadCtx,
-) -> Option<String> {
+) -> Option<Position> {
     let random_moves = random_moves + rng.random_bool(0.5) as usize;
 
     let mut pos = Position::new(startpos(rng, dfrc));
@@ -54,10 +54,16 @@ fn try_generate_fen(
     }
 
     let limit = 1000;
+    thread.nodes.reset_local();
     thread.global.nodes.store(0, Ordering::Relaxed);
-    thread.global
+    thread
+        .global
         .time_manager
         .init(pos.board().stm(), &[SearchLimit::Nodes(1000)], true, 0);
+    thread.chess960 = dfrc;
+    thread.search_stack.fill(Default::default());
+    thread.root_move_nodes = [[0; 64]; 64];
+    thread.abort_now = false;
     thread.nnue.full_reset(pos.board());
 
     if search::<Root>(&mut pos, 10, 0, Score(-limit), Score(limit), thread)
@@ -68,7 +74,7 @@ fn try_generate_fen(
         return None;
     }
 
-    Some(pos.board().fen(dfrc))
+    Some(pos)
 }
 
 pub fn genfens(n: usize, seed: u64, dfrc: bool, random_moves: usize) {
@@ -81,11 +87,11 @@ pub fn genfens(n: usize, seed: u64, dfrc: bool, random_moves: usize) {
     let mut thread = ThreadCtx::new(global, 0, dfrc);
 
     let mut rng = SmallRng::seed_from_u64(seed);
-    for fen in
-        std::iter::repeat_with(|| try_generate_fen(&mut rng, dfrc, random_moves, &mut thread))
+    for pos in
+        std::iter::repeat_with(|| try_generate_pos(&mut rng, dfrc, random_moves, &mut thread))
             .flatten()
             .take(n)
     {
-        println!("info string genfens {fen}")
+        println!("info string genfens {}", pos.board().fen(dfrc))
     }
 }

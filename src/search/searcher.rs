@@ -316,7 +316,7 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
     }
 }
 
-fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
+pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score {
     let mut depth = 1;
     let mut best_score = -Score::INFINITE;
     let mut prev_move = None;
@@ -444,6 +444,8 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
         atomic_wait::wake_all(&thread.global.num_searching);
         thread.global.ttable.age();
     }
+
+    best_score
 }
 
 fn print_info(score: Score, depth: u16, thread: &ThreadCtx, pos: &Position) {

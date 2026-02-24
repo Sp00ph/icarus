@@ -111,7 +111,9 @@ impl TimeManager {
             Relaxed,
         );
 
-        self.start.store(Instant::now(), Relaxed);
+        if check_time {
+            self.start.store(Instant::now(), Relaxed);
+        }
     }
 
     pub fn set_stop_flag(&self, stop: bool) {
