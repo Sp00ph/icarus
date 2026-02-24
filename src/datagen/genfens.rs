@@ -1,7 +1,4 @@
-use std::sync::{
-    Arc,
-    atomic::{AtomicU32, AtomicU64, Ordering},
-};
+use std::sync::{Arc, atomic::Ordering};
 
 use arrayvec::ArrayVec;
 use icarus_board::{board::Board, r#move::Move};
@@ -14,7 +11,6 @@ use crate::{
         move_picker::MAX_MOVES,
         search::{Root, search},
         searcher::{GlobalCtx, ThreadCtx},
-        time_manager::TimeManager,
         transposition_table::TTable,
     },
     uci::SearchLimit,
@@ -35,7 +31,7 @@ pub fn try_generate_pos(
     dfrc: bool,
     random_moves: usize,
     thread: &mut ThreadCtx,
-) -> Option<Position> {
+) -> Option<Board> {
     let random_moves = random_moves + rng.random_bool(0.5) as usize;
 
     let mut pos = Position::new(startpos(rng, dfrc));
@@ -74,14 +70,14 @@ pub fn try_generate_pos(
         return None;
     }
 
-    Some(pos)
+    Some(*pos.board())
 }
 
 pub fn genfens(n: usize, seed: u64, dfrc: bool, random_moves: usize) {
     let global = Arc::new(GlobalCtx {
-        time_manager: TimeManager::default(),
-        nodes: Arc::new(AtomicU64::new(0)),
-        num_searching: AtomicU32::new(0),
+        time_manager: Default::default(),
+        nodes: Default::default(),
+        num_searching: Default::default(),
         ttable: TTable::new(16),
     });
     let mut thread = ThreadCtx::new(global, 0, dfrc);
@@ -92,6 +88,6 @@ pub fn genfens(n: usize, seed: u64, dfrc: bool, random_moves: usize) {
             .flatten()
             .take(n)
     {
-        println!("info string genfens {}", pos.board().fen(dfrc))
+        println!("info string genfens {}", pos.fen(dfrc))
     }
 }

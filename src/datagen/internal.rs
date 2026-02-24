@@ -12,10 +12,7 @@ use std::{
 
 use clap::{Args, Parser};
 use icarus_board::{board::TerminalState, r#move::MoveFlag, movegen::Abort};
-use icarus_common::{
-    piece::Color,
-    util::enum_map::{EnumMap, enum_map},
-};
+use icarus_common::piece::Color;
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
 use rand::{SeedableRng, rngs::SmallRng};
 use viriformat::{
@@ -30,9 +27,11 @@ use viriformat::{
 
 use crate::{
     datagen::genfens::try_generate_pos,
+    position::Position,
+    score::Score,
     search::{
         searcher::{GlobalCtx, ThreadCtx, id_loop},
-        transposition_table::TTable,
+        transposition_table::{DEFAULT_TT_SIZE, TTable},
     },
     uci::SearchLimit,
 };
@@ -59,9 +58,21 @@ struct DatagenArgs {
     /// Number of random plies played in openings
     #[clap(long, default_value_t = 8)]
     random_moves: usize,
-    /// Size of the viriformat batches accumulated per thread before they are written to disk.
-    #[clap(long, default_value_t = 16)]
+    /// Size of the viriformat batches in KiB accumulated per thread before they are written to disk.
+    #[clap(long, default_value_t = 32)]
     batch_size: usize,
+
+    #[clap(long, default_value_t = 5)]
+    win_adj_movecount: usize,
+    #[clap(long, default_value_t = 2000)]
+    win_adj_score: i16,
+
+    #[clap(long, default_value_t = 50)]
+    draw_adj_movenumber: usize,
+    #[clap(long, default_value_t = 10)]
+    draw_adj_movecount: usize,
+    #[clap(long, default_value_t = 5)]
+    draw_adj_score: i16,
 }
 
 #[derive(Args, Debug)]
@@ -75,7 +86,6 @@ struct Limits {
     max_positions: Option<usize>,
 }
 
-#[derive(Default)]
 struct DatagenCtx {
     games: AtomicUsize,
     positions: AtomicUsize,
@@ -83,10 +93,17 @@ struct DatagenCtx {
     black_wins: AtomicUsize,
     draws: AtomicUsize,
 
+    win_adj_movecount: usize,
+    win_adj_score: i16,
+
+    draw_adj_movenumber: usize,
+    draw_adj_movecount: usize,
+    draw_adj_score: i16,
+
     nodes: u64,
     dfrc: bool,
     random_moves: usize,
-    batch_size_mb: usize,
+    batch_size_kb: usize,
     game_limit: Option<(usize, ProgressBar)>,
     pos_limit: Option<(usize, ProgressBar)>,
 }
@@ -94,11 +111,28 @@ struct DatagenCtx {
 pub fn datagen() {
     let Cmd::Datagen(args) = Cmd::parse();
 
-    let mut ctx = DatagenCtx::default();
-    ctx.nodes = args.nodes;
-    ctx.dfrc = args.dfrc;
-    ctx.random_moves = args.random_moves;
-    ctx.batch_size_mb = args.batch_size;
+    let mut ctx = DatagenCtx {
+        games: AtomicUsize::new(0),
+        positions: AtomicUsize::new(0),
+        white_wins: AtomicUsize::new(0),
+        black_wins: AtomicUsize::new(0),
+        draws: AtomicUsize::new(0),
+
+        game_limit: None,
+        pos_limit: None,
+
+        win_adj_movecount: args.win_adj_movecount,
+        win_adj_score: args.win_adj_score,
+
+        draw_adj_movenumber: args.draw_adj_movenumber,
+        draw_adj_movecount: args.draw_adj_movecount,
+        draw_adj_score: args.draw_adj_score,
+
+        nodes: args.nodes,
+        dfrc: args.dfrc,
+        random_moves: args.random_moves,
+        batch_size_kb: args.batch_size,
+    };
     let threads = args
         .threads
         .unwrap_or_else(|| std::thread::available_parallelism().map_or(1, NonZero::get));
@@ -152,17 +186,13 @@ pub fn datagen() {
 fn worker_loop(ctx: &DatagenCtx, tx: Sender<Vec<u8>>) {
     let mut rng = SmallRng::from_os_rng();
 
-    let mut thread_ctxs = enum_map! {
-        Color::White | Color::Black => {
-            let global = Arc::new(GlobalCtx {
-                time_manager: Default::default(),
-                nodes: Default::default(),
-                num_searching: Default::default(),
-                ttable: TTable::new(16),
-            });
-            ThreadCtx::new(global, 0, ctx.dfrc)
-        }
-    };
+    let global = Arc::new(GlobalCtx {
+        time_manager: Default::default(),
+        nodes: Default::default(),
+        num_searching: Default::default(),
+        ttable: TTable::new(DEFAULT_TT_SIZE),
+    });
+    let mut thread_ctx = ThreadCtx::new(global, 0, ctx.dfrc);
 
     let mut buffer: Vec<u8> = vec![];
 
@@ -175,11 +205,11 @@ fn worker_loop(ctx: &DatagenCtx, tx: Sender<Vec<u8>>) {
             }
         }
 
-        let game = play_game(&mut rng, ctx, &mut thread_ctxs);
+        let game = play_game(&mut rng, ctx, &mut thread_ctx);
         let n_pos = game.moves.len();
 
         game.serialise_into(&mut buffer).unwrap();
-        if buffer.len() >= ctx.batch_size_mb * (1 << 20) {
+        if buffer.len() >= ctx.batch_size_kb * (1 << 10) {
             tx.send(buffer.clone()).unwrap();
             buffer.clear();
         }
@@ -198,27 +228,13 @@ fn worker_loop(ctx: &DatagenCtx, tx: Sender<Vec<u8>>) {
     }
 }
 
-fn play_game(
-    rng: &mut SmallRng,
-    ctx: &DatagenCtx,
-    thread_ctxs: &mut EnumMap<Color, ThreadCtx>,
-) -> Game {
-    let mut pos = std::iter::repeat_with(|| {
-        try_generate_pos(
-            rng,
-            ctx.dfrc,
-            ctx.random_moves,
-            &mut thread_ctxs[Color::White],
-        )
-    })
-    .flatten()
-    .next()
-    .unwrap();
-
-    thread_ctxs.values_mut().for_each(|t| {
-        t.history.clear();
-        t.global.ttable.clear();
-    });
+fn play_game(rng: &mut SmallRng, ctx: &DatagenCtx, thread: &mut ThreadCtx) -> Game {
+    let mut pos = Position::new(
+        std::iter::repeat_with(|| try_generate_pos(rng, ctx.dfrc, ctx.random_moves, thread))
+            .flatten()
+            .next()
+            .unwrap(),
+    );
 
     let mut game = {
         let mut board = ViriBoard::new();
@@ -227,24 +243,28 @@ fn play_game(
             .unwrap();
         Game::new(&board)
     };
-    let mut stm = pos.board().stm();
 
+    let mut prev_score: Option<Score> = None;
+    let mut draw_adj_count = 0;
+    let mut win_adj_count = 0;
     let result = loop {
-        thread_ctxs[stm].global.nodes.store(0, Relaxed);
-        thread_ctxs[stm].nodes.reset_local();
-        thread_ctxs[stm]
+        let stm = pos.board().stm();
+
+        thread.global.nodes.store(0, Relaxed);
+        thread.nodes.reset_local();
+        thread
             .global
             .time_manager
             .init(stm, &[SearchLimit::Nodes(ctx.nodes)], true, 0);
-        thread_ctxs[stm].chess960 = ctx.dfrc;
-        thread_ctxs[stm].search_stack.fill(Default::default());
-        thread_ctxs[stm].root_move_nodes = [[0; 64]; 64];
-        thread_ctxs[stm].abort_now = false;
-        thread_ctxs[stm].nnue.full_reset(pos.board());
-        thread_ctxs[stm].global.num_searching.store(2, Relaxed);
+        thread.chess960 = ctx.dfrc;
+        thread.search_stack.fill(Default::default());
+        thread.root_move_nodes = [[0; 64]; 64];
+        thread.abort_now = false;
+        thread.nnue.full_reset(pos.board());
+        thread.global.num_searching.store(2, Relaxed);
 
-        let score = id_loop(pos.clone(), &mut thread_ctxs[stm], false);
-        let mv = thread_ctxs[stm].search_stack[0].pv[0];
+        let score = id_loop(pos.clone(), thread, false);
+        let mv = thread.search_stack[0].pv[0];
 
         let (from, to) = (
             ViriSquare::new_clamped(mv.from().idx()),
@@ -262,17 +282,47 @@ fn play_game(
             _ => ViriMove::new(from, to),
         };
 
-        let eval = score * stm.signum() as i16;
-        game.add_move(viri_mv, eval.0);
-        stm = !stm;
+        let white_eval = score * stm.signum() as i16;
+
+        game.add_move(viri_mv, white_eval.0);
         pos.make_move(mv, None);
 
-        if eval.is_mate() {
-            if eval.0 > 0 {
+        if let Some(prev) = prev_score {
+            if white_eval.0.abs() >= ctx.win_adj_score && white_eval.0.signum() == prev.0.signum() {
+                win_adj_count += 1;
+            } else {
+                win_adj_count = 0;
+            }
+        }
+
+        if game.moves.len().div_ceil(2) >= ctx.draw_adj_movenumber
+            && white_eval.0.abs() <= ctx.draw_adj_score
+        {
+            draw_adj_count += 1;
+        } else {
+            draw_adj_count = 0;
+        }
+
+        prev_score = Some(white_eval);
+
+        if white_eval.is_mate() {
+            if white_eval.0 > 0 {
                 break GameOutcome::WhiteWin(WinType::Mate);
             } else {
                 break GameOutcome::BlackWin(WinType::Mate);
             }
+        }
+
+        if win_adj_count >= ctx.win_adj_movecount * 2 {
+            if white_eval.0 > 0 {
+                break GameOutcome::WhiteWin(WinType::Adjudication);
+            } else {
+                break GameOutcome::BlackWin(WinType::Adjudication);
+            }
+        }
+
+        if draw_adj_count >= ctx.draw_adj_movecount * 2 {
+            break GameOutcome::Draw(DrawType::Adjudication);
         }
 
         match pos.board().terminal_state() {
