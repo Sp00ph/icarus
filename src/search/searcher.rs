@@ -28,6 +28,7 @@ use crate::{
         buffered_counter::BufferedCounter,
         command_channel::{Receiver, Sender, channel},
     },
+    wdl,
 };
 
 pub const MAX_THREADS: u32 = 512;
@@ -385,7 +386,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
             break 'id;
         }
         if print && thread.id == 0 {
-            print_info(best_score, depth, thread);
+            print_info(best_score, depth, thread, &pos);
         }
 
         depth += 1;
@@ -428,7 +429,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
         .unwrap();
 
     if print && thread.id == 0 {
-        print_info(best_score, depth, thread);
+        print_info(best_score, depth, thread, &pos);
         println!("bestmove {}", best_move.display(thread.chess960));
     }
 
@@ -439,7 +440,7 @@ fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) {
     }
 }
 
-fn print_info(score: Score, depth: u16, thread: &ThreadCtx) {
+fn print_info(score: Score, depth: u16, thread: &ThreadCtx, pos: &Position) {
     let nodes = thread.nodes.global();
     let time_us = thread.global.time_manager.elapsed().as_micros();
     let nps = ((nodes as f64) / (time_us.max(1) as f64) * 1e6) as u64;
@@ -454,8 +455,13 @@ fn print_info(score: Score, depth: u16, thread: &ThreadCtx) {
         s.pop();
         s
     };
+    let material = pos.board().classical_material();
+    let (w, l) = wdl::wdl_model(score, material);
+    let d = 1000 - w - l;
+    let score = wdl::normalize(score, material);
+
     println!(
-        "info depth {} seldepth {} score {} time {} nodes {} nps {} hashfull {} pv {}",
-        depth, thread.sel_depth, score, time_ms, nodes, nps, hashfull, pv
+        "info depth {} seldepth {} score {} wdl {} {} {} time {} nodes {} nps {} hashfull {} pv {}",
+        depth, thread.sel_depth, score, w, d, l, time_ms, nodes, nps, hashfull, pv
     )
 }

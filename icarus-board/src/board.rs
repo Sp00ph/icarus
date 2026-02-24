@@ -179,6 +179,16 @@ impl Board {
         self.castling_rights
     }
 
+    /// Returns the total material across both sides, with 13359 values
+    #[inline]
+    pub fn classical_material(&self) -> i16 {
+        self.pieces[Piece::Pawn].popcnt() as i16
+            + 3 * self.pieces[Piece::Knight].popcnt() as i16
+            + 3 * self.pieces[Piece::Bishop].popcnt() as i16
+            + 5 * self.pieces[Piece::Rook].popcnt() as i16
+            + 9 * self.pieces[Piece::Queen].popcnt() as i16
+    }
+
     #[inline]
     pub fn is_tactic(&self, mv: Move) -> bool {
         [MoveFlag::EnPassant, MoveFlag::Promotion].contains(&mv.flag())
