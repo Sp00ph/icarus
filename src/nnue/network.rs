@@ -24,7 +24,6 @@ use crate::{
 pub const INPUT: usize = 704;
 pub const HL: usize = 1024;
 pub const NUM_KING_BUCKETS: usize = 14;
-pub const OUT_BUCKETS: usize = 8;
 #[rustfmt::skip]
 pub static KING_BUCKET_LAYOUT: [u8; 64] = [
      0,  1,  2,  3,  3,  2,  1,  0,
@@ -35,6 +34,21 @@ pub static KING_BUCKET_LAYOUT: [u8; 64] = [
     10, 10, 11, 11, 11, 11, 10, 10,
     12, 12, 13, 13, 13, 13, 12, 12,
     12, 12, 13, 13, 13, 13, 12, 12,
+];
+
+pub const OUT_BUCKETS: usize = 8;
+#[rustfmt::skip]
+pub static OUT_BUCKET_LAYOUT: [u8; 33] = [
+    0, 0, 0, 0, 0, // 0,  1,  2,  3,  4,
+    0, 0, 0,       // 5,  6,  7,
+    0, 0, 0,       // 8,  9,  10,
+    1, 1, 1,       // 11, 12, 13,
+    2, 2, 2,       // 14, 15, 16,
+    3, 3, 3,       // 17, 18, 19,
+    4, 4, 4,       // 20, 21, 22,
+    5, 5, 5,       // 23, 24, 25,
+    6, 6, 6,       // 26, 27, 28,
+    7, 7, 7, 7,    // 29, 30, 31, 32
 ];
 
 pub fn king_bucket(king: Square, perspective: Color) -> usize {
@@ -284,8 +298,8 @@ impl Nnue {
     }
 
     pub fn active_bucket(&self, board: &Board) -> usize {
-        let num_pieces = board.occupied().popcnt();
-        let divisor = 32u8.div_ceil(OUT_BUCKETS as u8);
-        ((num_pieces - 2) / divisor) as usize
+        let num_pieces = board.occupied().popcnt().min(32);
+
+        OUT_BUCKET_LAYOUT[num_pieces as usize] as usize
     }
 }
