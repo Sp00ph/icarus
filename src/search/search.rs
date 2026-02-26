@@ -153,11 +153,14 @@ pub fn search<Node: NodeType>(
 
     if !Node::PV && !in_check && !singular_search {
         // RFP
+        let improving_depth = (depth - improving as i16).max(0);
         let rfp_depth = 6;
-        let rfp_margin = 80;
+        let rfp_margin = 50;
+        let rfp_quad_margin = 6;
         if depth < rfp_depth
             && !beta.is_win()
-            && static_eval - rfp_margin * (depth - improving as i16).max(0) >= beta
+            && static_eval - rfp_margin * improving_depth - rfp_quad_margin * improving_depth.pow(2)
+                >= beta
         {
             return Score(static_eval.0.midpoint(beta.0));
         }
