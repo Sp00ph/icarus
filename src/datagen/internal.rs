@@ -30,7 +30,7 @@ use crate::{
     position::Position,
     score::Score,
     search::{
-        searcher::{GlobalCtx, ThreadCtx, id_loop},
+        searcher::{GlobalCtx, SearchParams, ThreadCtx},
         transposition_table::{DEFAULT_TT_SIZE, TTable},
     },
     uci::SearchLimit,
@@ -67,11 +67,11 @@ struct DatagenArgs {
     #[clap(long, default_value_t = 2000)]
     win_adj_score: i16,
 
-    #[clap(long, default_value_t = 50)]
+    #[clap(long, default_value_t = 32)]
     draw_adj_movenumber: usize,
-    #[clap(long, default_value_t = 10)]
+    #[clap(long, default_value_t = 6)]
     draw_adj_movecount: usize,
-    #[clap(long, default_value_t = 5)]
+    #[clap(long, default_value_t = 10)]
     draw_adj_score: i16,
 }
 
@@ -194,7 +194,7 @@ fn worker_loop(ctx: &DatagenCtx, tx: Sender<Vec<u8>>) {
     });
     let mut thread_ctx = ThreadCtx::new(global, 0, ctx.dfrc);
 
-    let mut buffer: Vec<u8> = vec![];
+    let mut buffer: Vec<u8> = Vec::with_capacity(ctx.batch_size_kb * 2048);
 
     loop {
         let games = ctx.games.fetch_add(1, Relaxed) + 1;
@@ -209,7 +209,7 @@ fn worker_loop(ctx: &DatagenCtx, tx: Sender<Vec<u8>>) {
         let n_pos = game.moves.len();
 
         game.serialise_into(&mut buffer).unwrap();
-        if buffer.len() >= ctx.batch_size_kb * (1 << 10) {
+        if buffer.len() >= ctx.batch_size_kb * 1024 {
             tx.send(buffer.clone()).unwrap();
             buffer.clear();
         }
@@ -251,19 +251,18 @@ fn play_game(rng: &mut SmallRng, ctx: &DatagenCtx, thread: &mut ThreadCtx) -> Ga
         let stm = pos.board().stm();
 
         thread.global.nodes.store(0, Relaxed);
-        thread.nodes.reset_local();
+        thread.global.num_searching.store(1, Relaxed);
         thread
             .global
             .time_manager
-            .init(stm, &[SearchLimit::Nodes(ctx.nodes)], true, 0);
-        thread.chess960 = ctx.dfrc;
-        thread.search_stack.fill(Default::default());
-        thread.root_move_nodes = [[0; 64]; 64];
-        thread.abort_now = false;
-        thread.nnue.full_reset(pos.board());
-        thread.global.num_searching.store(2, Relaxed);
+            .init(stm, &[SearchLimit::Nodes(ctx.nodes)], true, false, 0);
 
-        let score = id_loop(pos.clone(), thread, false);
+        let score = thread.do_search(SearchParams {
+            pos: pos.clone(),
+            root_moves: None,
+            chess960: ctx.dfrc,
+            print_info: false,
+        });
         let mv = thread.search_stack[0].pv[0];
 
         let (from, to) = (

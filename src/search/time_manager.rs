@@ -52,6 +52,7 @@ impl TimeManager {
         stm: Color,
         limits: &[SearchLimit],
         use_soft_nodes: bool,
+        set_start_time: bool,
         move_overhead: u64,
     ) {
         self.set_stop_flag(false);
@@ -111,7 +112,7 @@ impl TimeManager {
             Relaxed,
         );
 
-        if check_time {
+        if check_time || set_start_time {
             self.start.store(Instant::now(), Relaxed);
         }
     }

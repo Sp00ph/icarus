@@ -6,11 +6,9 @@ use rand::{Rng, SeedableRng, rngs::SmallRng};
 
 use crate::{
     position::Position,
-    score::Score,
     search::{
         move_picker::MAX_MOVES,
-        search::{Root, search},
-        searcher::{GlobalCtx, ThreadCtx},
+        searcher::{GlobalCtx, SearchParams, ThreadCtx},
         transposition_table::TTable,
     },
     uci::SearchLimit,
@@ -45,32 +43,35 @@ pub fn try_generate_pos(
         pos.make_move(mv, None);
     }
 
-    if pos.board().terminal_state().is_some() {
+    let board = *pos.board();
+
+    if board.terminal_state().is_some() {
         return None;
     }
+
+    thread.global.nodes.store(0, Ordering::Relaxed);
+    thread.global.num_searching.store(1, Ordering::Relaxed);
+    thread.nodes.reset_local();
+    thread.global.time_manager.init(
+        board.stm(),
+        &[SearchLimit::Nodes(1000), SearchLimit::Depth(10)],
+        true,
+        false,
+        0,
+    );
+    let score = thread.do_search(SearchParams {
+        pos,
+        root_moves: None,
+        chess960: dfrc,
+        print_info: false,
+    });
 
     let limit = 1000;
-    thread.nodes.reset_local();
-    thread.global.nodes.store(0, Ordering::Relaxed);
-    thread
-        .global
-        .time_manager
-        .init(pos.board().stm(), &[SearchLimit::Nodes(1000)], true, 0);
-    thread.chess960 = dfrc;
-    thread.search_stack.fill(Default::default());
-    thread.root_move_nodes = [[0; 64]; 64];
-    thread.abort_now = false;
-    thread.nnue.full_reset(pos.board());
-
-    if search::<Root>(&mut pos, 10, 0, Score(-limit), Score(limit), thread)
-        .0
-        .abs()
-        >= limit
-    {
+    if score.0.abs() >= limit {
         return None;
     }
 
-    Some(*pos.board())
+    Some(board)
 }
 
 pub fn genfens(n: usize, seed: u64, dfrc: bool, random_moves: usize) {

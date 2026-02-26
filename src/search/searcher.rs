@@ -89,6 +89,21 @@ impl ThreadCtx {
             min_nmp_ply: 0,
         }
     }
+
+    pub fn do_search(&mut self, search_params: SearchParams) -> Score {
+        self.global.num_searching.fetch_add(1, Relaxed);
+        self.nodes.reset_local();
+        self.root_moves = search_params
+            .root_moves
+            .unwrap_or_else(|| search_params.pos.board().gen_all_moves_to());
+        self.chess960 = search_params.chess960;
+        self.search_stack.fill(Default::default());
+        self.root_move_nodes = [[0; 64]; 64];
+        self.abort_now = false;
+        self.nnue.full_reset(search_params.pos.board());
+
+        id_loop(search_params.pos, self, search_params.print_info)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -109,11 +124,11 @@ impl Default for SearchStackEntry {
 }
 
 #[derive(Clone)]
-struct SearchParams {
-    pos: Position,
-    root_moves: Option<Vec<Move>>,
-    chess960: bool,
-    print_info: bool,
+pub struct SearchParams {
+    pub pos: Position,
+    pub root_moves: Option<Vec<Move>>,
+    pub chess960: bool,
+    pub print_info: bool,
 }
 
 #[derive(Clone)]
@@ -190,6 +205,7 @@ impl Searcher {
             pos.board().stm(),
             &limits,
             use_soft_nodes,
+            true,
             move_overhead,
         );
 
@@ -291,18 +307,7 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
         match rx.recv(|cmd| cmd.clone()) {
             ThreadCmd::Ping => {}
             ThreadCmd::Search(search_params) => {
-                thread_ctx.global.num_searching.fetch_add(1, Relaxed);
-                thread_ctx.nodes.reset_local();
-                thread_ctx.root_moves = search_params
-                    .root_moves
-                    .unwrap_or_else(|| search_params.pos.board().gen_all_moves_to());
-                thread_ctx.chess960 = search_params.chess960;
-                thread_ctx.search_stack.fill(Default::default());
-                thread_ctx.root_move_nodes = [[0; 64]; 64];
-                thread_ctx.abort_now = false;
-                thread_ctx.nnue.full_reset(search_params.pos.board());
-
-                id_loop(search_params.pos, &mut thread_ctx, search_params.print_info);
+                thread_ctx.do_search(*search_params);
             }
             ThreadCmd::SetGlobal(global) => {
                 thread_ctx.nodes = BufferedCounter::new(global.nodes.clone());
