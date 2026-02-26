@@ -6,7 +6,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=EVALFILE");
 
     let out_path = env::var("OUT_DIR").unwrap() + "/icarus.nnue";
-    let in_path = env::var("EVALFILE").unwrap_or_else(|_| "icarus.nnue".to_string());
+    let in_path = env::var("EVALFILE").unwrap_or_else(|_| "nets/icarus.nnue".to_string());
 
     if !fs::exists(&in_path).unwrap() {
         panic!(

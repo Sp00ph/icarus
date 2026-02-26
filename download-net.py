@@ -6,7 +6,7 @@ import hashlib
 
 def main():
     name, hash = open("network.txt").read().strip().split()
-    path = "./icarus.nnue"
+    path = "nets/icarus.nnue"
     try:
         if hashlib.sha256(open(path, "rb").read()).digest().hex() == hash:
             print("Net already exists!")
