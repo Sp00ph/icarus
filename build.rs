@@ -2,7 +2,7 @@ use std::{env, fs};
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=icarus.nnue");
+    println!("cargo:rerun-if-changed=nets/icarus.nnue");
     println!("cargo:rerun-if-env-changed=EVALFILE");
 
     let out_path = env::var("OUT_DIR").unwrap() + "/icarus.nnue";
