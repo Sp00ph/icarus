@@ -1,7 +1,6 @@
 use std::{
     sync::atomic::{AtomicBool, AtomicU16, AtomicU32, AtomicU64, Ordering::Relaxed},
     time::{Duration, Instant},
-    u64,
 };
 
 use icarus_common::{piece::Color, util::enum_map::enum_map};

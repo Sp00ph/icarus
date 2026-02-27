@@ -1,3 +1,5 @@
+#![allow(clippy::identity_op)]
+
 use cfg_if::cfg_if;
 
 use crate::nnue::network::NET;
