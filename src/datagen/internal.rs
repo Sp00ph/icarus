@@ -12,7 +12,7 @@ use std::{
 
 use clap::{Args, Parser};
 use icarus_board::{board::TerminalState, r#move::MoveFlag, movegen::Abort};
-use icarus_common::piece::Color;
+use icarus_common::{piece::Color, util::enum_map::{EnumMap, enum_map}};
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
 use rand::{SeedableRng, rngs::SmallRng};
 use viriformat::{
@@ -186,13 +186,17 @@ pub fn datagen() {
 fn worker_loop(ctx: &DatagenCtx, tx: Sender<Vec<u8>>) {
     let mut rng = SmallRng::from_os_rng();
 
-    let global = Arc::new(GlobalCtx {
-        time_manager: Default::default(),
-        nodes: Default::default(),
-        num_searching: Default::default(),
-        ttable: TTable::new(DEFAULT_TT_SIZE),
-    });
-    let mut thread_ctx = ThreadCtx::new(global, 0, ctx.dfrc);
+    let mut thread_ctxs = enum_map! {
+        _ => {
+            let global = Arc::new(GlobalCtx {
+                time_manager: Default::default(),
+                nodes: Default::default(),
+                num_searching: Default::default(),
+                ttable: TTable::new(DEFAULT_TT_SIZE),
+            });
+            ThreadCtx::new(global, 0, ctx.dfrc)
+        }
+    };
 
     let mut buffer: Vec<u8> = Vec::with_capacity(ctx.batch_size_kb * 2048);
 
@@ -205,7 +209,7 @@ fn worker_loop(ctx: &DatagenCtx, tx: Sender<Vec<u8>>) {
             }
         }
 
-        let game = play_game(&mut rng, ctx, &mut thread_ctx);
+        let game = play_game(&mut rng, ctx, &mut thread_ctxs);
         let n_pos = game.moves.len();
 
         game.serialise_into(&mut buffer).unwrap();
@@ -214,10 +218,10 @@ fn worker_loop(ctx: &DatagenCtx, tx: Sender<Vec<u8>>) {
             buffer.clear();
         }
 
-        let pos_now = ctx.positions.fetch_add(n_pos, Relaxed);
+        let pos = ctx.positions.fetch_add(n_pos, Relaxed);
         if let Some((max, pb)) = &ctx.pos_limit {
             pb.inc(n_pos as u64);
-            if *max < pos_now {
+            if *max < pos {
                 break;
             }
         }
@@ -228,13 +232,18 @@ fn worker_loop(ctx: &DatagenCtx, tx: Sender<Vec<u8>>) {
     }
 }
 
-fn play_game(rng: &mut SmallRng, ctx: &DatagenCtx, thread: &mut ThreadCtx) -> Game {
+fn play_game(rng: &mut SmallRng, ctx: &DatagenCtx, thread_ctxs: &mut EnumMap<Color, ThreadCtx>) -> Game {
     let mut pos = Position::new(
-        std::iter::repeat_with(|| try_generate_pos(rng, ctx.dfrc, ctx.random_moves, thread))
+        std::iter::repeat_with(|| try_generate_pos(rng, ctx.dfrc, ctx.random_moves, thread_ctxs))
             .flatten()
             .next()
             .unwrap(),
     );
+
+    thread_ctxs.values_mut().for_each(|t| {
+        t.history.clear();
+        t.global.ttable.clear();
+    });
 
     let mut game = {
         let mut board = ViriBoard::new();
@@ -250,20 +259,20 @@ fn play_game(rng: &mut SmallRng, ctx: &DatagenCtx, thread: &mut ThreadCtx) -> Ga
     let result = loop {
         let stm = pos.board().stm();
 
-        thread.global.nodes.store(0, Relaxed);
-        thread.global.num_searching.store(1, Relaxed);
-        thread
+        thread_ctxs[stm].global.nodes.store(0, Relaxed);
+        thread_ctxs[stm].global.num_searching.store(1, Relaxed);
+        thread_ctxs[stm]
             .global
             .time_manager
             .init(stm, &[SearchLimit::Nodes(ctx.nodes)], true, false, 0);
 
-        let score = thread.do_search(SearchParams {
+        let score = thread_ctxs[stm].do_search(SearchParams {
             pos: pos.clone(),
             root_moves: None,
             chess960: ctx.dfrc,
             print_info: false,
         });
-        let mv = thread.search_stack[0].pv[0];
+        let mv = thread_ctxs[stm].search_stack[0].pv[0];
 
         let (from, to) = (
             ViriSquare::new_clamped(mv.from().idx()),

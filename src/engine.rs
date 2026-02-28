@@ -51,7 +51,7 @@ impl Engine {
         }
 
         #[cfg(feature = "datagen")]
-        if argv.get(0).is_some_and(|s| s == "datagen") {
+        if argv.first().is_some_and(|s| s == "datagen") {
             crate::datagen::internal::datagen();
             return Ok(());
         }

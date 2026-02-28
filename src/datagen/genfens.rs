@@ -2,6 +2,10 @@ use std::sync::{Arc, atomic::Ordering};
 
 use arrayvec::ArrayVec;
 use icarus_board::{board::Board, r#move::Move};
+use icarus_common::{
+    piece::Color,
+    util::enum_map::{EnumMap, enum_map},
+};
 use rand::{Rng, SeedableRng, rngs::SmallRng};
 
 use crate::{
@@ -9,7 +13,7 @@ use crate::{
     search::{
         move_picker::MAX_MOVES,
         searcher::{GlobalCtx, SearchParams, ThreadCtx},
-        transposition_table::TTable,
+        transposition_table::{DEFAULT_TT_SIZE, TTable},
     },
     uci::SearchLimit,
 };
@@ -28,7 +32,7 @@ pub fn try_generate_pos(
     rng: &mut SmallRng,
     dfrc: bool,
     random_moves: usize,
-    thread: &mut ThreadCtx,
+    thread_ctxs: &mut EnumMap<Color, ThreadCtx>,
 ) -> Option<Board> {
     let random_moves = random_moves + rng.random_bool(0.5) as usize;
 
@@ -44,22 +48,26 @@ pub fn try_generate_pos(
     }
 
     let board = *pos.board();
+    let stm = board.stm();
 
     if board.terminal_state().is_some() {
         return None;
     }
 
-    thread.global.nodes.store(0, Ordering::Relaxed);
-    thread.global.num_searching.store(1, Ordering::Relaxed);
-    thread.nodes.reset_local();
-    thread.global.time_manager.init(
+    thread_ctxs[stm].global.nodes.store(0, Ordering::Relaxed);
+    thread_ctxs[stm]
+        .global
+        .num_searching
+        .store(1, Ordering::Relaxed);
+    thread_ctxs[stm].nodes.reset_local();
+    thread_ctxs[stm].global.time_manager.init(
         board.stm(),
         &[SearchLimit::Nodes(1000), SearchLimit::Depth(10)],
         true,
         false,
         0,
     );
-    let score = thread.do_search(SearchParams {
+    let score = thread_ctxs[stm].do_search(SearchParams {
         pos,
         root_moves: None,
         chess960: dfrc,
@@ -75,17 +83,21 @@ pub fn try_generate_pos(
 }
 
 pub fn genfens(n: usize, seed: u64, dfrc: bool, random_moves: usize) {
-    let global = Arc::new(GlobalCtx {
-        time_manager: Default::default(),
-        nodes: Default::default(),
-        num_searching: Default::default(),
-        ttable: TTable::new(16),
-    });
-    let mut thread = ThreadCtx::new(global, 0, dfrc);
+    let mut thread_ctxs = enum_map! {
+        _ => {
+            let global = Arc::new(GlobalCtx {
+                time_manager: Default::default(),
+                nodes: Default::default(),
+                num_searching: Default::default(),
+                ttable: TTable::new(DEFAULT_TT_SIZE),
+            });
+            ThreadCtx::new(global, 0, dfrc)
+        }
+    };
 
     let mut rng = SmallRng::seed_from_u64(seed);
     for pos in
-        std::iter::repeat_with(|| try_generate_pos(&mut rng, dfrc, random_moves, &mut thread))
+        std::iter::repeat_with(|| try_generate_pos(&mut rng, dfrc, random_moves, &mut thread_ctxs))
             .flatten()
             .take(n)
     {
