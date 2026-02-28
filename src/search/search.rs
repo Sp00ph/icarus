@@ -108,6 +108,7 @@ pub fn search<Node: NodeType>(
 
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
     let tt_move = tt_entry.and_then(|e| e.mv);
+    let tt_pv = Node::PV || tt_entry.is_some_and(|e| e.flags.pv());
     let singular = thread.search_stack[ply as usize].singular;
     let singular_search = singular.is_some();
 
@@ -331,6 +332,7 @@ pub fn search<Node: NodeType>(
                 lmr = 0;
             } else {
                 lmr += !Node::PV as i16;
+                lmr -= tt_pv as i16;
             }
 
             let lmr_depth = (new_depth - lmr).max(1).min(new_depth);
@@ -398,7 +400,7 @@ pub fn search<Node: NodeType>(
             best_score,
             best_move,
             flag,
-            true,
+            tt_pv,
         );
     }
 
