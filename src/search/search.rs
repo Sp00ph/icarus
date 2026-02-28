@@ -355,6 +355,7 @@ pub fn search<Node: NodeType>(
                 lmr -= tt_pv as i16;
                 lmr -= pos.board().checkers().is_non_empty() as i16;
                 lmr += cutnode as i16;
+                lmr += !improving as i16;
             }
 
             let lmr_depth = (new_depth - lmr).max(1).min(new_depth);
