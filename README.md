@@ -71,6 +71,8 @@ Additionally, there are many individuals who have made developing Icarus easier 
 - [Jonathan Hallström](https://github.com/JonathanHallstrom), author of [pawnocchio](https://github.com/JonathanHallstrom/pawnocchio) and co-author of [vine](https://github.com/vine-chess/vine)
 - [lily](https://github.com/87flowers), author of Rose and SIMD wizard
 
+Special thanks go to Jonathan Hallström for helping with generating most of the training data.
+
 
 [lgbtqp-badge]: https://pride-badges.pony.workers.dev/static/v1?label=lgbtq%2B%20friendly&stripeWidth=6&stripeColors=E40303,FF8C00,FFED00,008026,24408E,732982
 [trans-rights-badge]: https://pride-badges.pony.workers.dev/static/v1?label=trans%20rights&stripeWidth=6&stripeColors=5BCEFA,F5A9B8,FFFFFF,F5A9B8,5BCEFA
