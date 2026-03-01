@@ -97,6 +97,26 @@ impl History {
         (corr / MAX_CORR_VALUE) as i16
     }
 
+    pub fn apply_quiet_bonus(&mut self, pos: &Position, mv: Move, depth: i16) {
+        let board = pos.board();
+        let oneply = pos.prev_move(1);
+        let twoply = pos.prev_move(2);
+
+        self.main.apply_bonus(board, mv, depth);
+        self.cont_oneply.apply_bonus(board, mv, oneply, depth);
+        self.cont_twoply.apply_bonus(board, mv, twoply, depth);
+    }
+
+    pub fn apply_quiet_malus(&mut self, pos: &Position, mv: Move, depth: i16) {
+        let board = pos.board();
+        let oneply = pos.prev_move(1);
+        let twoply = pos.prev_move(2);
+
+        self.main.apply_malus(board, mv, depth);
+        self.cont_oneply.apply_malus(board, mv, oneply, depth);
+        self.cont_twoply.apply_malus(board, mv, twoply, depth);
+    }
+
     pub fn update(
         &mut self,
         pos: &Position,
@@ -106,20 +126,14 @@ impl History {
         depth: i16,
     ) {
         let board = pos.board();
-        let oneply = pos.prev_move(1);
-        let twoply = pos.prev_move(2);
 
         if board.is_tactic(mv) {
             self.tactic.apply_bonus(board, mv, depth);
         } else {
-            self.main.apply_bonus(board, mv, depth);
-            self.cont_oneply.apply_bonus(board, mv, oneply, depth);
-            self.cont_twoply.apply_bonus(board, mv, twoply, depth);
+            self.apply_quiet_bonus(pos, mv, depth);
 
             for &quiet in quiets {
-                self.main.apply_malus(board, quiet, depth);
-                self.cont_oneply.apply_malus(board, quiet, oneply, depth);
-                self.cont_twoply.apply_malus(board, quiet, twoply, depth);
+                self.apply_quiet_malus(pos, quiet, depth);
             }
         }
 

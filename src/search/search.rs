@@ -120,11 +120,21 @@ pub fn search<Node: NodeType>(
         && e.depth as i16 >= depth
     {
         let score = e.score;
-        match e.flags.tt_flag() {
-            TTFlag::Exact => return score,
-            TTFlag::Lower if score >= beta => return score,
-            TTFlag::Upper if score <= alpha => return score,
-            _ => {}
+        let flag = e.flags.tt_flag();
+
+        if (flag == TTFlag::Exact)
+            || (flag == TTFlag::Lower && score >= beta)
+            || (flag == TTFlag::Upper && score <= alpha)
+        {
+            if score >= beta
+                && let Some(mv) = e.mv
+                && !pos.board().is_tactic(mv)
+                && pos.board().is_legal(mv)
+            {
+                thread.history.apply_quiet_bonus(pos, mv, depth);
+            }
+
+            return score;
         }
     }
 
