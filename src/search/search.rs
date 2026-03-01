@@ -203,8 +203,15 @@ pub fn search<Node: NodeType>(
                 }
 
                 thread.min_nmp_ply = ply + (depth - nmp_reduction).max(0) as u16 * 3 / 4;
-                let verif_score =
-                    search::<NonPV>(pos, depth - nmp_reduction, ply, beta - 1, beta, true, thread);
+                let verif_score = search::<NonPV>(
+                    pos,
+                    depth - nmp_reduction,
+                    ply,
+                    beta - 1,
+                    beta,
+                    true,
+                    thread,
+                );
                 thread.min_nmp_ply = 0;
 
                 if verif_score >= beta {
@@ -315,6 +322,9 @@ pub fn search<Node: NodeType>(
                 extension += i16::from(!Node::PV && score + dext_margin < beta);
             } else if s_beta >= beta {
                 return s_beta;
+            } else if cutnode {
+                // double negext
+                extension = -2;
             } else if tte.score >= beta {
                 // negext
                 extension = -1;
@@ -328,7 +338,15 @@ pub fn search<Node: NodeType>(
 
         // PVS
         if moves_seen == 0 {
-            score = -search::<Node::Next>(pos, new_depth, ply + 1, -beta, -alpha, !Node::PV && !cutnode, thread);
+            score = -search::<Node::Next>(
+                pos,
+                new_depth,
+                ply + 1,
+                -beta,
+                -alpha,
+                !Node::PV && !cutnode,
+                thread,
+            );
         } else {
             if depth < 2 {
                 lmr = 0;
@@ -344,7 +362,15 @@ pub fn search<Node: NodeType>(
             score = -search::<NonPV>(pos, lmr_depth, ply + 1, -alpha - 1, -alpha, true, thread);
 
             if lmr > 0 && score > alpha {
-                score = -search::<NonPV>(pos, new_depth, ply + 1, -alpha - 1, -alpha, !cutnode, thread)
+                score = -search::<NonPV>(
+                    pos,
+                    new_depth,
+                    ply + 1,
+                    -alpha - 1,
+                    -alpha,
+                    !cutnode,
+                    thread,
+                )
             }
             if Node::PV && score > alpha {
                 score = -search::<PV>(pos, new_depth, ply + 1, -beta, -alpha, false, thread);
