@@ -500,7 +500,7 @@ pub fn qsearch<Node: NodeType>(
     while let Some(mv) = move_picker.next(pos, thread) {
         if !best_score.is_loss() {
             // LMP
-            if !in_check && moves_seen > 2 {
+            if !in_check && moves_seen >= 2 {
                 break;
             }
             // SEE Pruning
