@@ -22,17 +22,17 @@ use crate::{
 
 pub const INPUT: usize = 768;
 pub const HL: usize = 1024;
-pub const NUM_KING_BUCKETS: usize = 4;
+pub const NUM_KING_BUCKETS: usize = 8;
 #[rustfmt::skip]
 pub static KING_BUCKET_LAYOUT: [u8; 64] = [
-    0, 0, 1, 1, 1, 1, 0, 0,
-    2, 2, 2, 2, 2, 2, 2, 2,
-    3, 3, 3, 3, 3, 3, 3, 3,
-    3, 3, 3, 3, 3, 3, 3, 3,
-    3, 3, 3, 3, 3, 3, 3, 3,
-    3, 3, 3, 3, 3, 3, 3, 3,
-    3, 3, 3, 3, 3, 3, 3, 3,
-    3, 3, 3, 3, 3, 3, 3, 3,
+    0, 1, 2, 3, 3, 2, 1, 0,
+    4, 4, 5, 5, 5, 5, 4, 4,
+    6, 6, 6, 6, 6, 6, 6, 6,
+    6, 6, 6, 6, 6, 6, 6, 6,
+    6, 6, 6, 6, 6, 6, 6, 6,
+    7, 7, 7, 7, 7, 7, 7, 7,
+    7, 7, 7, 7, 7, 7, 7, 7,
+    7, 7, 7, 7, 7, 7, 7, 7,
 ];
 
 pub fn king_bucket(king: Square, perspective: Color) -> usize {
