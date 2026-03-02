@@ -337,7 +337,7 @@ pub fn search<Node: NodeType>(
         let new_depth = depth + extension - 1;
 
         let hist_lmr = if pos.board().is_quiet(mv) {
-            thread.history.score_quiet(pos, mv) / 4096
+            thread.history.score_quiet(pos, mv) / 8192
         } else {
             0
         };
