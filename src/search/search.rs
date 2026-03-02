@@ -322,10 +322,12 @@ pub fn search<Node: NodeType>(
                 extension += i16::from(!Node::PV && score + dext_margin < beta);
             } else if s_beta >= beta {
                 return s_beta;
+            } else if tte.score >= beta {
+                extension = -3;
             } else if cutnode {
                 // double negext
                 extension = -2;
-            } else if tte.score >= beta {
+            } else if tte.score <= alpha {
                 // negext
                 extension = -1;
             }
