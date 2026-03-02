@@ -177,7 +177,7 @@ pub fn search<Node: NodeType>(
             pos.make_null_move();
             thread.global.ttable.prefetch(pos.board());
 
-            let nmp_reduction = 3 + depth / 3;
+            let nmp_reduction = 6 + depth / 5;
             let score = -search::<NonPV>(
                 pos,
                 depth - nmp_reduction,
