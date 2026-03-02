@@ -3,8 +3,8 @@ use icarus_board::{board::Board, r#move::Move};
 use crate::search::history::{MAX_HIST_VALUE, apply_gravity};
 
 pub struct TacticHist {
-    /// [stm][attacker][victim][to]
-    data: [[[i16; 64]; 6]; 2],
+    /// [stm][from][from attacked][to][to attacked]
+    data: [[[[[i16; 2]; 64]; 2]; 64]; 2],
 }
 
 impl TacticHist {
@@ -24,16 +24,18 @@ impl TacticHist {
 
     pub fn get(&self, board: &Board, mv: Move) -> i16 {
         let (stm, from, to) = (board.stm(), mv.from(), mv.to());
-        let piece = board.piece_on(from).unwrap();
+        let from_attacked = board.attacked().contains(from);
+        let to_attacked = board.attacked().contains(from);
 
-        self.data[stm][piece][to]
+        self.data[stm][from][from_attacked as usize][to][to_attacked as usize]
     }
 
     fn get_mut(&mut self, board: &Board, mv: Move) -> &mut i16 {
         let (stm, from, to) = (board.stm(), mv.from(), mv.to());
-        let piece = board.piece_on(from).unwrap();
+        let from_attacked = board.attacked().contains(from);
+        let to_attacked = board.attacked().contains(from);
 
-        &mut self.data[stm][piece][to]
+        &mut self.data[stm][from][from_attacked as usize][to][to_attacked as usize]
     }
 
     pub fn apply_bonus(&mut self, board: &Board, mv: Move, depth: i16) {
