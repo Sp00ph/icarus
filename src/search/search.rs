@@ -335,6 +335,13 @@ pub fn search<Node: NodeType>(
 
         let initial_nodes = thread.nodes.local();
         let new_depth = depth + extension - 1;
+
+        let hist_lmr = if pos.board().is_quiet(mv) {
+            thread.history.score_quiet(pos, mv) / 4096
+        } else {
+            0
+        };
+
         pos.make_move(mv, Some(&mut thread.nnue));
         thread.global.ttable.prefetch(pos.board());
 
@@ -357,6 +364,7 @@ pub fn search<Node: NodeType>(
                 lmr -= tt_pv as i16;
                 lmr -= pos.board().checkers().is_non_empty() as i16;
                 lmr += cutnode as i16;
+                lmr -= hist_lmr;
             }
 
             let lmr_depth = (new_depth - lmr).max(1).min(new_depth);
