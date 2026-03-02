@@ -339,7 +339,7 @@ pub fn search<Node: NodeType>(
         let hist_lmr = if pos.board().is_quiet(mv) {
             thread.history.score_quiet(pos, mv) / 8192
         } else {
-            0
+            thread.history.score_tactic(pos.board(), mv) / 16384
         };
 
         pos.make_move(mv, Some(&mut thread.nnue));
