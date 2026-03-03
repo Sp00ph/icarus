@@ -508,7 +508,11 @@ pub fn qsearch<Node: NodeType>(
         static_eval = raw_eval + thread.history.corr(pos);
 
         if static_eval >= beta {
-            return static_eval;
+            if static_eval.max(beta).is_win() {
+                return static_eval;
+            } else {
+                return Score(static_eval.0.midpoint(beta.0));
+            }
         }
 
         if static_eval >= alpha {
