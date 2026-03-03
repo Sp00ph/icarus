@@ -446,7 +446,7 @@ pub fn search<Node: NodeType>(
 
     if !in_check
         && !singular_search
-        && best_move.is_none_or(|mv| pos.board().is_quiet(mv))
+        && best_move.is_none_or(|mv| pos.board().is_quiet(mv) || !pos.cmp_see(mv, 0))
         && match flag {
             TTFlag::Lower => best_score > static_eval,
             TTFlag::Upper => best_score < static_eval,
