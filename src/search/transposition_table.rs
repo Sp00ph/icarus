@@ -1,4 +1,7 @@
-use std::sync::atomic::{AtomicU8, AtomicU64, Ordering::Relaxed};
+use std::{
+    mem::transmute,
+    sync::atomic::{AtomicU8, AtomicU64, Ordering::Relaxed},
+};
 
 use icarus_board::{board::Board, r#move::Move};
 
@@ -17,7 +20,7 @@ pub enum TTFlag {
 
 #[derive(Clone, Copy)]
 #[repr(C)]
-pub struct TTData {
+pub struct TTEntry {
     // Raw eval
     pub eval: Score,
     // Search result
@@ -27,13 +30,78 @@ pub struct TTData {
     pub flags: Flags,
 }
 
-impl TTData {
-    fn pack(self) -> u64 {
-        unsafe { std::mem::transmute(self) }
+const _: () = assert!(size_of::<TTEntry>() == 8);
+
+#[repr(C, align(32))]
+struct TTClusterMemory {
+    data: [AtomicU64; 4],
+}
+
+#[derive(Clone, Copy)]
+#[repr(C, align(32))]
+struct TTCluster {
+    entries: [TTEntry; 3],
+    keys: u64,
+}
+
+impl TTClusterMemory {
+    fn load(&self) -> TTCluster {
+        let a = self.data[0].load(Relaxed);
+        let b = self.data[1].load(Relaxed);
+        let c = self.data[2].load(Relaxed);
+        let d = self.data[3].load(Relaxed);
+
+        unsafe { transmute([a, b, c, d]) }
     }
 
-    fn unpack(n: u64) -> Self {
-        unsafe { std::mem::transmute(n) }
+    fn store(&self, cluster: TTCluster) {
+        let [a, b, c, d]: [u64; 4] = unsafe { transmute(cluster) };
+        self.data[0].store(a, Relaxed);
+        self.data[1].store(b, Relaxed);
+        self.data[2].store(c, Relaxed);
+        self.data[3].store(d, Relaxed);
+    }
+
+    fn clear(&self) {
+        self.data[0].store(0, Relaxed);
+        self.data[1].store(0, Relaxed);
+        self.data[2].store(0, Relaxed);
+        self.data[3].store(0, Relaxed);
+    }
+
+    fn empty() -> Self {
+        Self {
+            data: Default::default(),
+        }
+    }
+}
+
+impl TTCluster {
+    fn key_idx(&self, key: u16) -> Option<usize> {
+        let low_bits = 0x0001000100010001;
+        let high_bits = low_bits << 15;
+
+        let splat = (key as u64) * low_bits;
+        let diff = splat ^ self.keys;
+
+        let i = (!diff & (diff - low_bits) & high_bits).trailing_zeros() / 16;
+        if i < 3 { Some(i as usize) } else { None }
+    }
+
+    #[allow(clippy::identity_op, clippy::erasing_op)]
+    fn keys(&self) -> [u16; 3] {
+        [
+            (self.keys >> (0 * 16)) as u16,
+            (self.keys >> (1 * 16)) as u16,
+            (self.keys >> (2 * 16)) as u16,
+        ]
+    }
+
+    #[allow(clippy::identity_op, clippy::erasing_op)]
+    fn set_keys(&mut self, keys: [u16; 3]) {
+        self.keys = ((keys[0] as u64) << (0 * 16))
+            | ((keys[1] as u64) << (1 * 16))
+            | ((keys[2] as u64) << (2 * 16));
     }
 }
 
@@ -58,48 +126,17 @@ impl Flags {
     }
 }
 
-struct TTEntry {
-    key: AtomicU64,
-    data: AtomicU64,
-}
-
-impl TTEntry {
-    pub fn empty() -> Self {
-        Self {
-            key: AtomicU64::new(0),
-            data: AtomicU64::new(0),
-        }
-    }
-
-    pub fn store(&self, hash: u64, data: TTData) {
-        let data = data.pack();
-        self.key.store(hash ^ data, Relaxed);
-        self.data.store(data, Relaxed);
-    }
-
-    pub fn reset(&self) {
-        self.key.store(0, Relaxed);
-        self.data.store(0, Relaxed);
-    }
-
-    pub fn key_and_data(&self) -> (u64, TTData) {
-        let key = self.key.load(Relaxed);
-        let data = self.data.load(Relaxed);
-        (key ^ data, TTData::unpack(data))
-    }
-}
-
 pub struct TTable {
-    entries: Box<[TTEntry]>,
+    entries: Box<[TTClusterMemory]>,
     age: AtomicU8,
 }
 
 impl TTable {
     pub fn new(mb: u64) -> TTable {
-        let size = (mb * 1024 * 1024 / size_of::<TTEntry>() as u64) as usize;
+        let size = (mb * 1024 * 1024 / size_of::<TTCluster>() as u64) as usize;
 
         TTable {
-            entries: (0..size).map(|_| TTEntry::empty()).collect(),
+            entries: (0..size).map(|_| TTClusterMemory::empty()).collect(),
             age: AtomicU8::new(0),
         }
     }
@@ -124,15 +161,17 @@ impl TTable {
         }
     }
 
-    pub fn fetch(&self, hash: u64, ply: u16) -> Option<TTData> {
+    pub fn fetch(&self, hash: u64, ply: u16) -> Option<TTEntry> {
         let idx = self.index(hash);
-        let (key, mut data) = self.entries[idx].key_and_data();
+        let hash = Self::trunc_key(hash);
 
-        if key != hash || data.flags.tt_flag() == TTFlag::None {
-            None
+        let cluster = self.entries[idx].load();
+        if let Some(idx) = cluster.key_idx(hash) {
+            let mut entry = cluster.entries[idx];
+            entry.score = Self::tt_to_score(entry.score, ply);
+            Some(entry)
         } else {
-            data.score = Self::tt_to_score(data.score, ply);
-            Some(data)
+            None
         }
     }
 
@@ -163,27 +202,59 @@ impl TTable {
         tt_flag: TTFlag,
         pv: bool,
     ) {
-        let old = self.fetch(hash, ply);
+        let index = self.index(hash);
+        let hash = Self::trunc_key(hash);
+
+        let mut cluster = self.entries[index].load();
+        let mut keys = cluster.keys();
+
+        let age = self.age.load(Relaxed);
+
+        let mut cluster_idx = 0;
+        let mut min_value = i32::MAX;
+        let mut old = None;
+
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..3 {
+            let entry = cluster.entries[i];
+
+            if keys[i] == hash {
+                old = Some(entry);
+            }
+
+            if keys[i] == hash || entry.flags.tt_flag() == TTFlag::None {
+                cluster_idx = i;
+                break;
+            }
+
+            let relative_age = (32 + entry.flags.age() - age) & 31;
+            let entry_value = entry.depth as i32 - 2 * relative_age as i32;
+
+            if entry_value < min_value {
+                cluster_idx = i;
+                min_value = entry_value;
+            }
+        }
 
         if tt_flag == TTFlag::Exact
-            || old.is_none_or(|old| {
-                depth + 4 > old.depth || self.age.load(Relaxed) != old.flags.age()
-            })
+            || old.is_none_or(|old| depth + 4 > old.depth || age != old.flags.age())
         {
-            let new = TTData {
-                depth,
+            keys[cluster_idx] = hash;
+            cluster.set_keys(keys);
+            cluster.entries[cluster_idx] = TTEntry {
                 eval,
                 score: Self::score_to_tt(score, ply),
-                mv: mv.or(old.and_then(|d| d.mv)),
-                flags: Flags::new(self.age.load(Relaxed), pv, tt_flag),
+                mv: mv.or(old.and_then(|e| e.mv)),
+                depth,
+                flags: Flags::new(age, pv, tt_flag),
             };
 
-            self.entries[self.index(hash)].store(hash, new);
+            self.entries[index].store(cluster);
         }
     }
 
     pub fn clear(&self) {
-        self.entries.iter().for_each(|e| e.reset());
+        self.entries.iter().for_each(|e| e.clear());
         self.age.store(0, Relaxed)
     }
 
@@ -194,16 +265,20 @@ impl TTable {
     }
 
     pub fn hashfull(&self) -> usize {
-        self.entries[..1000]
+        self.entries[..2000]
             .iter()
-            .filter(|e| {
-                let data = e.key_and_data().1;
-                data.flags.tt_flag() != TTFlag::None && data.flags.age() == self.age.load(Relaxed)
-            })
+            .flat_map(|e| e.load().entries)
+            .filter(|e| e.flags.tt_flag() != TTFlag::None)
             .count()
+            / 6
     }
 
     fn index(&self, hash: u64) -> usize {
         ((hash as u128 * self.entries.len() as u128) >> 64) as usize
+    }
+
+    fn trunc_key(key: u64) -> u16 {
+        // We use the top bits for the index, so we want the bottom bits in the entry
+        key as u16
     }
 }
