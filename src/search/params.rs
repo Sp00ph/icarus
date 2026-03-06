@@ -1,40 +1,51 @@
 use icarus_common::piece::Piece;
 
-use crate::{tunable_params, util::MAX_PLY};
+use crate::{search::search::DEPTH_SCALE, tunable_params, util::MAX_PLY};
 
 tunable_params!(
-    rfp_depth               : i16 = 6       (4..=12);
+    rfp_depth               : i32 = 6144    (4096..=12288);
     rfp_margin              : i16 = 50      (25..=100);
     rfp_quad_margin         : i16 = 6       (3..=12);
-    nmp_depth               : i16 = 3       (0..=8);
-    nmp_red_base            : i16 = 6       (3..=12);
-    nmp_red_scale_div       : i16 = 5       (2..=10);
-    nmp_verif_min_depth     : i16 = 14      (7..=21);
+    nmp_depth               : i32 = 3072    (0..=8192);
+    nmp_red_base            : i32 = 6144    (3072..=12288);
+    nmp_red_scale_div       : i32 = 5       (2..=10);
+    nmp_verif_min_depth     : i32 = 14336   (7168..=21504);
     movepick_see_threshold  : i16 = 0       (-100..=100);
     qs_see_threshold        : i16 = 0       (-100..=100);
     tactic_see_base         : i16 = 0       (0..=30);
-    tactic_see_scale        : i16 = -60     (-120..=-30);
+    tactic_see_scale        : i32 = -60     (-120..=-30);
     quiet_see_base          : i16 = 0       (0..=30);
-    quiet_see_scale         : i16 = -100    (-200..=-50);
-    see_max_depth           : i16 = 10      (5..=15);
+    quiet_see_scale         : i32 = -100    (-200..=-50);
+    see_max_depth           : i32 = 10240   (5120..=15360);
     lmp_base                : u32 = 4096    (2048..=8192);
     lmp_scale               : u32 = 1024    (512..=2048);
-    fp_depth                : i16 = 8       (4..=16);
+    fp_depth                : i32 = 8192    (4096..=16384);
     fp_base                 : i16 = 100     (50..=200);
-    fp_scale                : i16 = 80      (40..=160);
+    fp_scale                : i32 = 80      (40..=160);
     hist_prune_scale        : i32 = 2000    (1000..=4000);
-    hist_prune_depth        : i16 = 5       (2..=10);
-    se_min_depth            : i16 = 8       (6..=10);
-    se_tt_depth_offset      : i16 = 3       (1..=6);
-    se_beta_scale           : i16 = 32      (24..=48);
-    se_depth_offset         : i16 = 1       (0..=3);
-    se_depth_scale          : i16 = 32      (16..=64);
+    hist_prune_depth        : i32 = 5120    (2048..=10240);
+    se_min_depth            : i32 = 8192    (6144..=10240);
+    se_tt_depth_offset      : i32 = 3072    (1024..=6144);
+    se_beta_scale           : i32 = 256     (192..=384);
+    se_depth_offset         : i32 = 1024    (0..=3072);
+    se_depth_scale          : i32 = 64      (32..=128);
     se_dext_margin          : i16 = 20      (10..=40);
+    se_single_ext           : i32 = 1024    (512..=2048);
+    se_double_ext           : i32 = 1024    (512..=2048);
+    se_triple_negext        : i32 = -3072   (-4096..=-1536);
+    se_double_negext        : i32 = -2048   (-3072..=-1024);
+    se_single_negext        : i32 = -1024   (-1536..=-512);
     quiet_hist_lmr_div      : i16 = 8192    (4096..=16384);
     qs_lmp_limit            : i16 = 2       (1..=4);
+
+    lmr_min_depth           : i32 = 2048    (1024..=6144);
     lmr_base                : i32 = 512     (256..=1024);
     lmr_quiet_div           : i32 = 1536    (768..=3072);
     lmr_tactic_div          : i32 = 3584    (1792..=7168);
+    lmr_nonpv               : i32 = 1024    (512..=2048);
+    lmr_ttpv                : i32 = 1024    (512..=2048);
+    lmr_check               : i32 = 1024    (512..=2048);
+    lmr_cutnode             : i32 = 1024    (512..=2048);
 
     corr_bonus_scale        : i32 = 128     (64..=256);
     corr_bonus_div          : i32 = 1024    (512..=2048);
@@ -75,7 +86,7 @@ tunable_params!(
     cont2_malus_max         : i32 = 2048    (1024..=4096);
 
     asp_initial_window      : i16 = 25      (10..=100);
-    asp_widen_factor        : i32 = 64      (32..=96);
+    asp_widen_factor        : i32 = 128     (64..=256);
     asp_min_depth           : u16 = 5       (2..=10);
 
     hard_time_factor        : u128 = 512    (256..=768);
@@ -140,12 +151,12 @@ static LOG: [f32; MAX_PLY as usize] = [
     5.5134287, 5.5174527, 5.521461, 5.525453, 5.529429, 5.5333896, 5.5373344, 5.5412636,
 ];
 
-pub fn get_lmr(is_tactic: bool, depth: u8, moves_seen: u8) -> i16 {
+pub fn get_lmr(is_tactic: bool, depth: u8, moves_seen: u8) -> i32 {
     let base = lmr_base() as f32 / 1024.0;
     let div = if is_tactic {
         1024.0 / (lmr_tactic_div() as f32)
     } else {
         1024.0 / (lmr_quiet_div() as f32)
     };
-    (base + LOG[depth as usize] * LOG[moves_seen as usize] * div) as i16
+    (base + LOG[depth as usize] * LOG[moves_seen as usize] * div) as i32 * DEPTH_SCALE
 }
