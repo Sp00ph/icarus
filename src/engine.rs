@@ -7,7 +7,7 @@ use icarus_board::{board::Board, r#move::Move, movegen::Abort, perft::perft};
 use rustyline::{Config, Editor, error::ReadlineError, history::MemHistory};
 
 #[cfg(feature = "tune")]
-use crate::search::params::valid_param_name;
+use crate::search::params::{list_params, print_params_ob, valid_param_name};
 use crate::{
     bench::DEFAULT_BENCH_DEPTH,
     datagen::genfens,
@@ -132,7 +132,7 @@ impl Engine {
             }
             UciCommand::Wait => self.wait(true),
             #[cfg(feature = "tune")]
-            UciCommand::Params => crate::search::params::print_params_ob(),
+            UciCommand::Params => print_params_ob(),
         }
 
         Abort::No
@@ -151,6 +151,8 @@ impl Engine {
         );
         println!("option name Hash type spin default {DEFAULT_TT_SIZE} min 1 max {MAX_TT_SIZE}");
         println!("option name Threads type spin default 1 min 1 max {MAX_THREADS}");
+        #[cfg(feature = "tune")]
+        list_params();
         println!("uciok");
     }
 
