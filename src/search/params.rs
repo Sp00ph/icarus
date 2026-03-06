@@ -159,5 +159,5 @@ pub fn get_lmr(is_tactic: bool, depth: u8, moves_seen: u8) -> i32 {
     } else {
         1024.0 / (lmr_quiet_div() as f32)
     };
-    (base + LOG[depth as usize] * LOG[moves_seen as usize] * div) as i32 * DEPTH_SCALE
+    (base + LOG[depth as usize] * LOG[moves_seen as usize] * div * DEPTH_SCALE as f32) as i32
 }
