@@ -19,7 +19,7 @@ use crate::{
     search::{
         history::History,
         params::{asp_initial_window, asp_min_depth, asp_widen_factor},
-        search::{Root, search},
+        search::{DEPTH_SCALE, Root, search},
         time_manager::TimeManager,
         transposition_table::{DEFAULT_TT_SIZE, TTable},
     },
@@ -345,7 +345,15 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
                 beta = beta.max(alpha + 1);
             }
 
-            let new_score = search::<Root>(&mut pos, depth as i16, 0, alpha, beta, false, thread);
+            let new_score = search::<Root>(
+                &mut pos,
+                (depth as i32) * DEPTH_SCALE,
+                0,
+                alpha,
+                beta,
+                false,
+                thread,
+            );
             thread.nodes.flush();
 
             if depth > 1 && thread.abort_now {
@@ -362,7 +370,7 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
                 break 'asp_window;
             }
 
-            delta = delta.saturating_add(((delta as i32) * asp_widen_factor() / 64) as i16);
+            delta = delta.saturating_add(((delta as i32) * asp_widen_factor() / 128) as i16);
         }
 
         if thread.id == 0 {
