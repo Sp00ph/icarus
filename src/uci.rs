@@ -46,6 +46,8 @@ pub enum UciCommand {
     Stop,
     Quit,
     Wait,
+    #[cfg(feature = "tune")]
+    Params,
 }
 
 #[derive(Debug, Clone)]
@@ -131,6 +133,8 @@ impl UciCommand {
             "stop" => Ok(Stop),
             "quit" | "q" => Ok(Quit),
             "wait" => Ok(Wait),
+            #[cfg(feature = "tune")]
+            "params" => Ok(Params),
             "setoption" => {
                 if reader.next() != Some("name") {
                     return Err(MissingOptionNameToken);

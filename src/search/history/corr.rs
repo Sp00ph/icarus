@@ -1,6 +1,9 @@
 use icarus_common::piece::Color;
 
-use crate::search::history::{CORR_SIZE, MAX_CORR_VALUE, apply_gravity};
+use crate::search::{
+    history::{CORR_SIZE, MAX_CORR_VALUE, apply_gravity},
+    params::{corr_bonus_div, corr_bonus_scale},
+};
 
 pub struct CorrHist {
     /// [stm][hash % CORR_SIZE]
@@ -9,8 +12,7 @@ pub struct CorrHist {
 
 impl CorrHist {
     pub fn amount(delta: i32, depth: i16) -> i32 {
-        let bonus_scale = 128;
-        (delta * (depth as i32) * bonus_scale) / 1024
+        (delta * (depth as i32) * corr_bonus_scale()) / corr_bonus_div()
     }
 
     pub fn get(&self, stm: Color, hash: u64) -> i16 {

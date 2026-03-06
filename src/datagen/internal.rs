@@ -12,7 +12,10 @@ use std::{
 
 use clap::{Args, Parser};
 use icarus_board::{board::TerminalState, r#move::MoveFlag, movegen::Abort};
-use icarus_common::{piece::Color, util::enum_map::{EnumMap, enum_map}};
+use icarus_common::{
+    piece::Color,
+    util::enum_map::{EnumMap, enum_map},
+};
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
 use rand::{SeedableRng, rngs::SmallRng};
 use viriformat::{
@@ -232,7 +235,11 @@ fn worker_loop(ctx: &DatagenCtx, tx: Sender<Vec<u8>>) {
     }
 }
 
-fn play_game(rng: &mut SmallRng, ctx: &DatagenCtx, thread_ctxs: &mut EnumMap<Color, ThreadCtx>) -> Game {
+fn play_game(
+    rng: &mut SmallRng,
+    ctx: &DatagenCtx,
+    thread_ctxs: &mut EnumMap<Color, ThreadCtx>,
+) -> Game {
     let mut pos = Position::new(
         std::iter::repeat_with(|| try_generate_pos(rng, ctx.dfrc, ctx.random_moves, thread_ctxs))
             .flatten()
@@ -261,10 +268,13 @@ fn play_game(rng: &mut SmallRng, ctx: &DatagenCtx, thread_ctxs: &mut EnumMap<Col
 
         thread_ctxs[stm].global.nodes.store(0, Relaxed);
         thread_ctxs[stm].global.num_searching.store(1, Relaxed);
-        thread_ctxs[stm]
-            .global
-            .time_manager
-            .init(stm, &[SearchLimit::Nodes(ctx.nodes)], true, false, 0);
+        thread_ctxs[stm].global.time_manager.init(
+            stm,
+            &[SearchLimit::Nodes(ctx.nodes)],
+            true,
+            false,
+            0,
+        );
 
         let score = thread_ctxs[stm].do_search(SearchParams {
             pos: pos.clone(),

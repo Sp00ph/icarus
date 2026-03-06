@@ -1,25 +1,36 @@
 use icarus_board::{board::Board, r#move::Move};
 use icarus_common::piece::Piece;
 
-use crate::search::history::{MAX_HIST_VALUE, apply_gravity};
+use crate::search::{
+    history::{MAX_HIST_VALUE, apply_gravity},
+    params::{
+        cont1_bonus_base, cont1_bonus_max, cont1_bonus_scale, cont1_malus_base, cont1_malus_max,
+        cont1_malus_scale, cont2_bonus_base, cont2_bonus_max, cont2_bonus_scale, cont2_malus_base,
+        cont2_malus_max, cont2_malus_scale,
+    },
+};
 
-pub struct ContHist {
+pub struct ContHist<const PLY: usize> {
     /// [stm][prev piece][prev dst][piece][dst]
     data: [[[[[i16; 64]; 6]; 64]; 6]; 2],
 }
 
-impl ContHist {
+impl<const PLY: usize> ContHist<PLY> {
     fn bonus(depth: i16) -> i32 {
-        let bonus_base = 128;
-        let bonus_scale = 128;
-        let bonus_max = 2048;
+        let (bonus_base, bonus_scale, bonus_max) = match PLY {
+            1 => (cont1_bonus_base(), cont1_bonus_scale(), cont1_bonus_max()),
+            2 => (cont2_bonus_base(), cont2_bonus_scale(), cont2_bonus_max()),
+            _ => unreachable!(),
+        };
         (bonus_base + (depth as i32) * bonus_scale).min(bonus_max)
     }
 
     fn malus(depth: i16) -> i32 {
-        let malus_base = 128;
-        let malus_scale = 128;
-        let malus_max = 2048;
+        let (malus_base, malus_scale, malus_max) = match PLY {
+            1 => (cont1_malus_base(), cont1_malus_scale(), cont1_malus_max()),
+            2 => (cont2_malus_base(), cont2_malus_scale(), cont2_malus_max()),
+            _ => unreachable!(),
+        };
         (malus_base + (depth as i32) * malus_scale).min(malus_max)
     }
 

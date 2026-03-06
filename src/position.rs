@@ -9,7 +9,7 @@ use icarus_common::{
     square::Square,
 };
 
-use crate::{nnue::network::Nnue, score::Score, weights::see_val};
+use crate::{nnue::network::Nnue, score::Score, search::params::see_val};
 
 #[derive(Clone)]
 pub struct Position {

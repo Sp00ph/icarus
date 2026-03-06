@@ -18,6 +18,7 @@ use crate::{
     score::Score,
     search::{
         history::History,
+        params::{asp_initial_window, asp_min_depth, asp_widen_factor},
         search::{Root, search},
         time_manager::TimeManager,
         transposition_table::{DEFAULT_TT_SIZE, TTable},
@@ -330,14 +331,11 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
     'id: loop {
         thread.sel_depth = 0;
 
-        let asp_initial_window = 25;
-        let asp_widen_factor = 64;
-        let asp_min_depth = 5;
-        let mut delta = asp_initial_window;
+        let mut delta = asp_initial_window();
         let mut alpha = best_score.saturating_add(-delta);
         let mut beta = best_score.saturating_add(delta);
 
-        if depth < asp_min_depth {
+        if depth < asp_min_depth() {
             (alpha, beta) = (-Score::INFINITE, Score::INFINITE);
         }
 
@@ -364,7 +362,7 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
                 break 'asp_window;
             }
 
-            delta = delta.saturating_add(((delta as i32) * asp_widen_factor / 64) as i16);
+            delta = delta.saturating_add(((delta as i32) * asp_widen_factor() / 64) as i16);
         }
 
         if thread.id == 0 {

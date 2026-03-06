@@ -84,7 +84,7 @@ impl TTCluster {
         let splat = (key as u64) * low_bits;
         let diff = splat ^ self.keys;
 
-        let i = (!diff & (diff - low_bits) & high_bits).trailing_zeros() / 16;
+        let i = (!diff & (diff.wrapping_sub(low_bits)) & high_bits).trailing_zeros() / 16;
         if i < 3 { Some(i as usize) } else { None }
     }
 

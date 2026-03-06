@@ -10,8 +10,15 @@ use icarus_common::piece::Color;
 use crate::{
     position::Position,
     score::Score,
-    search::history::{
-        cont::ContHist, contcorr::ContCorrHist, corr::CorrHist, main::MainHist, tactic::TacticHist,
+    search::{
+        history::{
+            cont::ContHist, contcorr::ContCorrHist, corr::CorrHist, main::MainHist,
+            tactic::TacticHist,
+        },
+        params::{
+            corr_black_factor, corr_cont1_factor, corr_cont2_factor, corr_major_factor,
+            corr_minor_factor, corr_pawn_factor, corr_white_factor,
+        },
     },
 };
 
@@ -23,8 +30,8 @@ const CORR_SIZE: usize = 16384;
 pub struct History {
     main: MainHist,
     tactic: TacticHist,
-    cont_oneply: ContHist,
-    cont_twoply: ContHist,
+    cont_oneply: ContHist<1>,
+    cont_twoply: ContHist<2>,
 
     pawn_corr: CorrHist,
     minor_corr: CorrHist,
@@ -70,29 +77,21 @@ impl History {
         let stm = board.stm();
         let (twoply, oneply, cur) = (pos.prev_move(3), pos.prev_move(2), pos.prev_move(1));
 
-        let pawn_factor = 64;
-        let minor_factor = 64;
-        let major_factor = 64;
-        let white_factor = 64;
-        let black_factor = 64;
-        let cont1_factor = 64;
-        let cont2_factor = 64;
-
         let mut corr = 0;
-        corr += (self.pawn_corr.get(stm, board.pawn_hash()) as i32) * pawn_factor;
-        corr += (self.minor_corr.get(stm, board.minor_hash()) as i32) * minor_factor;
-        corr += (self.major_corr.get(stm, board.major_hash()) as i32) * major_factor;
+        corr += (self.pawn_corr.get(stm, board.pawn_hash()) as i32) * corr_pawn_factor();
+        corr += (self.minor_corr.get(stm, board.minor_hash()) as i32) * corr_minor_factor();
+        corr += (self.major_corr.get(stm, board.major_hash()) as i32) * corr_major_factor();
         corr += (self
             .white_nonpawn_corr
             .get(stm, board.nonpawn_hash(Color::White)) as i32)
-            * white_factor;
+            * corr_white_factor();
         corr += (self
             .black_nonpawn_corr
             .get(stm, board.nonpawn_hash(Color::Black)) as i32)
-            * black_factor;
+            * corr_black_factor();
 
-        corr += self.contcorr_oneply.get(stm, cur, oneply) as i32 * cont1_factor;
-        corr += self.contcorr_twoply.get(stm, cur, twoply) as i32 * cont2_factor;
+        corr += self.contcorr_oneply.get(stm, cur, oneply) as i32 * corr_cont1_factor();
+        corr += self.contcorr_twoply.get(stm, cur, twoply) as i32 * corr_cont2_factor();
 
         (corr / MAX_CORR_VALUE) as i16
     }

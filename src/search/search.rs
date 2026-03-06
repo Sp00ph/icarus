@@ -6,8 +6,15 @@ use crate::{
     position::Position,
     score::Score,
     search::{
-        lmr::get_lmr,
         move_picker::{MovePicker, Stage},
+        params::{
+            fp_base, fp_depth, fp_scale, get_lmr, hist_prune_depth, hist_prune_scale, lmp_base,
+            lmp_scale, movepick_see_threshold, nmp_depth, nmp_red_base, nmp_red_scale_div,
+            nmp_verif_min_depth, qs_lmp_limit, qs_see_threshold, quiet_hist_lmr_div,
+            quiet_see_base, quiet_see_scale, rfp_depth, rfp_margin, rfp_quad_margin, se_beta_scale,
+            se_depth_scale, se_dext_margin, se_min_depth, se_tt_depth_offset, see_max_depth,
+            tactic_see_base, tactic_see_scale,
+        },
         searcher::ThreadCtx,
         transposition_table::TTFlag,
     },
@@ -156,20 +163,18 @@ pub fn search<Node: NodeType>(
     if !Node::PV && !in_check && !singular_search {
         // RFP
         let improving_depth = (depth - improving as i16).max(0);
-        let rfp_depth = 6;
-        let rfp_margin = 50;
-        let rfp_quad_margin = 6;
-        if depth < rfp_depth
+        if depth < rfp_depth()
             && !beta.is_win()
-            && static_eval - rfp_margin * improving_depth - rfp_quad_margin * improving_depth.pow(2)
+            && static_eval
+                - rfp_margin() * improving_depth
+                - rfp_quad_margin() * improving_depth.pow(2)
                 >= beta
         {
             return Score(static_eval.0.midpoint(beta.0));
         }
 
         // NMP
-        let nmp_depth = 3;
-        if depth >= nmp_depth
+        if depth >= nmp_depth()
             && ply >= thread.min_nmp_ply
             && static_eval >= beta
             && pos.prev_move(1).is_some()
@@ -177,7 +182,7 @@ pub fn search<Node: NodeType>(
             pos.make_null_move();
             thread.global.ttable.prefetch(pos.board());
 
-            let nmp_reduction = 6 + depth / 5;
+            let nmp_reduction = nmp_red_base() + depth / nmp_red_scale_div();
             let score = -search::<NonPV>(
                 pos,
                 depth - nmp_reduction,
@@ -194,7 +199,7 @@ pub fn search<Node: NodeType>(
             }
 
             if score >= beta {
-                if depth <= 14 || thread.min_nmp_ply > 0 {
+                if depth <= nmp_verif_min_depth() || thread.min_nmp_ply > 0 {
                     if score.is_win() {
                         return beta;
                     } else {
@@ -221,7 +226,7 @@ pub fn search<Node: NodeType>(
         }
     }
 
-    let mut move_picker = MovePicker::new(tt_move, false, 0);
+    let mut move_picker = MovePicker::new(tt_move, false, movepick_see_threshold());
     let mut best_score = -Score::INFINITE;
     let mut moves_seen = 0;
     let mut best_move = None;
@@ -232,7 +237,7 @@ pub fn search<Node: NodeType>(
     let mut tactics = SmallVec::<[Move; 64]>::new();
 
     while let Some(mv) = move_picker.next(pos, thread) {
-        if singular.is_some_and(|s| mv == s) {
+        if singular == Some(mv) {
             continue;
         }
 
@@ -244,11 +249,9 @@ pub fn search<Node: NodeType>(
         if !Node::ROOT && !best_score.is_loss() {
             if is_tactic {
                 // Tactic SEE Pruning
-                let tactic_base = 0;
-                let tactic_scale = -60;
-                let see_margin = tactic_base + tactic_scale * depth;
+                let see_margin = tactic_see_base() + tactic_see_scale() * depth;
                 if !Node::PV
-                    && depth <= 10
+                    && depth <= see_max_depth()
                     && move_picker.stage() > Stage::YieldGoodNoisy
                     && !pos.cmp_see(mv, see_margin)
                 {
@@ -259,21 +262,17 @@ pub fn search<Node: NodeType>(
 
                 if !move_picker.no_more_quiets() {
                     // LMP
-                    let lmp_margin =
-                        (4096 + 1024 * (lmr_depth as u32).pow(2)) >> u32::from(!improving);
+                    let lmp_margin = (lmp_base() + lmp_scale() * (lmr_depth as u32).pow(2))
+                        >> u32::from(!improving);
 
                     if moves_seen as u32 * 1024 >= lmp_margin {
                         move_picker.skip_quiets();
                     }
 
                     // FP
-                    let fp_depth = 8;
-                    let fp_base = 100;
-                    let fp_scale = 80;
-
-                    let fp_margin = fp_base + fp_scale * lmr_depth;
+                    let fp_margin = fp_base() + fp_scale() * lmr_depth;
                     if !Node::PV
-                        && lmr_depth <= fp_depth
+                        && lmr_depth <= fp_depth()
                         && !in_check
                         && static_eval + fp_margin <= alpha
                     {
@@ -282,19 +281,16 @@ pub fn search<Node: NodeType>(
 
                     // History pruning
                     let hist = thread.history.score_quiet(pos, mv);
-                    let hist_scale = 2000;
-                    let hist_margin = -hist_scale * lmr_depth as i32;
-                    if depth <= 5 && (hist as i32) < hist_margin {
+                    let hist_margin = -hist_prune_scale() * lmr_depth as i32;
+                    if depth <= hist_prune_depth() && (hist as i32) < hist_margin {
                         move_picker.skip_quiets();
                         continue;
                     }
                 }
 
                 // Quiet SEE Pruning
-                let quiet_base = 0;
-                let quiet_scale = -100;
-                let see_margin = quiet_base + quiet_scale * lmr_depth;
-                if !Node::PV && lmr_depth <= 10 && !pos.cmp_see(mv, see_margin) {
+                let see_margin = quiet_see_base() + quiet_see_scale() * lmr_depth;
+                if !Node::PV && lmr_depth <= see_max_depth() && !pos.cmp_see(mv, see_margin) {
                     continue;
                 }
             }
@@ -302,14 +298,14 @@ pub fn search<Node: NodeType>(
 
         if !Node::ROOT
             && !singular_search
-            && depth >= 8
+            && depth >= se_min_depth()
             && let Some(tte) = tt_entry
             && tte.mv.is_some_and(|tt_mv| tt_mv == mv)
-            && tte.depth as i16 >= depth - 3
+            && tte.depth as i16 >= depth - se_tt_depth_offset()
             && tte.flags.tt_flag() != TTFlag::Upper
         {
-            let s_beta = (tte.score - depth * 32 / 16).max(-Score::MAX_MATE + 1);
-            let s_depth = (depth - 1) / 2;
+            let s_beta = (tte.score - depth * se_beta_scale() / 16).max(-Score::MAX_MATE + 1);
+            let s_depth = (depth - 1) * se_depth_scale() / 64;
 
             thread.search_stack[ply as usize].singular = Some(mv);
             let score = search::<NonPV>(pos, s_depth, ply, s_beta - 1, s_beta, cutnode, thread);
@@ -318,8 +314,7 @@ pub fn search<Node: NodeType>(
             if score < s_beta {
                 extension = 1;
                 // double extension
-                let dext_margin = 20;
-                extension += i16::from(!Node::PV && score + dext_margin < beta);
+                extension += i16::from(!Node::PV && score + se_dext_margin() < beta);
             } else if s_beta >= beta {
                 return s_beta;
             } else if tte.score >= beta {
@@ -337,7 +332,7 @@ pub fn search<Node: NodeType>(
         let new_depth = depth + extension - 1;
 
         let hist_lmr = if pos.board().is_quiet(mv) {
-            thread.history.score_quiet(pos, mv) / 8192
+            thread.history.score_quiet(pos, mv) / quiet_hist_lmr_div()
         } else {
             0
         };
@@ -535,12 +530,12 @@ pub fn qsearch<Node: NodeType>(
 
     let mut best_score = static_eval;
     let mut moves_seen = 0;
-    let mut move_picker = MovePicker::new(None, !in_check, 0);
+    let mut move_picker = MovePicker::new(None, !in_check, qs_see_threshold());
 
     while let Some(mv) = move_picker.next(pos, thread) {
         if !best_score.is_loss() {
             // LMP
-            if !in_check && moves_seen > 2 {
+            if !in_check && moves_seen > qs_lmp_limit() {
                 break;
             }
             // SEE Pruning

@@ -6,7 +6,13 @@ use std::{
 use icarus_common::{piece::Color, util::enum_map::enum_map};
 
 use crate::{
-    search::searcher::ThreadCtx,
+    search::{
+        params::{
+            hard_time_factor, move_stability_base, move_stability_min, move_stability_scale,
+            node_tm_base, node_tm_scale, soft_time_factor,
+        },
+        searcher::ThreadCtx,
+    },
     uci::SearchLimit,
     util::{MAX_PLY, atomic_instant::AtomicInstant},
 };
@@ -101,8 +107,12 @@ impl TimeManager {
 
         let (time, inc) = (time[stm], inc[stm]);
 
-        let hard_time = (time / 2).min(time.saturating_sub(move_overhead));
-        let soft_time = ((time / 64).saturating_sub(move_overhead) + inc).min(hard_time);
+        let hard_time = (((time as u128) * hard_time_factor() / 1024) as u64)
+            .min(time.saturating_sub(move_overhead));
+        let soft_time = (((time as u128 * soft_time_factor() / 1024) as u64)
+            .saturating_sub(move_overhead)
+            + inc)
+            .min(hard_time);
 
         self.soft_time.store(soft_time, Relaxed);
         self.base_time.store(soft_time, Relaxed);
@@ -165,8 +175,11 @@ impl TimeManager {
 
         let ratio = (best_move_nodes as f64) / (total_nodes.max(1) as f64);
 
-        let node_tm_factor = 2.5 - 1.5 * ratio;
-        let move_stability_factor = (1.8 - 0.1 * (move_stability as f64)).max(0.9);
+        let node_tm_factor =
+            (node_tm_base() as f64 / 1024.0) - (node_tm_scale() as f64 / 1024.0) * ratio;
+        let move_stability_factor = ((move_stability_base() as f64 / 1024.0)
+            - (move_stability_scale() as f64 / 1024.0) * (move_stability as f64))
+            .max(move_stability_min() as f64 / 1024.0);
 
         let new_target =
             ((self.base_time.load(Relaxed) as f64 * node_tm_factor * move_stability_factor) as u64)

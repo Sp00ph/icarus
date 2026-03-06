@@ -6,6 +6,8 @@ use std::{
 use icarus_board::{board::Board, r#move::Move, movegen::Abort, perft::perft};
 use rustyline::{Config, Editor, error::ReadlineError, history::MemHistory};
 
+#[cfg(feature = "tune")]
+use crate::search::params::valid_param_name;
 use crate::{
     bench::DEFAULT_BENCH_DEPTH,
     datagen::genfens,
@@ -129,6 +131,8 @@ impl Engine {
                 return Abort::Yes;
             }
             UciCommand::Wait => self.wait(true),
+            #[cfg(feature = "tune")]
+            UciCommand::Params => crate::search::params::print_params_ob(),
         }
 
         Abort::No
@@ -155,8 +159,8 @@ impl Engine {
     }
 
     fn setoption(&mut self, name: String, value: String) {
-        match name.as_str() {
-            "UCI_Chess960" | "960" => {
+        match name.to_lowercase().as_str() {
+            "uci_chess960" | "960" => {
                 let Ok(val) = value.parse::<bool>() else {
                     println!("info string Unknown value {value}");
                     return;
@@ -164,7 +168,7 @@ impl Engine {
                 self.chess960 = val;
                 println!("info string Set Chess960 to {val}");
             }
-            "UseSoftNodes" => {
+            "usesoftnodes" => {
                 let Ok(val) = value.parse::<bool>() else {
                     println!("info string Unknown value {value}");
                     return;
@@ -172,7 +176,7 @@ impl Engine {
                 self.use_soft_nodes = val;
                 println!("info string Set UseSoftNodes to {val}");
             }
-            "MoveOverhead" => {
+            "moveoverhead" => {
                 let Ok(val) = value.parse::<u64>() else {
                     println!("info string Unknown value {value}");
                     return;
@@ -180,7 +184,7 @@ impl Engine {
                 self.move_overhead = val;
                 println!("info string Set move overhead to {val}");
             }
-            "Hash" => {
+            "hash" => {
                 if self.searcher.is_running() {
                     println!("info string Can't update Hash while searching");
                     return;
@@ -197,7 +201,7 @@ impl Engine {
                 self.searcher.resize_ttable(val);
                 println!("info string Set TT size to {val}MiB");
             }
-            "Threads" => {
+            "threads" => {
                 if self.searcher.is_running() {
                     println!("info string Can't update Threads while searching");
                     return;
@@ -213,6 +217,17 @@ impl Engine {
                 }
                 self.searcher.change_threads(val);
                 println!("info string Started {val} threads");
+            }
+            #[cfg(feature = "tune")]
+            name if valid_param_name(name) => {
+                use crate::search::params::set_param;
+
+                if self.searcher.is_running() {
+                    println!("info string Can't update tunable while searching");
+                    return;
+                }
+
+                set_param(name, &value);
             }
             _ => println!("info string Unsupported option {name}"),
         }
