@@ -8,14 +8,7 @@ use crate::{
     search::{
         move_picker::{MovePicker, Stage},
         params::{
-            fp_base, fp_depth, fp_scale, get_lmr, hist_prune_depth, hist_prune_scale, lmp_base,
-            lmp_scale, lmr_check, lmr_cutnode, lmr_min_depth, lmr_nonpv, lmr_ttpv,
-            movepick_see_threshold, nmp_depth, nmp_red_base, nmp_red_scale_div,
-            nmp_verif_min_depth, qs_lmp_limit, qs_see_threshold, quiet_hist_lmr_div,
-            quiet_see_base, quiet_see_scale, rfp_depth, rfp_margin, rfp_quad_margin, se_beta_scale,
-            se_depth_offset, se_depth_scale, se_dext_margin, se_double_ext, se_double_negext,
-            se_min_depth, se_single_ext, se_single_negext, se_triple_negext, se_tt_depth_offset,
-            see_max_depth, tactic_see_base, tactic_see_scale,
+            fp_base, fp_depth, fp_scale, get_lmr, hist_prune_depth, hist_prune_scale, lmp_base, lmp_scale, lmr_check, lmr_cutnode, lmr_hist, lmr_min_depth, lmr_nonpv, lmr_ttpv, movepick_see_threshold, nmp_depth, nmp_red_base, nmp_red_scale_div, nmp_verif_min_depth, qs_lmp_limit, qs_see_threshold, quiet_hist_lmr_div, quiet_see_base, quiet_see_scale, rfp_depth, rfp_margin, rfp_quad_margin, se_beta_scale, se_depth_offset, se_depth_scale, se_dext_margin, se_double_ext, se_double_negext, se_min_depth, se_single_ext, se_single_negext, se_triple_negext, se_tt_depth_offset, see_max_depth, tactic_see_base, tactic_see_scale
         },
         searcher::ThreadCtx,
         transposition_table::TTFlag,
@@ -166,7 +159,8 @@ pub fn search<Node: NodeType>(
 
     if !Node::PV && !in_check && !singular_search {
         // RFP
-        let improving_depth = (depth / DEPTH_SCALE - improving as i32).max(0) as i16;
+        let improving_depth =
+            (depth / DEPTH_SCALE - improving as i32).max(0) as i16;
         if depth < rfp_depth()
             && !beta.is_win()
             && static_eval
@@ -186,7 +180,7 @@ pub fn search<Node: NodeType>(
             pos.make_null_move();
             thread.global.ttable.prefetch(pos.board());
 
-            let nmp_reduction = nmp_red_base() + depth / nmp_red_scale_div();
+            let nmp_reduction = nmp_red_base() + depth / DEPTH_SCALE / nmp_red_scale_div() * DEPTH_SCALE;
             let score = -search::<NonPV>(
                 pos,
                 depth - nmp_reduction,
@@ -316,7 +310,7 @@ pub fn search<Node: NodeType>(
                 .score
                 .saturating_add((-depth * se_beta_scale() / (DEPTH_SCALE * 128)) as i16)
                 .max(-Score::MAX_MATE + 1);
-            let s_depth = (depth - se_depth_offset()) / se_depth_scale() / 128;
+            let s_depth = (depth - se_depth_offset()) / DEPTH_SCALE * se_depth_scale() / 128 * DEPTH_SCALE;
 
             thread.search_stack[ply as usize].singular = Some(mv);
             let score = search::<NonPV>(pos, s_depth, ply, s_beta - 1, s_beta, cutnode, thread);
@@ -371,7 +365,7 @@ pub fn search<Node: NodeType>(
                 lmr -= lmr_ttpv() * tt_pv as i32;
                 lmr -= lmr_check() * pos.board().checkers().is_non_empty() as i32;
                 lmr += lmr_cutnode() * cutnode as i32;
-                lmr -= DEPTH_SCALE * hist_lmr as i32;
+                lmr -= lmr_hist() * hist_lmr as i32;
             }
 
             let lmr_depth = (new_depth - lmr).max(DEPTH_SCALE).min(new_depth);
@@ -425,9 +419,7 @@ pub fn search<Node: NodeType>(
 
         if score >= beta {
             flag = TTFlag::Lower;
-            thread
-                .history
-                .update(pos, mv, &quiets, &tactics, (depth / DEPTH_SCALE) as i16);
+            thread.history.update(pos, mv, &quiets, &tactics, (depth / DEPTH_SCALE) as i16);
             break;
         }
 

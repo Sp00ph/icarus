@@ -46,6 +46,7 @@ tunable_params!(
     lmr_ttpv                : i32 = 1024    (512..=2048);
     lmr_check               : i32 = 1024    (512..=2048);
     lmr_cutnode             : i32 = 1024    (512..=2048);
+    lmr_hist                : i32 = 1024    (512..=2048);
 
     corr_bonus_scale        : i32 = 128     (64..=256);
     corr_bonus_div          : i32 = 1024    (512..=2048);
@@ -158,5 +159,5 @@ pub fn get_lmr(is_tactic: bool, depth: u8, moves_seen: u8) -> i32 {
     } else {
         1024.0 / (lmr_quiet_div() as f32)
     };
-    (base + LOG[depth as usize] * LOG[moves_seen as usize] * div * DEPTH_SCALE as f32) as i32
+    (base + LOG[depth as usize] * LOG[moves_seen as usize] * div) as i32 * DEPTH_SCALE
 }
