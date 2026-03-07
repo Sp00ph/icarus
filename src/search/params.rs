@@ -3,32 +3,21 @@ use icarus_common::piece::Piece;
 use crate::{nontunable, search::search::DEPTH_SCALE, tunable_params, util::MAX_PLY};
 
 tunable_params!(
-    rfp_depth               : i32 = 6144    (4096..=12288);
     rfp_margin              : i16 = 50      (25..=100);
     rfp_quad_margin         : i16 = 768     (384..=1536);
-    nmp_depth               : i32 = 3072    (0..=8192);
-    nmp_red_base            : i32 = 6144    (3072..=12288);
-    nmp_red_scale_div       : i32 = 640     (256..=1280);
-    nmp_verif_min_depth     : i32 = 14336   (7168..=21504);
     movepick_see_threshold  : i16 = 0       (-100..=100);
     qs_see_threshold        : i16 = 0       (-100..=100);
     tactic_see_base         : i16 = 0       (0..=30);
     tactic_see_scale        : i32 = -60     (-120..=-30);
     quiet_see_base          : i16 = 0       (0..=30);
     quiet_see_scale         : i32 = -100    (-200..=-50);
-    see_max_depth           : i32 = 10240   (5120..=15360);
     lmp_base                : u32 = 4096    (2048..=8192);
     lmp_scale               : u32 = 1024    (512..=2048);
-    fp_depth                : i32 = 8192    (4096..=16384);
     fp_base                 : i16 = 100     (50..=200);
     fp_scale                : i32 = 80      (40..=160);
     hist_prune_scale        : i32 = 2000    (1000..=4000);
-    hist_prune_depth        : i32 = 5120    (2048..=10240);
-    se_min_depth            : i32 = 8192    (6144..=10240);
     se_tt_depth_offset      : i32 = 3072    (1024..=6144);
     se_beta_scale           : i32 = 256     (192..=384);
-    se_depth_offset         : i32 = 1024    (0..=3072);
-    se_depth_scale          : i32 = 64      (32..=128);
     se_dext_margin          : i16 = 20      (10..=40);
     se_single_ext           : i32 = 1024    (512..=2048);
     se_double_ext           : i32 = 1024    (512..=2048);
@@ -37,7 +26,6 @@ tunable_params!(
     se_single_negext        : i32 = -1024   (-1536..=-512);
     quiet_hist_lmr_div      : i16 = 8192    (4096..=16384);
 
-    lmr_min_depth           : i32 = 2048    (1024..=6144);
     lmr_base                : i32 = 512     (256..=1024);
     lmr_quiet_div           : i32 = 1536    (768..=3072);
     lmr_tactic_div          : i32 = 3584    (1792..=7168);
@@ -105,6 +93,18 @@ tunable_params!(
 );
 
 nontunable!(
+    rfp_depth               : i32 = 6144    (4096..=12288);
+    nmp_depth               : i32 = 3072    (0..=8192);
+    nmp_red_base            : i32 = 6144    (3072..=12288);
+    nmp_red_scale_div       : i32 = 640     (256..=1280);
+    nmp_verif_min_depth     : i32 = 14336   (7168..=21504);
+    see_max_depth           : i32 = 10240   (5120..=15360);
+    fp_depth                : i32 = 8192    (4096..=16384);
+    hist_prune_depth        : i32 = 5120    (2048..=10240);
+    se_min_depth            : i32 = 8192    (6144..=10240);
+    se_depth_offset         : i32 = 1024    (0..=3072);
+    se_depth_scale          : i32 = 64      (32..=128);
+    lmr_min_depth           : i32 = 2048    (1024..=6144);
     qs_lmp_limit            : i16 = 2       (1..=4);
     asp_min_depth           : u16 = 5       (2..=10);
 );
