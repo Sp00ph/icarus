@@ -171,7 +171,7 @@ pub fn search<Node: NodeType>(
             && !beta.is_win()
             && static_eval
                 - rfp_margin() * improving_depth
-                - rfp_quad_margin() * improving_depth.pow(2)
+                - rfp_quad_margin() * improving_depth.pow(2) / 128
                 >= beta
         {
             return Score(static_eval.0.midpoint(beta.0));
@@ -186,7 +186,7 @@ pub fn search<Node: NodeType>(
             pos.make_null_move();
             thread.global.ttable.prefetch(pos.board());
 
-            let nmp_reduction = nmp_red_base() + depth / nmp_red_scale_div();
+            let nmp_reduction = nmp_red_base() + depth * 128 / nmp_red_scale_div();
             let score = -search::<NonPV>(
                 pos,
                 depth - nmp_reduction,

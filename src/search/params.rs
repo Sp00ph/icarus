@@ -1,14 +1,14 @@
 use icarus_common::piece::Piece;
 
-use crate::{search::search::DEPTH_SCALE, tunable_params, util::MAX_PLY};
+use crate::{nontunable, search::search::DEPTH_SCALE, tunable_params, util::MAX_PLY};
 
 tunable_params!(
     rfp_depth               : i32 = 6144    (4096..=12288);
     rfp_margin              : i16 = 50      (25..=100);
-    rfp_quad_margin         : i16 = 6       (3..=12);
+    rfp_quad_margin         : i16 = 768     (384..=1536);
     nmp_depth               : i32 = 3072    (0..=8192);
     nmp_red_base            : i32 = 6144    (3072..=12288);
-    nmp_red_scale_div       : i32 = 5       (2..=10);
+    nmp_red_scale_div       : i32 = 640     (256..=1280);
     nmp_verif_min_depth     : i32 = 14336   (7168..=21504);
     movepick_see_threshold  : i16 = 0       (-100..=100);
     qs_see_threshold        : i16 = 0       (-100..=100);
@@ -36,7 +36,6 @@ tunable_params!(
     se_double_negext        : i32 = -2048   (-3072..=-1024);
     se_single_negext        : i32 = -1024   (-1536..=-512);
     quiet_hist_lmr_div      : i16 = 8192    (4096..=16384);
-    qs_lmp_limit            : i16 = 2       (1..=4);
 
     lmr_min_depth           : i32 = 2048    (1024..=6144);
     lmr_base                : i32 = 512     (256..=1024);
@@ -87,10 +86,9 @@ tunable_params!(
 
     asp_initial_window      : i16 = 25      (10..=100);
     asp_widen_factor        : i32 = 128     (64..=256);
-    asp_min_depth           : u16 = 5       (2..=10);
 
-    hard_time_factor        : u128 = 512    (256..=768);
-    soft_time_factor        : u128 = 16     (8..=64);
+    hard_time_factor        : u128 = 2048   (1024..=3072);
+    soft_time_factor        : u128 = 64     (32..=256);
 
     node_tm_base            : u32 = 2560    (1280..=3840);
     node_tm_scale           : u32 = 1536    (768..=3072);
@@ -104,6 +102,11 @@ tunable_params!(
     bishop_see_val          : i16 = 300     (150..=600);
     rook_see_val            : i16 = 500     (250..=1000);
     queen_see_val           : i16 = 900     (450..=1800);
+);
+
+nontunable!(
+    qs_lmp_limit            : i16 = 2       (1..=4);
+    asp_min_depth           : u16 = 5       (2..=10);
 );
 
 pub fn see_val(piece: Piece) -> i16 {

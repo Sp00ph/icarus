@@ -77,3 +77,15 @@ macro_rules! tunable_params {
         )*
     };
 }
+
+// Only used for syntactic consistency with spsa vs non spsa params
+#[macro_export]
+macro_rules! nontunable {
+    ($($name:ident : $ty:ty = $val:literal $(($min:literal..=$max:literal))?;)*) => {
+        $(
+            pub fn $name() -> $ty {
+                $val
+            }
+        )*
+    };
+}

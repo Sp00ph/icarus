@@ -107,9 +107,9 @@ impl TimeManager {
 
         let (time, inc) = (time[stm], inc[stm]);
 
-        let hard_time = (((time as u128) * hard_time_factor() / 1024) as u64)
+        let hard_time = (((time as u128) * hard_time_factor() / 4096) as u64)
             .min(time.saturating_sub(move_overhead));
-        let soft_time = (((time as u128 * soft_time_factor() / 1024) as u64)
+        let soft_time = (((time as u128 * soft_time_factor() / 4096) as u64)
             .saturating_sub(move_overhead)
             + inc)
             .min(hard_time);
