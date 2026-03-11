@@ -505,6 +505,10 @@ pub fn qsearch<Node: NodeType>(
 
     let in_check = pos.board().checkers().is_non_empty();
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
+    let tt_flag = tt_entry.map_or(TTFlag::None, |e| e.flags.tt_flag());
+    let tt_move_noisy = tt_entry
+        .and_then(|e| e.mv)
+        .is_some_and(|mv| pos.board().is_tactic(mv));
 
     let mut static_eval = Score::new_mated(ply);
 
@@ -541,8 +545,9 @@ pub fn qsearch<Node: NodeType>(
     }
 
     let mut best_score = static_eval;
+    let skip_quiets = !in_check && (Node::PV || tt_move_noisy || tt_flag == TTFlag::Upper);
     let mut moves_seen = 0;
-    let mut move_picker = MovePicker::new(None, !in_check, qs_see_threshold());
+    let mut move_picker = MovePicker::new(None, skip_quiets, qs_see_threshold());
 
     while let Some(mv) = move_picker.next(pos, thread) {
         if !best_score.is_loss() {
