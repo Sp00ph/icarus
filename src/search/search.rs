@@ -481,8 +481,9 @@ pub fn qsearch<Node: NodeType>(
         thread.abort_now = true;
         return Score::ZERO;
     }
-
+    thread.nodes.inc();
     thread.sel_depth = thread.sel_depth.max(ply);
+
     if Node::PV {
         thread.search_stack[ply as usize].pv.clear();
     }
@@ -501,9 +502,6 @@ pub fn qsearch<Node: NodeType>(
     if ply >= MAX_PLY {
         return pos.eval(&mut thread.nnue);
     }
-
-    thread.sel_depth = thread.sel_depth.max(ply);
-    thread.nodes.inc();
 
     let in_check = pos.board().checkers().is_non_empty();
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
