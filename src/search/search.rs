@@ -9,9 +9,10 @@ use crate::{
         move_picker::{MovePicker, Stage},
         params::{
             fp_base, fp_depth, fp_scale, get_lmr, hindsight_ext_ext, hindsight_ext_min_red,
-            hist_prune_depth, hist_prune_scale, lmp_base, lmp_scale, lmr_check, lmr_cutnode,
-            lmr_min_depth, lmr_nonpv, lmr_ttpv, movepick_see_threshold, nmp_depth, nmp_red_base,
-            nmp_red_scale_div, nmp_verif_min_depth, qs_lmp_limit, qs_see_threshold,
+            hindsight_red_eval_diff, hindsight_red_min_depth, hindsight_red_min_red,
+            hindsight_red_red, hist_prune_depth, hist_prune_scale, lmp_base, lmp_scale, lmr_check,
+            lmr_cutnode, lmr_min_depth, lmr_nonpv, lmr_ttpv, movepick_see_threshold, nmp_depth,
+            nmp_red_base, nmp_red_scale_div, nmp_verif_min_depth, qs_lmp_limit, qs_see_threshold,
             quiet_hist_lmr_div, quiet_see_base, quiet_see_scale, rfp_depth, rfp_margin,
             rfp_quad_margin, se_beta_scale, se_depth_offset, se_depth_scale, se_dext_margin,
             se_double_ext, se_double_negext, se_min_depth, se_single_ext, se_single_negext,
@@ -173,6 +174,21 @@ pub fn search<Node: NodeType>(
         && static_eval < -thread.search_stack[ply as usize - 1].static_eval
     {
         depth += hindsight_ext_ext();
+    }
+
+    // Hindsight reduction
+    if !Node::PV
+        && !in_check
+        && !singular_search
+        && depth >= hindsight_red_min_depth()
+        && thread.search_stack[ply as usize - 1].reduction >= hindsight_red_min_red()
+        && thread.search_stack[ply as usize - 1].static_eval != Score::NONE
+        && static_eval
+            .saturating_add(thread.search_stack[ply as usize - 1].static_eval.0)
+            .0
+            > hindsight_red_eval_diff()
+    {
+        depth -= hindsight_red_red();
     }
 
     if !Node::PV && !in_check && !singular_search {

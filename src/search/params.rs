@@ -36,6 +36,10 @@ tunable_params!(
 
     hindsight_ext_min_red   : i32 = 3072    (1536..=6144);
     hindsight_ext_ext       : i32 = 1024    (512..=2048);
+    hindsight_red_min_depth : i32 = 2048    (1024..=4096);
+    hindsight_red_min_red   : i32 = 1024    (512..=2048);
+    hindsight_red_eval_diff : i16 = 80      (40..=160);
+    hindsight_red_red       : i32 = 1024    (512..=2048);
 
     corr_bonus_scale        : i32 = 128     (64..=256);
     corr_bonus_div          : i32 = 1024    (512..=2048);
