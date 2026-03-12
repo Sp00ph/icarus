@@ -274,6 +274,7 @@ pub fn search<Node: NodeType>(
 
                     if moves_seen as u32 * 1024 >= lmp_margin {
                         move_picker.skip_quiets();
+                        continue;
                     }
 
                     // FP
