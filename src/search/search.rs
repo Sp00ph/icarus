@@ -556,9 +556,6 @@ pub fn qsearch<Node: NodeType>(
             }
             // Skip quiets if non-mated evasion was found
             move_picker.skip_quiets();
-            if pos.board().is_quiet(mv) {
-                continue;
-            }
         }
 
         pos.make_move(mv, Some(&mut thread.nnue));
