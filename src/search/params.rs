@@ -34,6 +34,9 @@ tunable_params!(
     lmr_check               : i32 = 1024    (512..=2048);
     lmr_cutnode             : i32 = 1024    (512..=2048);
 
+    hindsight_ext_min_red   : i32 = 3072    (1536..=6144);
+    hindsight_ext_ext       : i32 = 1024    (512..=2048);
+
     corr_bonus_scale        : i32 = 128     (64..=256);
     corr_bonus_div          : i32 = 1024    (512..=2048);
     corr_pawn_factor        : i32 = 64      (32..=128);

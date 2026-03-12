@@ -8,14 +8,14 @@ use crate::{
     search::{
         move_picker::{MovePicker, Stage},
         params::{
-            fp_base, fp_depth, fp_scale, get_lmr, hist_prune_depth, hist_prune_scale, lmp_base,
-            lmp_scale, lmr_check, lmr_cutnode, lmr_min_depth, lmr_nonpv, lmr_ttpv,
-            movepick_see_threshold, nmp_depth, nmp_red_base, nmp_red_scale_div,
-            nmp_verif_min_depth, qs_lmp_limit, qs_see_threshold, quiet_hist_lmr_div,
-            quiet_see_base, quiet_see_scale, rfp_depth, rfp_margin, rfp_quad_margin, se_beta_scale,
-            se_depth_offset, se_depth_scale, se_dext_margin, se_double_ext, se_double_negext,
-            se_min_depth, se_single_ext, se_single_negext, se_triple_negext, se_tt_depth_offset,
-            see_max_depth, tactic_see_base, tactic_see_scale,
+            fp_base, fp_depth, fp_scale, get_lmr, hindsight_ext_ext, hindsight_ext_min_red,
+            hist_prune_depth, hist_prune_scale, lmp_base, lmp_scale, lmr_check, lmr_cutnode,
+            lmr_min_depth, lmr_nonpv, lmr_ttpv, movepick_see_threshold, nmp_depth, nmp_red_base,
+            nmp_red_scale_div, nmp_verif_min_depth, qs_lmp_limit, qs_see_threshold,
+            quiet_hist_lmr_div, quiet_see_base, quiet_see_scale, rfp_depth, rfp_margin,
+            rfp_quad_margin, se_beta_scale, se_depth_offset, se_depth_scale, se_dext_margin,
+            se_double_ext, se_double_negext, se_min_depth, se_single_ext, se_single_negext,
+            se_triple_negext, se_tt_depth_offset, see_max_depth, tactic_see_base, tactic_see_scale,
         },
         searcher::ThreadCtx,
         transposition_table::TTFlag,
@@ -66,7 +66,7 @@ fn update_pv(thread: &mut ThreadCtx, ply: u16, mv: Move) {
 
 pub fn search<Node: NodeType>(
     pos: &mut Position,
-    depth: i32,
+    mut depth: i32,
     ply: u16,
     mut alpha: Score,
     mut beta: Score,
@@ -163,6 +163,17 @@ pub fn search<Node: NodeType>(
     } else {
         true
     };
+
+    // Hindsight ext
+    if !Node::ROOT
+        && !in_check
+        && !singular_search
+        && thread.search_stack[ply as usize - 1].reduction >= hindsight_ext_min_red()
+        && thread.search_stack[ply as usize - 1].static_eval != Score::NONE
+        && static_eval < -thread.search_stack[ply as usize - 1].static_eval
+    {
+        depth += hindsight_ext_ext();
+    }
 
     if !Node::PV && !in_check && !singular_search {
         // RFP
@@ -376,7 +387,9 @@ pub fn search<Node: NodeType>(
 
             let lmr_depth = (new_depth - lmr).max(DEPTH_SCALE).min(new_depth);
 
+            thread.search_stack[ply as usize].reduction = lmr;
             score = -search::<NonPV>(pos, lmr_depth, ply + 1, -alpha - 1, -alpha, true, thread);
+            thread.search_stack[ply as usize].reduction = 0;
 
             if lmr > 0 && score > alpha {
                 score = -search::<NonPV>(

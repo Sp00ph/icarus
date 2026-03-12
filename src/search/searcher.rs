@@ -112,6 +112,7 @@ pub struct SearchStackEntry {
     pub pv: PrincipalVariation,
     pub static_eval: Score,
     pub singular: Option<Move>,
+    pub reduction: i32,
 }
 
 impl Default for SearchStackEntry {
@@ -120,6 +121,7 @@ impl Default for SearchStackEntry {
             pv: Default::default(),
             static_eval: -Score::INFINITE,
             singular: None,
+            reduction: 0,
         }
     }
 }
