@@ -8,9 +8,10 @@ use crate::{
     search::{
         move_picker::{MovePicker, Stage},
         params::{
-            fp_base, fp_depth, fp_scale, get_lmr, hindsight_ext_ext, hindsight_ext_min_red,
-            hist_prune_depth, hist_prune_scale, lmp_base, lmp_scale, lmr_check, lmr_cutnode,
-            lmr_min_depth, lmr_nonpv, lmr_ttpv, movepick_see_threshold, nmp_depth, nmp_red_base,
+            alpha_raise_max_depth, alpha_raise_min_depth, alpha_raise_red, fp_base, fp_depth,
+            fp_scale, get_lmr, hindsight_ext_ext, hindsight_ext_min_red, hist_prune_depth,
+            hist_prune_scale, lmp_base, lmp_scale, lmr_check, lmr_cutnode, lmr_min_depth,
+            lmr_nonpv, lmr_ttpv, movepick_see_threshold, nmp_depth, nmp_red_base,
             nmp_red_scale_div, nmp_verif_min_depth, qs_lmp_limit, qs_see_threshold,
             quiet_hist_lmr_div, quiet_see_base, quiet_see_scale, rfp_depth, rfp_margin,
             rfp_quad_margin, se_beta_scale, se_depth_offset, se_depth_scale, se_dext_margin,
@@ -433,6 +434,14 @@ pub fn search<Node: NodeType>(
 
             if Node::PV {
                 update_pv(thread, ply, mv);
+            }
+
+            // Alpha-raise reduction
+            if depth >= alpha_raise_min_depth()
+                && depth <= alpha_raise_max_depth()
+                && !best_score.is_loss()
+            {
+                depth -= alpha_raise_red();
             }
         }
 

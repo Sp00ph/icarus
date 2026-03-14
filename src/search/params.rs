@@ -25,6 +25,9 @@ tunable_params!(
     se_double_negext        : i32 = -2048   (-3072..=-1024);
     se_single_negext        : i32 = -1024   (-1536..=-512);
     quiet_hist_lmr_div      : i16 = 8192    (4096..=16384);
+    alpha_raise_min_depth   : i32 = 3072    (1536..=6144);
+    alpha_raise_max_depth   : i32 = 11264   (5632..=22528);
+    alpha_raise_red         : i32 = 1024    (512..=2048);
 
     lmr_base                : i32 = 512     (256..=1024);
     lmr_quiet_div           : i32 = 1536    (768..=3072);
