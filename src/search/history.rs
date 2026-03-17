@@ -107,18 +107,26 @@ impl History {
         let board = pos.board();
         let oneply = pos.prev_move(1);
         let twoply = pos.prev_move(2);
+        let cont_score = self
+            .cont_oneply
+            .get(board, mv, oneply)
+            .saturating_add(self.cont_twoply.get(board, mv, twoply));
 
         if board.is_tactic(mv) {
             self.tactic.apply_bonus(board, mv, depth);
         } else {
             self.main.apply_bonus(board, mv, depth);
-            self.cont_oneply.apply_bonus(board, mv, oneply, depth);
-            self.cont_twoply.apply_bonus(board, mv, twoply, depth);
+            self.cont_oneply
+                .apply_bonus(board, mv, oneply, cont_score, depth);
+            self.cont_twoply
+                .apply_bonus(board, mv, twoply, cont_score, depth);
 
             for &quiet in quiets {
                 self.main.apply_malus(board, quiet, depth);
-                self.cont_oneply.apply_malus(board, quiet, oneply, depth);
-                self.cont_twoply.apply_malus(board, quiet, twoply, depth);
+                self.cont_oneply
+                    .apply_malus(board, quiet, oneply, cont_score, depth);
+                self.cont_twoply
+                    .apply_malus(board, quiet, twoply, cont_score, depth);
             }
         }
 
