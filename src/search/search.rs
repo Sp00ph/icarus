@@ -453,6 +453,12 @@ pub fn search<Node: NodeType>(
         }
     }
 
+    if !Node::ROOT && best_score >= beta && !best_score.is_win() && !alpha.is_win() {
+        let w = depth.max(0);
+        best_score =
+            Score::clamp_nomate(((best_score.0 as i32 * w + beta.0 as i32) / (w + 1)) as i16);
+    }
+
     if !singular_search {
         thread.global.ttable.store(
             pos.board().hash(),
