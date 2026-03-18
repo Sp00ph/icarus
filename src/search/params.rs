@@ -26,6 +26,11 @@ tunable_params!(
     se_single_negext        : i32 = -1024   (-1536..=-512);
     quiet_hist_lmr_div      : i16 = 8192    (4096..=16384);
 
+    razor_base              : i64 = 320     (150..=600);
+    razor_imp_base          : i64 = 320     (150..=600);
+    razor_scale             : i64 = 270     (150..=600);
+    razor_imp_scale         : i64 = 270     (150..=600);
+
     lmr_base                : i32 = 512     (256..=1024);
     lmr_quiet_div           : i32 = 1536    (768..=3072);
     lmr_tactic_div          : i32 = 3584    (1792..=7168);
@@ -165,4 +170,15 @@ pub fn get_lmr(is_tactic: bool, depth: u8, moves_seen: u8) -> i32 {
         1024.0 / (lmr_quiet_div() as f32)
     };
     (base + LOG[depth as usize] * LOG[moves_seen as usize] * div) as i32 * DEPTH_SCALE
+}
+
+pub fn razor_margin(improving: bool, depth: i32) -> i16 {
+    let (base, scale) = if improving {
+        (razor_imp_base(), razor_imp_scale())
+    } else {
+        (razor_base(), razor_scale())
+    };
+
+    (base + scale * (depth as i64).pow(2) / (DEPTH_SCALE as i64).pow(2))
+        .clamp(i16::MIN as i64, i16::MAX as i64) as i16
 }

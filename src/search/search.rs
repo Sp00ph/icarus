@@ -8,14 +8,7 @@ use crate::{
     search::{
         move_picker::{MovePicker, Stage},
         params::{
-            fp_base, fp_depth, fp_scale, get_lmr, hindsight_ext_ext, hindsight_ext_min_red,
-            hist_prune_depth, hist_prune_scale, lmp_base, lmp_scale, lmr_check, lmr_cutnode,
-            lmr_min_depth, lmr_nonpv, lmr_ttpv, movepick_see_threshold, nmp_depth, nmp_red_base,
-            nmp_red_scale_div, nmp_verif_min_depth, qs_lmp_limit, qs_see_threshold,
-            quiet_hist_lmr_div, quiet_see_base, quiet_see_scale, rfp_depth, rfp_margin,
-            rfp_quad_margin, se_beta_scale, se_depth_offset, se_depth_scale, se_dext_margin,
-            se_double_ext, se_double_negext, se_min_depth, se_single_ext, se_single_negext,
-            se_triple_negext, se_tt_depth_offset, see_max_depth, tactic_see_base, tactic_see_scale,
+            fp_base, fp_depth, fp_scale, get_lmr, hindsight_ext_ext, hindsight_ext_min_red, hist_prune_depth, hist_prune_scale, lmp_base, lmp_scale, lmr_check, lmr_cutnode, lmr_min_depth, lmr_nonpv, lmr_ttpv, movepick_see_threshold, nmp_depth, nmp_red_base, nmp_red_scale_div, nmp_verif_min_depth, qs_lmp_limit, qs_see_threshold, quiet_hist_lmr_div, quiet_see_base, quiet_see_scale, razor_margin, rfp_depth, rfp_margin, rfp_quad_margin, se_beta_scale, se_depth_offset, se_depth_scale, se_dext_margin, se_double_ext, se_double_negext, se_min_depth, se_single_ext, se_single_negext, se_triple_negext, se_tt_depth_offset, see_max_depth, tactic_see_base, tactic_see_scale
         },
         searcher::ThreadCtx,
         transposition_table::TTFlag,
@@ -186,6 +179,15 @@ pub fn search<Node: NodeType>(
                 >= beta
         {
             return Score(static_eval.0.midpoint(beta.0));
+        }
+
+        // Razoring
+        let razor_margin = razor_margin(improving, depth);
+        if static_eval.saturating_add(razor_margin) <= alpha {
+            let score = qsearch::<NonPV>(pos, ply, alpha, alpha + 1, thread);
+            if score <= alpha {
+                return score;
+            }
         }
 
         // NMP
