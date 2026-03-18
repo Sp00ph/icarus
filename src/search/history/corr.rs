@@ -24,6 +24,6 @@ impl CorrHist {
     }
 
     pub fn update(&mut self, stm: Color, hash: u64, amount: i32) {
-        apply_gravity::<{ MAX_CORR_VALUE / 4 }, MAX_CORR_VALUE>(self.get_mut(stm, hash), amount);
+        apply_gravity::<{ MAX_CORR_VALUE / 4 }, MAX_CORR_VALUE>(self.get_mut(stm, hash), None, amount);
     }
 }

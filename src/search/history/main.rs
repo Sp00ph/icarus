@@ -41,6 +41,7 @@ impl MainHist {
     pub fn apply_bonus(&mut self, board: &Board, mv: Move, depth: i16) {
         apply_gravity::<MAX_HIST_VALUE, MAX_HIST_VALUE>(
             self.get_mut(board, mv),
+            None,
             Self::bonus(depth),
         );
     }
@@ -48,6 +49,7 @@ impl MainHist {
     pub fn apply_malus(&mut self, board: &Board, mv: Move, depth: i16) {
         apply_gravity::<MAX_HIST_VALUE, MAX_HIST_VALUE>(
             self.get_mut(board, mv),
+            None,
             -Self::malus(depth),
         );
     }

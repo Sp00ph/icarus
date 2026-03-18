@@ -43,9 +43,13 @@ pub struct History {
     contcorr_twoply: ContCorrHist,
 }
 
-fn apply_gravity<const MAX_BONUS: i32, const MAX_VALUE: i32>(entry: &mut i16, amount: i32) {
+fn apply_gravity<const MAX_BONUS: i32, const MAX_VALUE: i32>(
+    entry: &mut i16,
+    total: Option<i16>,
+    amount: i32,
+) {
     let amount = amount.clamp(-MAX_BONUS, MAX_BONUS);
-    let decay = (*entry as i32 * amount.abs() / MAX_VALUE) as i16;
+    let decay = (total.unwrap_or(*entry) as i32 * amount.abs() / MAX_VALUE) as i16;
     *entry += amount as i16 - decay;
 }
 
@@ -140,6 +144,11 @@ impl History {
         let stm = board.stm();
         let (twoply, oneply, cur) = (pos.prev_move(3), pos.prev_move(2), pos.prev_move(1));
 
+        let total = self
+            .contcorr_oneply
+            .get(stm, cur, oneply)
+            .saturating_add(self.contcorr_twoply.get(stm, cur, twoply));
+
         let delta = score.0 as i32 - static_eval.0 as i32;
 
         let amount = CorrHist::amount(delta, depth);
@@ -152,7 +161,7 @@ impl History {
         self.black_nonpawn_corr
             .update(stm, board.nonpawn_hash(Color::Black), amount);
 
-        self.contcorr_oneply.update(stm, cur, oneply, amount);
-        self.contcorr_twoply.update(stm, cur, twoply, amount);
+        self.contcorr_oneply.update(stm, cur, oneply, total, amount);
+        self.contcorr_twoply.update(stm, cur, twoply, total, amount);
     }
 }

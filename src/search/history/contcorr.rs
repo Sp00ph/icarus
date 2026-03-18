@@ -33,10 +33,11 @@ impl ContCorrHist {
         stm: Color,
         cur: Option<(Piece, Move)>,
         prev: Option<(Piece, Move)>,
+        total: i16,
         amount: i32,
     ) {
         if let Some(entry) = self.get_mut(stm, cur, prev) {
-            apply_gravity::<{ MAX_CORR_VALUE / 4 }, MAX_CORR_VALUE>(entry, amount);
+            apply_gravity::<{ MAX_CORR_VALUE / 4 }, MAX_CORR_VALUE>(entry, Some(total), amount);
         }
     }
 }

@@ -2,7 +2,7 @@ use icarus_board::{board::Board, r#move::Move};
 use icarus_common::piece::Piece;
 
 use crate::search::{
-    history::MAX_HIST_VALUE,
+    history::{MAX_HIST_VALUE, apply_gravity},
     params::{
         cont1_bonus_base, cont1_bonus_max, cont1_bonus_scale, cont1_malus_base, cont1_malus_max,
         cont1_malus_scale, cont2_bonus_base, cont2_bonus_max, cont2_bonus_scale, cont2_malus_base,
@@ -13,13 +13,6 @@ use crate::search::{
 pub struct ContHist<const PLY: usize> {
     /// [stm][prev piece][prev dst][piece][dst]
     data: [[[[[i16; 64]; 6]; 64]; 6]; 2],
-}
-
-
-fn apply_gravity<const MAX_BONUS: i32, const MAX_VALUE: i32>(entry: &mut i16, total: i16, amount: i32) {
-    let amount = amount.clamp(-MAX_BONUS, MAX_BONUS);
-    let decay = (total as i32 * amount.abs() / MAX_VALUE) as i16;
-    *entry += amount as i16 - decay;
 }
 
 impl<const PLY: usize> ContHist<PLY> {
@@ -71,7 +64,7 @@ impl<const PLY: usize> ContHist<PLY> {
         depth: i16,
     ) {
         if let Some(entry) = self.get_mut(board, mv, prev) {
-            apply_gravity::<MAX_HIST_VALUE, MAX_HIST_VALUE>(entry, total, Self::bonus(depth));
+            apply_gravity::<MAX_HIST_VALUE, MAX_HIST_VALUE>(entry, Some(total), Self::bonus(depth));
         }
     }
 
@@ -84,7 +77,7 @@ impl<const PLY: usize> ContHist<PLY> {
         depth: i16,
     ) {
         if let Some(entry) = self.get_mut(board, mv, prev) {
-            apply_gravity::<MAX_HIST_VALUE, MAX_HIST_VALUE>(entry, total, -Self::malus(depth));
+            apply_gravity::<MAX_HIST_VALUE, MAX_HIST_VALUE>(entry, Some(total), -Self::malus(depth));
         }
     }
 }
