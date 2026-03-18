@@ -34,14 +34,15 @@ const _: () = assert!(size_of::<TTEntry>() == 8);
 
 #[repr(C, align(32))]
 struct TTClusterMemory {
-    data: [AtomicU64; 4],
+    data: [AtomicU64; 8],
 }
 
 #[derive(Clone, Copy)]
-#[repr(C, align(32))]
+#[repr(C, align(64))]
 struct TTCluster {
-    entries: [TTEntry; 3],
-    keys: u64,
+    entries: [TTEntry; 6],
+    keys: [u16; 6],
+    _pad: [u16; 2],
 }
 
 impl TTClusterMemory {
@@ -50,23 +51,28 @@ impl TTClusterMemory {
         let b = self.data[1].load(Relaxed);
         let c = self.data[2].load(Relaxed);
         let d = self.data[3].load(Relaxed);
+        let e = self.data[4].load(Relaxed);
+        let f = self.data[5].load(Relaxed);
+        let g = self.data[6].load(Relaxed);
+        let h = self.data[7].load(Relaxed);
 
-        unsafe { transmute([a, b, c, d]) }
+        unsafe { transmute([a, b, c, d, e, f, g, h]) }
     }
 
     fn store(&self, cluster: TTCluster) {
-        let [a, b, c, d]: [u64; 4] = unsafe { transmute(cluster) };
+        let [a, b, c, d, e, f, g, h]: [u64; 8] = unsafe { transmute(cluster) };
         self.data[0].store(a, Relaxed);
         self.data[1].store(b, Relaxed);
         self.data[2].store(c, Relaxed);
         self.data[3].store(d, Relaxed);
+        self.data[4].store(e, Relaxed);
+        self.data[5].store(f, Relaxed);
+        self.data[6].store(g, Relaxed);
+        self.data[7].store(h, Relaxed);
     }
 
     fn clear(&self) {
-        self.data[0].store(0, Relaxed);
-        self.data[1].store(0, Relaxed);
-        self.data[2].store(0, Relaxed);
-        self.data[3].store(0, Relaxed);
+        self.data.iter().for_each(|a| a.store(0, Relaxed));
     }
 
     fn empty() -> Self {
@@ -78,30 +84,17 @@ impl TTClusterMemory {
 
 impl TTCluster {
     fn key_idx(&self, key: u16) -> Option<usize> {
-        let low_bits = 0x0001000100010001;
-        let high_bits = low_bits << 15;
-
-        let splat = (key as u64) * low_bits;
-        let diff = splat ^ self.keys;
-
-        let i = (!diff & (diff.wrapping_sub(low_bits)) & high_bits).trailing_zeros() / 16;
-        if i < 3 { Some(i as usize) } else { None }
+        self.keys.iter().position(|k| key == *k)
     }
 
     #[allow(clippy::identity_op, clippy::erasing_op)]
-    fn keys(&self) -> [u16; 3] {
-        [
-            (self.keys >> (0 * 16)) as u16,
-            (self.keys >> (1 * 16)) as u16,
-            (self.keys >> (2 * 16)) as u16,
-        ]
+    fn keys(&self) -> [u16; 6] {
+        self.keys
     }
 
     #[allow(clippy::identity_op, clippy::erasing_op)]
-    fn set_keys(&mut self, keys: [u16; 3]) {
-        self.keys = ((keys[0] as u64) << (0 * 16))
-            | ((keys[1] as u64) << (1 * 16))
-            | ((keys[2] as u64) << (2 * 16));
+    fn set_keys(&mut self, keys: [u16; 6]) {
+        self.keys = keys;
     }
 }
 
@@ -215,7 +208,7 @@ impl TTable {
         let mut old = None;
 
         #[allow(clippy::needless_range_loop)]
-        for i in 0..3 {
+        for i in 0..6 {
             let entry = cluster.entries[i];
 
             if keys[i] == hash {
@@ -265,7 +258,7 @@ impl TTable {
     }
 
     pub fn hashfull(&self) -> usize {
-        self.entries[..2000]
+        self.entries[..1000]
             .iter()
             .flat_map(|e| e.load().entries)
             .filter(|e| e.flags.tt_flag() != TTFlag::None)
