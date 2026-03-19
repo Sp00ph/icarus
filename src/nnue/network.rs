@@ -20,7 +20,8 @@ use crate::{
     util::MAX_PLY,
 };
 
-pub const INPUT: usize = 768;
+// 704 instead of 768 because of king plane merging
+pub const INPUT: usize = 704;
 pub const HL: usize = 1024;
 pub const NUM_KING_BUCKETS: usize = 14;
 #[rustfmt::skip]
