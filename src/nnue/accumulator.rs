@@ -25,13 +25,16 @@ pub struct Feature {
 
 impl Feature {
     pub fn idx(&self, perspective: Color, king: Square) -> usize {
-        let (mut square, color) = match perspective {
+        let (mut square, mut color) = match perspective {
             Color::White => (self.square, self.color),
             Color::Black => (self.square.flip_rank(), !self.color),
         };
 
         if should_mirror(king) {
             square = square.flip_file();
+        }
+        if self.piece == Piece::King {
+            color = Color::White;
         }
 
         square as usize + Square::COUNT * (self.piece as usize + Piece::COUNT * color as usize)

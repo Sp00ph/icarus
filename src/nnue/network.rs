@@ -20,19 +20,20 @@ use crate::{
     util::MAX_PLY,
 };
 
-pub const INPUT: usize = 768;
+// 704 instead of 768 because of king plane merging
+pub const INPUT: usize = 704;
 pub const HL: usize = 1024;
-pub const NUM_KING_BUCKETS: usize = 4;
+pub const NUM_KING_BUCKETS: usize = 14;
 #[rustfmt::skip]
 pub static KING_BUCKET_LAYOUT: [u8; 64] = [
-    0, 0, 1, 1, 1, 1, 0, 0,
-    2, 2, 2, 2, 2, 2, 2, 2,
-    3, 3, 3, 3, 3, 3, 3, 3,
-    3, 3, 3, 3, 3, 3, 3, 3,
-    3, 3, 3, 3, 3, 3, 3, 3,
-    3, 3, 3, 3, 3, 3, 3, 3,
-    3, 3, 3, 3, 3, 3, 3, 3,
-    3, 3, 3, 3, 3, 3, 3, 3,
+     0,  1,  2,  3,  3,  2,  1,  0,
+     4,  5,  6,  7,  7,  6,  5,  4,
+     8,  8,  9,  9,  9,  9,  8,  8,
+     8,  8,  9,  9,  9,  9,  8,  8,
+    10, 10, 11, 11, 11, 11, 10, 10,
+    10, 10, 11, 11, 11, 11, 10, 10,
+    12, 12, 13, 13, 13, 13, 12, 12,
+    12, 12, 13, 13, 13, 13, 12, 12,
 ];
 
 pub fn king_bucket(king: Square, perspective: Color) -> usize {
