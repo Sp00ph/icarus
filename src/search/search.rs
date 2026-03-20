@@ -193,6 +193,7 @@ pub fn search<Node: NodeType>(
             && ply >= thread.min_nmp_ply
             && static_eval >= beta
             && pos.prev_move(1).is_some()
+            && cutnode
         {
             pos.make_null_move();
             thread.global.ttable.prefetch(pos.board());
