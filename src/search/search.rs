@@ -450,6 +450,7 @@ pub fn search<Node: NodeType>(
             thread
                 .history
                 .update(pos, mv, &quiets, &tactics, (depth / DEPTH_SCALE) as i16);
+            thread.search_stack[ply as usize].cutoffs += 1;
             break;
         }
 
@@ -460,7 +461,6 @@ pub fn search<Node: NodeType>(
                 quiets.push(mv);
             }
         }
-        thread.search_stack[ply as usize].cutoffs += 1;
     }
 
     if !singular_search {
