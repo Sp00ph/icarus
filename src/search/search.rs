@@ -390,7 +390,7 @@ pub fn search<Node: NodeType>(
                 lmr -= lmr_ttpv() * tt_pv as i32;
                 lmr -= lmr_check() * pos.board().checkers().is_non_empty() as i32;
                 lmr += lmr_cutnode() * cutnode as i32;
-                lmr += lmr_cutoffs() * (thread.search_stack[ply as usize + 1].cutoffs > 3) as i32;
+                lmr += lmr_cutoffs() * (thread.search_stack[ply as usize + 1].cutoffs > 8) as i32;
                 lmr -= DEPTH_SCALE * hist_lmr as i32;
             }
 
