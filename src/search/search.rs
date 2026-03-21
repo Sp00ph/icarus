@@ -262,6 +262,7 @@ pub fn search<Node: NodeType>(
     let mut move_picker = MovePicker::new(tt_move, false, movepick_see_threshold());
     let mut best_score = -Score::INFINITE;
     let mut moves_seen = 0;
+    let mut alpha_raises = 0;
     let mut best_move = None;
     let mut flag = TTFlag::Upper;
 
@@ -400,6 +401,7 @@ pub fn search<Node: NodeType>(
                 lmr -= lmr_check() * pos.board().checkers().is_non_empty() as i32;
                 lmr += lmr_cutnode() * cutnode as i32;
                 lmr -= DEPTH_SCALE * hist_lmr as i32;
+                lmr += 1024 * alpha_raises;
             }
 
             let lmr_depth = (new_depth - lmr).max(DEPTH_SCALE).min(new_depth);
@@ -447,6 +449,7 @@ pub fn search<Node: NodeType>(
             alpha = score;
             best_move = Some(mv);
             flag = TTFlag::Exact;
+            alpha_raises += 1;
 
             if Node::PV {
                 update_pv(thread, ply, mv);
