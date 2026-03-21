@@ -15,8 +15,11 @@ pub struct ContHist<const PLY: usize> {
     data: [[[[[i16; 64]; 6]; 64]; 6]; 2],
 }
 
-
-fn apply_gravity<const MAX_BONUS: i32, const MAX_VALUE: i32>(entry: &mut i16, total: i16, amount: i32) {
+fn apply_gravity<const MAX_BONUS: i32, const MAX_VALUE: i32>(
+    entry: &mut i16,
+    total: i16,
+    amount: i32,
+) {
     let amount = amount.clamp(-MAX_BONUS, MAX_BONUS);
     let decay = (total as i32 * amount.abs() / MAX_VALUE) as i16;
     *entry += amount as i16 - decay;

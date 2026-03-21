@@ -11,11 +11,12 @@ use crate::{
             fp_base, fp_depth, fp_scale, get_lmr, hindsight_ext_ext, hindsight_ext_min_red,
             hist_prune_depth, hist_prune_scale, lmp_base, lmp_scale, lmr_check, lmr_cutnode,
             lmr_min_depth, lmr_nonpv, lmr_ttpv, movepick_see_threshold, nmp_depth, nmp_red_base,
-            nmp_red_scale_div, nmp_verif_min_depth, qs_lmp_limit, qs_see_threshold,
-            quiet_hist_lmr_div, quiet_see_base, quiet_see_scale, rfp_depth, rfp_margin,
-            rfp_quad_margin, se_beta_scale, se_depth_offset, se_depth_scale, se_dext_margin,
-            se_double_ext, se_double_negext, se_min_depth, se_single_ext, se_single_negext,
-            se_triple_negext, se_tt_depth_offset, see_max_depth, tactic_see_base, tactic_see_scale,
+            nmp_red_scale_div, nmp_verif_min_depth, probcut_depth_offset, probcut_margin,
+            qs_lmp_limit, qs_see_threshold, quiet_hist_lmr_div, quiet_see_base, quiet_see_scale,
+            rfp_depth, rfp_margin, rfp_quad_margin, se_beta_scale, se_depth_offset, se_depth_scale,
+            se_dext_margin, se_double_ext, se_double_negext, se_min_depth, se_single_ext,
+            se_single_negext, se_triple_negext, se_tt_depth_offset, see_max_depth, tactic_see_base,
+            tactic_see_scale,
         },
         searcher::ThreadCtx,
         transposition_table::TTFlag,
@@ -241,6 +242,21 @@ pub fn search<Node: NodeType>(
                 }
             }
         }
+    }
+
+    let probcut_beta = beta.saturating_add(probcut_margin());
+    if !Node::PV
+        && !singular_search
+        && !in_check
+        && let Some(tte) = tt_entry
+        && tte.score != Score::NONE
+        && !tte.score.is_mate()
+        && !beta.is_mate()
+        && matches!(tte.flags.tt_flag(), TTFlag::Lower | TTFlag::Exact)
+        && tte.score >= probcut_beta
+        && (tte.depth as i32) * DEPTH_SCALE >= depth - probcut_depth_offset()
+    {
+        return tte.score;
     }
 
     let mut move_picker = MovePicker::new(tt_move, false, movepick_see_threshold());
