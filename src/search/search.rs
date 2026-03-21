@@ -7,17 +7,7 @@ use crate::{
     score::Score,
     search::{
         move_picker::{MovePicker, Stage},
-        params::{
-            fp_base, fp_depth, fp_scale, get_lmr, hindsight_ext_ext, hindsight_ext_min_red,
-            hist_prune_depth, hist_prune_scale, lmp_base, lmp_scale, lmr_check, lmr_cutnode,
-            lmr_min_depth, lmr_nonpv, lmr_ttpv, movepick_see_threshold, nmp_depth, nmp_red_base,
-            nmp_red_scale_div, nmp_verif_min_depth, probcut_depth_offset, probcut_margin,
-            qs_lmp_limit, qs_see_threshold, quiet_hist_lmr_div, quiet_see_base, quiet_see_scale,
-            rfp_depth, rfp_margin, rfp_quad_margin, se_beta_scale, se_depth_offset, se_depth_scale,
-            se_dext_margin, se_double_ext, se_double_negext, se_min_depth, se_single_ext,
-            se_single_negext, se_triple_negext, se_tt_depth_offset, see_max_depth, tactic_see_base,
-            tactic_see_scale,
-        },
+        params::*,
         searcher::ThreadCtx,
         transposition_table::TTFlag,
     },
@@ -155,6 +145,7 @@ pub fn search<Node: NodeType>(
     };
 
     thread.search_stack[ply as usize].static_eval = static_eval;
+    thread.search_stack[ply as usize + 2].cutoffs = 0;
     let improving = if in_check {
         false
     } else if ply >= 2 && thread.search_stack[ply as usize - 2].static_eval != Score::NONE {
@@ -399,6 +390,7 @@ pub fn search<Node: NodeType>(
                 lmr -= lmr_ttpv() * tt_pv as i32;
                 lmr -= lmr_check() * pos.board().checkers().is_non_empty() as i32;
                 lmr += lmr_cutnode() * cutnode as i32;
+                lmr += lmr_cutoffs() * (thread.search_stack[ply as usize].cutoffs > 3) as i32;
                 lmr -= DEPTH_SCALE * hist_lmr as i32;
             }
 
@@ -468,6 +460,7 @@ pub fn search<Node: NodeType>(
                 quiets.push(mv);
             }
         }
+        thread.search_stack[ply as usize].cutoffs += 1;
     }
 
     if !singular_search {

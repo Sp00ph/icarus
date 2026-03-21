@@ -57,7 +57,7 @@ pub struct ThreadCtx {
     /// Count the number of nodes spent searching each root move.
     pub root_move_nodes: [[u64; 64]; 64],
     pub sel_depth: u16,
-    pub search_stack: Box<[SearchStackEntry; MAX_PLY as usize + 1]>,
+    pub search_stack: Box<[SearchStackEntry; MAX_PLY as usize + 2]>,
     pub root_pv: PrincipalVariation,
 
     // Used for NMP verification search
@@ -81,7 +81,7 @@ impl ThreadCtx {
             root_moves: vec![],
             root_move_nodes: [[0; 64]; 64],
             sel_depth: 0,
-            search_stack: vec![Default::default(); MAX_PLY as usize + 1]
+            search_stack: vec![Default::default(); MAX_PLY as usize + 2]
                 .try_into()
                 .unwrap(),
             root_pv: Default::default(),
@@ -113,6 +113,7 @@ pub struct SearchStackEntry {
     pub static_eval: Score,
     pub singular: Option<Move>,
     pub reduction: i32,
+    pub cutoffs: usize,
 }
 
 impl Default for SearchStackEntry {
@@ -122,6 +123,7 @@ impl Default for SearchStackEntry {
             static_eval: -Score::INFINITE,
             singular: None,
             reduction: 0,
+            cutoffs: 0,
         }
     }
 }

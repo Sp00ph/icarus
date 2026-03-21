@@ -35,6 +35,7 @@ tunable_params!(
     lmr_ttpv                : i32 = 1024    (512..=2048);
     lmr_check               : i32 = 1024    (512..=2048);
     lmr_cutnode             : i32 = 1024    (512..=2048);
+    lmr_cutoffs             : i32 = 1024    (512..=2048);
 
     hindsight_ext_min_red   : i32 = 3072    (1536..=6144);
     hindsight_ext_ext       : i32 = 1024    (512..=2048);
