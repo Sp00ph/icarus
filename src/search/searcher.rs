@@ -113,7 +113,7 @@ pub struct SearchStackEntry {
     pub static_eval: Score,
     pub singular: Option<Move>,
     pub reduction: i32,
-    pub cutoffs: usize,
+    pub cutoffs: i32,
 }
 
 impl Default for SearchStackEntry {
