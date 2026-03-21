@@ -8,9 +8,10 @@ use crate::{
     search::{
         move_picker::{MovePicker, Stage},
         params::{
-            fp_base, fp_depth, fp_scale, get_lmr, hindsight_ext_ext, hindsight_ext_min_red,
-            hist_prune_depth, hist_prune_scale, lmp_base, lmp_scale, lmr_check, lmr_cutnode,
-            lmr_min_depth, lmr_nonpv, lmr_ttpv, movepick_see_threshold, nmp_depth, nmp_red_base,
+            cutnode_red_min_depth, cutnode_red_red, cutnode_red_tt_offset, fp_base, fp_depth,
+            fp_scale, get_lmr, hindsight_ext_ext, hindsight_ext_min_red, hist_prune_depth,
+            hist_prune_scale, lmp_base, lmp_scale, lmr_check, lmr_cutnode, lmr_min_depth,
+            lmr_nonpv, lmr_ttpv, movepick_see_threshold, nmp_depth, nmp_red_base,
             nmp_red_scale_div, nmp_verif_min_depth, probcut_depth_offset, probcut_margin,
             qs_lmp_limit, qs_see_threshold, quiet_hist_lmr_div, quiet_see_base, quiet_see_scale,
             rfp_depth, rfp_margin, rfp_quad_margin, se_beta_scale, se_depth_offset, se_depth_scale,
@@ -257,6 +258,16 @@ pub fn search<Node: NodeType>(
         && (tte.depth as i32) * DEPTH_SCALE >= depth - probcut_depth_offset()
     {
         return tte.score;
+    }
+
+    if cutnode
+        && !singular_search
+        && depth >= cutnode_red_min_depth()
+        && (tt_move.is_none()
+            || tt_entry
+                .is_none_or(|e| (e.depth as i32 * DEPTH_SCALE) + cutnode_red_tt_offset() <= depth))
+    {
+        depth -= cutnode_red_red();
     }
 
     let mut move_picker = MovePicker::new(tt_move, false, movepick_see_threshold());

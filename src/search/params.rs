@@ -27,6 +27,9 @@ tunable_params!(
     quiet_hist_lmr_div      : i16 = 8192    (4096..=16384);
     probcut_margin          : i16 = 375     (200..=750);
     probcut_depth_offset    : i32 = 2048    (1024..=4096);
+    cutnode_red_min_depth   : i32 = 8192    (4096..=16384);
+    cutnode_red_tt_offset   : i32 = 4096    (2048..=8192);
+    cutnode_red_red         : i32 = 1024    (512..=2048);
 
     lmr_base                : i32 = 512     (256..=1024);
     lmr_quiet_div           : i32 = 1536    (768..=3072);
