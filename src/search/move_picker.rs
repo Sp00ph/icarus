@@ -96,7 +96,7 @@ impl MovePicker {
             });
             for mv in &mut self.moves {
                 let victim = mv.0.captures(board).map_or(0, see_val);
-                mv.1 = thread.history.score_tactic(board, mv.0) / 8 + victim * 8;
+                mv.1 = thread.history.score_tactic(board, mv.0) + victim * 8;
                 if let Some(promo) = mv.0.promotes_to() {
                     mv.1 += (see_val(promo) - see_val(Piece::Pawn)) * 8;
                 }
