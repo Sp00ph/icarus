@@ -289,6 +289,7 @@ pub fn search<Node: NodeType>(
                     && move_picker.stage() > Stage::YieldGoodNoisy
                     && !pos.cmp_see(mv, see_margin)
                 {
+                    tactics.push(mv);
                     continue;
                 }
             } else {
@@ -327,6 +328,7 @@ pub fn search<Node: NodeType>(
                 let see_margin =
                     quiet_see_base() + (quiet_see_scale() * lmr_depth / DEPTH_SCALE) as i16;
                 if !Node::PV && lmr_depth <= see_max_depth() && !pos.cmp_see(mv, see_margin) {
+                    quiets.push(mv);
                     continue;
                 }
             }
