@@ -314,6 +314,7 @@ pub fn search<Node: NodeType>(
                         && lmr_depth <= fp_depth()
                         && !in_check
                         && static_eval + fp_margin <= alpha
+                        && !pos.board().gives_direct_check(mv)
                     {
                         move_picker.skip_quiets();
                     }
