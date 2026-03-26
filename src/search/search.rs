@@ -12,11 +12,11 @@ use crate::{
             hist_prune_depth, hist_prune_scale, lmp_base, lmp_scale, lmr_check, lmr_cutnode,
             lmr_min_depth, lmr_nonpv, lmr_ttpv, movepick_see_threshold, nmp_depth, nmp_red_base,
             nmp_red_scale_div, nmp_verif_min_depth, probcut_depth_offset, probcut_margin,
-            qs_lmp_limit, qs_see_threshold, quiet_hist_lmr_div, quiet_see_base, quiet_see_scale,
-            rfp_depth, rfp_margin, rfp_quad_margin, se_beta_scale, se_depth_offset, se_depth_scale,
-            se_dext_margin, se_double_ext, se_double_negext, se_min_depth, se_single_ext,
-            se_single_negext, se_triple_negext, se_tt_depth_offset, see_max_depth, tactic_see_base,
-            tactic_see_scale,
+            qs_lmp_limit, qs_see_threshold, qsfp_margin, quiet_hist_lmr_div, quiet_see_base,
+            quiet_see_scale, rfp_depth, rfp_margin, rfp_quad_margin, se_beta_scale,
+            se_depth_offset, se_depth_scale, se_dext_margin, se_double_ext, se_double_negext,
+            se_min_depth, se_single_ext, se_single_negext, se_triple_negext, se_tt_depth_offset,
+            see_max_depth, tactic_see_base, tactic_see_scale,
         },
         searcher::ThreadCtx,
         transposition_table::TTFlag,
@@ -578,7 +578,7 @@ pub fn qsearch<Node: NodeType>(
     let mut best_score = static_eval;
     let mut moves_seen = 0;
     let mut move_picker = MovePicker::new(None, !in_check, qs_see_threshold());
-    let futility = static_eval.saturating_add(150);
+    let futility = static_eval.saturating_add(qsfp_margin());
 
     while let Some(mv) = move_picker.next(pos, thread) {
         if !best_score.is_loss() {
