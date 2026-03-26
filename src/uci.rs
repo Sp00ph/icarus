@@ -17,7 +17,7 @@ pub enum UciCommand {
         value: String,
     },
     Position {
-        board: Board,
+        board: Box<Board>,
         moves: Vec<Move>,
         enable_960: bool,
     },
@@ -247,7 +247,7 @@ impl UciCommand {
                 }
 
                 Ok(Position {
-                    board: startpos,
+                    board: Box::new(startpos),
                     moves,
                     enable_960,
                 })
