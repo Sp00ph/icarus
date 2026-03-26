@@ -111,6 +111,10 @@ pub fn search<Node: NodeType>(
         return Score::ZERO;
     }
 
+    if ply >= MAX_PLY {
+        return pos.eval(&mut thread.nnue);
+    }
+
     if depth <= 0 {
         return qsearch::<Node>(pos, ply, alpha, beta, thread);
     }
