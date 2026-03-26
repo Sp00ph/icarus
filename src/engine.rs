@@ -112,7 +112,7 @@ impl Engine {
                 board,
                 moves,
                 enable_960,
-            } => self.position(board, moves, enable_960),
+            } => self.position(*board, moves, enable_960),
             UciCommand::Go(search_limits) => self.go(search_limits),
             UciCommand::Eval => self.eval(),
             UciCommand::Display => self.display(),

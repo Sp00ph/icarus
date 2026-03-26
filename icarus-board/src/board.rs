@@ -40,6 +40,8 @@ pub struct Board {
     /// Bitboard containing all squares attacked by a nstm piece.
     /// Note that nstm pieces can see through the stm king.
     pub(crate) attacked: Bitboard,
+    /// Squares that would put the nstm king in check, if moved to by a {P,N,B,R}.
+    pub(crate) check_zones: [Bitboard; 4],
     /// Half move clock, that counts the plies since the last capture or pawn move.
     pub(crate) halfmove_clock: u8,
     /// Full move count. Gets incremented after every black move.
@@ -200,6 +202,25 @@ impl Board {
         !self.is_tactic(mv)
     }
 
+    #[inline]
+    pub fn check_zone(&self, piece: Piece) -> Bitboard {
+        assert!(piece != Piece::King);
+        if piece == Piece::Queen {
+            self.check_zones[Piece::Bishop as usize] | self.check_zones[Piece::Rook as usize]
+        } else {
+            self.check_zones[piece as usize]
+        }
+    }
+
+    #[inline]
+    pub fn gives_direct_check(&self, mv: Move) -> bool {
+        let piece = mv
+            .promotes_to()
+            .or_else(|| self.piece_on(mv.from()))
+            .unwrap();
+        piece != Piece::King && self.check_zone(piece).contains(mv.to())
+    }
+
     /// Returns whether the given move is legal on the current board. Note that this uses move generation internally, so
     /// it is rather slow. In return, it can handle _any_ kind of move, so it doesn't require any invariants of `Move` to hold.
     #[inline]
@@ -317,6 +338,7 @@ impl Board {
             pinned: Bitboard::EMPTY,
             checkers: Bitboard::EMPTY,
             attacked: Bitboard::EMPTY,
+            check_zones: [Bitboard::EMPTY; 4],
             halfmove_clock: 0,
             fullmove_count: 0,
             stm: Color::White,
@@ -521,6 +543,7 @@ impl Board {
             pinned: Bitboard::EMPTY,
             checkers: Bitboard::EMPTY,
             attacked: Bitboard::EMPTY,
+            check_zones: [Bitboard::EMPTY; 4],
             halfmove_clock: 0,
             fullmove_count: 1,
             stm: Color::White,

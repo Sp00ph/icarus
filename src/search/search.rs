@@ -296,9 +296,10 @@ pub fn search<Node: NodeType>(
 
                 if !move_picker.no_more_quiets() {
                     // LMP
-                    let lmp_margin = (lmp_base()
+                    let lmp_margin = ((lmp_base()
                         + lmp_scale() * ((lmr_depth / DEPTH_SCALE) as u32).pow(2))
-                        >> u32::from(!improving);
+                        >> u32::from(!improving))
+                        + 1024 * pos.board().gives_direct_check(mv) as u32;
 
                     if moves_seen as u32 * 1024 >= lmp_margin {
                         move_picker.skip_quiets();
