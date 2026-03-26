@@ -447,7 +447,7 @@ impl Board {
         }
     }
 
-    /// Recalculates the `checkers`, `pinned`, `xray`, and `attacked` bitboards.
+    /// Recalculates the `checkers`, `pinned`, `attacked`, and `check_zones` bitboards.
     /// Should be called after making a move, and after toggling `self.stm`.
     #[inline]
     pub(crate) fn calc_threats(&mut self) {
@@ -491,19 +491,20 @@ impl Board {
 
         // We're done calculating `self.attacked` and `self.checkers`.
         // Now we do `self.pinned`.
-        for orth in rook_rays(our_king) & their_orth {
-            let between = between(orth, our_king) & blockers;
+        for slider in (rook_rays(our_king) & their_orth) | (bishop_rays(our_king) & their_diag) {
+            let between = between(slider, our_king) & blockers;
             if between.popcnt() == 1 {
                 self.pinned |= between;
             }
         }
 
-        for diag in bishop_rays(our_king) & their_diag {
-            let between = between(diag, our_king) & blockers;
-            if between.popcnt() == 1 {
-                self.pinned |= between;
-            }
-        }
+        let their_king = self.king(!self.stm);
+        self.check_zones = [
+            pawn_attacks(their_king, !self.stm),
+            knight_moves(their_king),
+            bishop_moves(their_king, blockers),
+            rook_moves(their_king, blockers),
+        ];
     }
 
     /// Calcuates en-passant threats onto a nstm pawn that just double pushed on `file`.

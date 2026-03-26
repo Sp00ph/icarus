@@ -130,7 +130,14 @@ impl MovePicker {
                         moves
                             .into_iter()
                             .filter(|mv| self.tt_move != Some(*mv))
-                            .map(|mv| ScoredMove(mv, thread.history.score_quiet(pos, mv))),
+                            .map(|mv| {
+                                ScoredMove(
+                                    mv,
+                                    thread.history.score_quiet(pos, mv).saturating_add(
+                                        5000 * pos.board().gives_direct_check(mv) as i16,
+                                    ),
+                                )
+                            }),
                     );
                     Abort::No
                 });
