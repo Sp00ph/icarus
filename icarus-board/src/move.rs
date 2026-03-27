@@ -236,6 +236,7 @@ impl Iterator for PieceMovesIter {
         }
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         let n = self.moves.len() - self.promote_idx as usize;
         (n, Some(n))

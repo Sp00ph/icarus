@@ -340,6 +340,7 @@ impl Board {
         Abort::No
     }
 
+    #[inline]
     fn gen_moves_impl<const IN_CHECK: bool, const WHITE: bool, V: FnMut(PieceMoves) -> Abort>(
         &self,
         visitor: &mut V,
@@ -385,6 +386,7 @@ impl Board {
         self.gen_all_moves_to_mapped(std::convert::identity)
     }
 
+    #[inline]
     fn gen_noisy_moves_impl<
         const IN_CHECK: bool,
         const WHITE: bool,
@@ -406,6 +408,7 @@ impl Board {
         Abort::No
     }
 
+    #[inline]
     fn gen_quiet_moves_impl<
         const IN_CHECK: bool,
         const WHITE: bool,
@@ -562,6 +565,7 @@ impl Board {
 
     /// Makes the given move on the board. Does *not* check whether the move is legal. An illegal
     /// move may break the board, silently or loudly.
+    #[inline]
     pub fn make_move(&mut self, mov: Move) {
         let (from, to, flag, promotion) = (
             mov.from(),
@@ -686,6 +690,7 @@ impl Board {
         self.calc_threats();
     }
 
+    #[inline]
     pub fn make_null_move(&mut self) {
         debug_assert!(self.checkers.is_empty());
 

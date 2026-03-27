@@ -30,6 +30,7 @@ impl Board {
         }
     }
 
+    #[inline]
     fn is_legal_no_check(&self, mv: Move) -> bool {
         let (from, to, flag) = (mv.from(), mv.to(), mv.flag());
 
@@ -74,6 +75,7 @@ impl Board {
         }
     }
 
+    #[inline]
     fn is_legal_check(&self, mv: Move) -> bool {
         let (from, to, flag) = (mv.from(), mv.to(), mv.flag());
 
@@ -134,6 +136,7 @@ impl Board {
         }
     }
 
+    #[inline]
     fn is_legal_evasion(&self, mv: Move) -> bool {
         let (from, to, flag) = (mv.from(), mv.to(), mv.flag());
 
@@ -147,6 +150,7 @@ impl Board {
                 .contains(to)
     }
 
+    #[inline]
     fn is_legal_en_passant(&self, mv: Move) -> bool {
         self.en_passant.is_some_and(|ep_file| {
             mv.flag() == MoveFlag::EnPassant
@@ -155,6 +159,7 @@ impl Board {
         })
     }
 
+    #[inline]
     fn is_legal_castle(&self, mv: Move) -> bool {
         let (from, to) = (mv.from(), mv.to());
         if self.colored_piece_on(from, self.stm) != Some(Piece::King) {

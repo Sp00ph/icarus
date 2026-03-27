@@ -257,6 +257,7 @@ impl Board {
     }
 
     /// If this returns true, then the board contains insufficient material to ever checkmate either king.
+    #[inline]
     pub fn insufficient_material(&self) -> bool {
         let pieces = &self.pieces;
         use Piece::*;
