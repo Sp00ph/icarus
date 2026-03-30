@@ -293,6 +293,7 @@ dependencies = [
 name = "icarus-board"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
  "enum-map",
  "icarus-common",
 ]
