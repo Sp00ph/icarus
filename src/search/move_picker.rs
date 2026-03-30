@@ -100,6 +100,8 @@ impl MovePicker {
                 if let Some(promo) = mv.0.promotes_to() {
                     mv.1 += (see_val(promo) - see_val(Piece::Pawn)) * 8;
                 }
+                mv.1 =
+                    mv.1.saturating_add(5000 * pos.board().gives_direct_check(mv.0) as i16);
             }
 
             self.stage = Stage::YieldGoodNoisy;
