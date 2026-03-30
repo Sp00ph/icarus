@@ -11,7 +11,10 @@ pub mod perft;
 pub mod zobrist;
 
 cfg_if!(
-    if #[cfg(target_feature = "avx2")] {
+    if #[cfg(target_feature = "avx512f")] {
+        #[path = "setwise_attacks/avx512.rs"]
+        pub mod setwise_attacks;
+    } else if #[cfg(target_feature = "avx2")] {
         #[path = "setwise_attacks/avx2.rs"]
         pub mod setwise_attacks;
     } else {
