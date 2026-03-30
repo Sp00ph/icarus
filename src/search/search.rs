@@ -169,7 +169,7 @@ pub fn search<Node: NodeType>(
             Score::NONE,
             None,
             TTFlag::None,
-            true,
+            Node::PV,
         );
     }
 
@@ -573,6 +573,19 @@ pub fn qsearch<Node: NodeType>(
 
         if static_eval >= alpha {
             alpha = static_eval;
+        }
+
+        if tt_entry.is_none() {
+            thread.global.ttable.store(
+                pos.board().hash(),
+                0,
+                ply,
+                raw_eval,
+                Score::NONE,
+                None,
+                TTFlag::None,
+                Node::PV,
+            );
         }
     }
 
