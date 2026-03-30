@@ -237,7 +237,11 @@ impl TTable {
         }
 
         if tt_flag == TTFlag::Exact
-            || old.is_none_or(|old| depth + 4 > old.depth || age != old.flags.age())
+            || old.is_none_or(|old| {
+                depth + 4 > old.depth
+                    || old.flags.tt_flag() == TTFlag::None
+                    || age != old.flags.age()
+            })
         {
             keys[cluster_idx] = hash;
             cluster.set_keys(keys);
