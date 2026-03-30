@@ -15,6 +15,7 @@ use crate::{
     castling::CastlingDirection,
     ep_file::EnPassantFile,
     r#move::{Move, MoveFlag, PieceMoves},
+    setwise_attacks::knight_and_slider_attacks_setwise,
     zobrist::ZOBRIST,
 };
 
@@ -460,44 +461,30 @@ impl Board {
         let their_pawns = self.colored_pieces(Piece::Pawn, !self.stm);
         let their_orth = self.orth_sliders(!self.stm);
         let their_diag = self.diag_sliders(!self.stm);
+        let their_knights = self.colored_pieces(Piece::Knight, !self.stm);
         self.checkers = Bitboard::EMPTY;
         self.pinned = Bitboard::EMPTY;
         self.attacked =
             their_pawns.shift::<DownLeft>(push_dir) | their_pawns.shift::<DownRight>(push_dir);
         self.attacked |= king_moves(self.king(!self.stm));
+        self.attacked |= knight_and_slider_attacks_setwise(
+            their_knights,
+            their_orth,
+            their_diag,
+            blockers ^ our_king,
+        );
 
-        for knight in self.colored_pieces(Piece::Knight, !self.stm) {
-            let moves = knight_moves(knight);
-            if moves.contains(our_king) {
-                self.checkers |= knight;
-            }
-            self.attacked |= moves;
-        }
-
-        for orth in their_orth {
-            let moves = rook_moves(orth, blockers ^ our_king);
-            if moves.contains(our_king) {
-                self.checkers |= orth;
-            }
-            self.attacked |= moves;
-        }
-
-        for diag in their_diag {
-            let moves = bishop_moves(diag, blockers ^ our_king);
-            if moves.contains(our_king) {
-                self.checkers |= diag;
-            }
-            self.attacked |= moves;
-        }
-
+        self.checkers |= knight_moves(our_king) & their_knights;
         self.checkers |= pawn_attacks(our_king, self.stm) & their_pawns;
 
         // We're done calculating `self.attacked` and `self.checkers`.
         // Now we do `self.pinned`.
         for slider in (rook_rays(our_king) & their_orth) | (bishop_rays(our_king) & their_diag) {
             let between = between(slider, our_king) & blockers;
-            if between.popcnt() == 1 {
-                self.pinned |= between;
+            match between.popcnt() {
+                0 => self.checkers |= slider,
+                1 => self.pinned |= between,
+                _ => {}
             }
         }
 
