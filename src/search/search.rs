@@ -361,7 +361,10 @@ pub fn search<Node: NodeType>(
         {
             let s_beta = tte
                 .score
-                .saturating_add((-depth * se_beta_scale() / (DEPTH_SCALE * 128)) as i16)
+                .saturating_add(
+                    (-depth * se_beta_scale() * (1 + (tte.flags.tt_flag() != TTFlag::Exact) as i32)
+                        / (DEPTH_SCALE * 128)) as i16,
+                )
                 .max(-Score::MAX_MATE + 1);
             let s_depth = (depth - se_depth_offset()) * se_depth_scale() / 128;
 

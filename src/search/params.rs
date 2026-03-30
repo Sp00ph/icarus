@@ -18,7 +18,7 @@ tunable_params!(
     qsfp_margin             : i16 = 150     (80..=300);
     hist_prune_scale        : i32 = 2000    (1000..=4000);
     se_tt_depth_offset      : i32 = 3072    (1024..=6144);
-    se_beta_scale           : i32 = 256     (192..=384);
+    se_beta_scale           : i32 = 128     (192..=384);
     se_dext_margin          : i16 = 20      (10..=40);
     se_single_ext           : i32 = 1024    (512..=2048);
     se_double_ext           : i32 = 1024    (512..=2048);
