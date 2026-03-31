@@ -309,6 +309,20 @@ pub fn search<Node: NodeType>(
                 {
                     continue;
                 }
+
+                // Bad Noisy FP (BNFP)
+                let bnfp_margin = 150 + 75 * (depth / DEPTH_SCALE) as i16;
+                let bnfp_futility = Score::clamp_nomate(static_eval.saturating_add(bnfp_margin).0);
+                if !in_check
+                    && depth <= 8192
+                    && move_picker.stage() > Stage::YieldGoodNoisy
+                    && bnfp_futility <= alpha
+                {
+                    if !best_score.is_mate() {
+                        best_score = best_score.max(bnfp_futility)
+                    }
+                    break;
+                }
             } else {
                 let lmr_depth = (depth - lmr).max(0);
 
