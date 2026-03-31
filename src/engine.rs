@@ -20,6 +20,7 @@ use crate::{
     },
     uci::{SearchLimit, UciCommand},
     util::atomic_instant::EPOCH,
+    wdl,
 };
 
 pub struct Engine {
@@ -349,7 +350,10 @@ impl Engine {
     fn eval(&self) {
         let mut nnue = Nnue::new(self.position.board());
         let score = self.position.eval(&mut nnue);
-        println!("Static eval: {score:#}");
+        let material = self.position.board().classical_material();
+        let normalized = wdl::normalize(score, material);
+        println!("Raw static eval:        {score:#}");
+        println!("Normalized static eval: {normalized:#}")
     }
 }
 
