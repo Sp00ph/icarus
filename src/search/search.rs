@@ -302,8 +302,7 @@ pub fn search<Node: NodeType>(
                 // Tactic SEE Pruning
                 let see_margin =
                     tactic_see_base() + (tactic_see_scale() * depth / DEPTH_SCALE) as i16;
-                if !Node::PV
-                    && depth <= see_max_depth()
+                if depth <= see_max_depth()
                     && move_picker.stage() > Stage::YieldGoodNoisy
                     && !pos.cmp_see(mv, see_margin)
                 {
@@ -345,7 +344,7 @@ pub fn search<Node: NodeType>(
                 // Quiet SEE Pruning
                 let see_margin =
                     quiet_see_base() + (quiet_see_scale() * lmr_depth / DEPTH_SCALE) as i16;
-                if !Node::PV && lmr_depth <= see_max_depth() && !pos.cmp_see(mv, see_margin) {
+                if lmr_depth <= see_max_depth() && !pos.cmp_see(mv, see_margin) {
                     continue;
                 }
             }
