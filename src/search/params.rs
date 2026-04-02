@@ -99,7 +99,6 @@ tunable_params!(
 );
 
 nontunable!(
-    rfp_depth               : i32 = 6144    (4096..=12288);
     nmp_depth               : i32 = 3072    (0..=8192);
     nmp_red_base            : i32 = 6144    (3072..=12288);
     nmp_red_scale_div       : i32 = 640     (256..=1280);

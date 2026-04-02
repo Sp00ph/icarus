@@ -7,17 +7,7 @@ use crate::{
     score::Score,
     search::{
         move_picker::{MovePicker, Stage},
-        params::{
-            fp_base, fp_depth, fp_scale, get_lmr, hindsight_ext_ext, hindsight_ext_min_red,
-            hist_prune_depth, hist_prune_scale, lmp_base, lmp_scale, lmr_check, lmr_cutnode,
-            lmr_min_depth, lmr_nonpv, lmr_ttpv, movepick_see_threshold, nmp_depth, nmp_red_base,
-            nmp_red_scale_div, nmp_verif_min_depth, probcut_depth_offset, probcut_margin,
-            qs_lmp_limit, qs_see_threshold, qsfp_margin, quiet_hist_lmr_div, quiet_see_base,
-            quiet_see_scale, rfp_depth, rfp_margin, rfp_quad_margin, se_beta_scale,
-            se_depth_offset, se_depth_scale, se_dext_margin, se_double_ext, se_double_negext,
-            se_min_depth, se_single_ext, se_single_negext, se_triple_negext, se_tt_depth_offset,
-            see_max_depth, tactic_see_base, tactic_see_scale,
-        },
+        params::*,
         searcher::ThreadCtx,
         transposition_table::TTFlag,
     },
@@ -197,8 +187,7 @@ pub fn search<Node: NodeType>(
     if !Node::PV && !in_check && !singular_search {
         // RFP
         let improving_depth = (depth / DEPTH_SCALE - improving as i32).max(0) as i16;
-        if depth < rfp_depth()
-            && !beta.is_win()
+        if !beta.is_win()
             && static_eval
                 - rfp_margin() * improving_depth
                 - rfp_quad_margin() * improving_depth.pow(2) / 128
