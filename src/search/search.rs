@@ -601,9 +601,13 @@ pub fn qsearch<Node: NodeType>(
         }
     }
 
+    let force_quiets = !Node::PV
+        && tt_entry
+            .and_then(|e| e.mv)
+            .is_some_and(|mv| pos.board().is_quiet(mv));
     let mut best_score = static_eval;
     let mut moves_seen = 0;
-    let mut move_picker = MovePicker::new(None, !in_check, qs_see_threshold());
+    let mut move_picker = MovePicker::new(None, !in_check && !force_quiets, qs_see_threshold());
     let futility = static_eval.saturating_add(qsfp_margin());
 
     while let Some(mv) = move_picker.next(pos, thread) {
@@ -617,9 +621,11 @@ pub fn qsearch<Node: NodeType>(
                 break;
             }
             // Skip quiets if non-mated evasion was found
-            move_picker.skip_quiets();
-            if pos.board().is_quiet(mv) {
-                continue;
+            if !force_quiets {
+                move_picker.skip_quiets();
+                if pos.board().is_quiet(mv) {
+                    continue;
+                }
             }
             // FP
             if !in_check && futility <= alpha && !pos.cmp_see(mv, 1) {
