@@ -553,11 +553,13 @@ pub fn qsearch<Node: NodeType>(
 
     let in_check = pos.board().checkers().is_non_empty();
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
+    let tt_pv = Node::PV || tt_entry.is_some_and(|e| e.flags.pv());
 
+    let mut raw_eval = Score::NONE;
     let mut static_eval = Score::new_mated(ply);
 
     if !in_check {
-        let raw_eval = tt_entry
+        raw_eval = tt_entry
             .map(|e| e.eval)
             .unwrap_or_else(|| pos.eval(&mut thread.nnue));
         static_eval = raw_eval + thread.history.corr(pos);
@@ -602,6 +604,8 @@ pub fn qsearch<Node: NodeType>(
     }
 
     let mut best_score = static_eval;
+    let mut best_move = None;
+    let mut flag = TTFlag::Upper;
     let mut moves_seen = 0;
     let mut move_picker = MovePicker::new(None, !in_check, qs_see_threshold());
     let futility = static_eval.saturating_add(qsfp_margin());
@@ -647,7 +651,9 @@ pub fn qsearch<Node: NodeType>(
         }
 
         if score > alpha {
+            best_move = Some(mv);
             alpha = score;
+            flag = TTFlag::Exact;
 
             if Node::PV {
                 update_pv(thread, ply, mv);
@@ -655,9 +661,21 @@ pub fn qsearch<Node: NodeType>(
         }
 
         if score >= beta {
+            flag = TTFlag::Lower;
             break;
         }
     }
+
+    thread.global.ttable.store(
+        pos.board().hash(),
+        0,
+        ply,
+        raw_eval,
+        best_score,
+        best_move,
+        flag,
+        tt_pv,
+    );
 
     best_score.max(alpha)
 }
