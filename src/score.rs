@@ -22,7 +22,7 @@ impl Score {
     }
 
     pub fn is_mate(self) -> bool {
-        (Self::MAX_MATE.0..=Self::MIN_MATE.0).contains(&self.0.abs())
+        (Self::MAX_MATE.0..=Self::MIN_MATE.0).contains(&self.0.wrapping_abs())
     }
 
     pub fn is_win(self) -> bool {
