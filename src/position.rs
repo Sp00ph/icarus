@@ -57,16 +57,20 @@ impl Position {
         self.moves.pop();
     }
 
-    pub fn eval(&self, nnue: &mut Nnue) -> Score {
+    pub fn eval(&self, nnue: &mut Nnue, mat_scaling: bool) -> Score {
         nnue.update(&self.board);
         let eval = nnue.eval(self.board.stm());
-        let scale = 2048
-            + 90 * self.board.pieces(Piece::Knight).popcnt() as i32
-            + 90 * self.board.pieces(Piece::Bishop).popcnt() as i32
-            + 180 * self.board.pieces(Piece::Rook).popcnt() as i32
-            + 360 * self.board.pieces(Piece::Queen).popcnt() as i32;
 
-        Score::clamp_nomate((eval * scale / 4096).clamp(i16::MIN as i32, i16::MAX as i32) as i16)
+        let scale = if mat_scaling {
+            25000
+                + Piece::all()
+                    .map(|pt| self.board.pieces(pt).popcnt() as i32 * see_val(pt) as i32)
+                    .sum::<i32>()
+        } else {
+            32768
+        };
+
+        Score::clamp_nomate((eval * scale / 32768).clamp(i16::MIN as i32, i16::MAX as i32) as i16)
     }
 
     pub fn prev_move(&self, ply: usize) -> Option<(Piece, Move)> {

@@ -349,11 +349,13 @@ impl Engine {
 
     fn eval(&self) {
         let mut nnue = Nnue::new(self.position.board());
-        let score = self.position.eval(&mut nnue);
+        let score = self.position.eval(&mut nnue, false);
+        let scaled_score = self.position.eval(&mut nnue, true);
+
         let material = self.position.board().classical_material();
-        let normalized = wdl::normalize(score, material);
-        println!("Raw static eval:        {score:#}");
-        println!("Normalized static eval: {normalized:#}")
+        let normalized = wdl::normalize(scaled_score, material);
+        println!("Raw eval:               {score:#}");
+        println!("Normalized scaled eval: {normalized:#}")
     }
 }
 

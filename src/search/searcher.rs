@@ -50,6 +50,7 @@ pub struct ThreadCtx {
     pub id: usize,
     pub global: Arc<GlobalCtx>,
     pub chess960: bool,
+    pub mat_scaling: bool,
     pub abort_now: bool,
 
     pub nodes: BufferedCounter,
@@ -70,12 +71,13 @@ pub struct ThreadCtx {
 }
 
 impl ThreadCtx {
-    pub fn new(global: Arc<GlobalCtx>, id: usize, chess960: bool) -> Self {
+    pub fn new(global: Arc<GlobalCtx>, id: usize, chess960: bool, mat_scaling: bool) -> Self {
         let nodes = BufferedCounter::new(global.nodes.clone());
         ThreadCtx {
             id,
             global,
             chess960,
+            mat_scaling,
             abort_now: false,
             nodes,
             root_moves: vec![],
@@ -304,7 +306,7 @@ impl Searcher {
 }
 
 fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: usize) {
-    let mut thread_ctx = ThreadCtx::new(global, id, false);
+    let mut thread_ctx = ThreadCtx::new(global, id, false, true);
 
     loop {
         match rx.recv(|cmd| cmd.clone()) {

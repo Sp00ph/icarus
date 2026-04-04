@@ -91,7 +91,7 @@ pub fn genfens(n: usize, seed: u64, dfrc: bool, random_moves: usize) {
                 num_searching: Default::default(),
                 ttable: TTable::new(DEFAULT_TT_SIZE),
             });
-            ThreadCtx::new(global, 0, dfrc)
+            ThreadCtx::new(global, 0, dfrc, false)
         }
     };
 
