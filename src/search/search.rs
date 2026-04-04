@@ -148,6 +148,20 @@ pub fn search<Node: NodeType>(
         (raw_eval, static_eval)
     };
 
+    let mut score_estimate = static_eval;
+    if !in_check
+        && !singular_search
+        && let Some(tte) = tt_entry
+        && match tte.flags.tt_flag() {
+            TTFlag::None => false,
+            TTFlag::Exact => true,
+            TTFlag::Lower => tte.score > static_eval,
+            TTFlag::Upper => tte.score < static_eval,
+        }
+    {
+        score_estimate = tte.score;
+    }
+
     thread.search_stack[ply as usize].static_eval = static_eval;
 
     if !singular_search && !in_check && tt_entry.is_none() {
@@ -188,13 +202,16 @@ pub fn search<Node: NodeType>(
         // RFP
         let improving_depth = (depth / DEPTH_SCALE - improving as i32).max(0) as i16;
         if depth < rfp_depth()
-            && !beta.is_win()
-            && static_eval
+            && score_estimate
                 - rfp_margin() * improving_depth
                 - rfp_quad_margin() * improving_depth.pow(2) / 128
                 >= beta
         {
-            return Score(static_eval.0.midpoint(beta.0));
+            if !score_estimate.is_win() && !beta.is_win() {
+                return Score(score_estimate.0.midpoint(beta.0));
+            } else {
+                return score_estimate;
+            }
         }
 
         // NMP
