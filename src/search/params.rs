@@ -96,6 +96,13 @@ tunable_params!(
     bishop_see_val          : i16 = 300     (150..=600);
     rook_see_val            : i16 = 500     (250..=1000);
     queen_see_val           : i16 = 900     (450..=1800);
+
+    mat_scaling_base        : i32 = 25000   (12000..=50000);
+    pawn_mat_scale          : i32 = 100     (50..=200);
+    knight_mat_scale        : i32 = 300     (150..=600);
+    bishop_mat_scale        : i32 = 300     (150..=600);
+    rook_mat_scale          : i32 = 500     (250..=1000);
+    queen_mat_scale         : i32 = 900     (450..=1800);
 );
 
 nontunable!(
@@ -122,6 +129,17 @@ pub fn see_val(piece: Piece) -> i16 {
         Piece::Bishop => bishop_see_val(),
         Piece::Rook => rook_see_val(),
         Piece::Queen => queen_see_val(),
+        Piece::King => 0,
+    }
+}
+
+pub fn mat_scale(piece: Piece) -> i32 {
+    match piece {
+        Piece::Pawn => pawn_mat_scale(),
+        Piece::Knight => knight_mat_scale(),
+        Piece::Bishop => bishop_mat_scale(),
+        Piece::Rook => rook_mat_scale(),
+        Piece::Queen => queen_mat_scale(),
         Piece::King => 0,
     }
 }

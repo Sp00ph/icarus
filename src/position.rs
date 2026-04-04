@@ -9,7 +9,11 @@ use icarus_common::{
     square::Square,
 };
 
-use crate::{nnue::network::Nnue, score::Score, search::params::see_val};
+use crate::{
+    nnue::network::Nnue,
+    score::Score,
+    search::params::{mat_scale, mat_scaling_base, see_val},
+};
 
 #[derive(Clone)]
 pub struct Position {
@@ -57,10 +61,20 @@ impl Position {
         self.moves.pop();
     }
 
-    pub fn eval(&self, nnue: &mut Nnue) -> Score {
+    pub fn eval(&self, nnue: &mut Nnue, mat_scaling: bool) -> Score {
         nnue.update(&self.board);
         let eval = nnue.eval(self.board.stm());
-        Score::clamp_nomate(eval.clamp(i16::MIN as i32, i16::MAX as i32) as i16)
+
+        let scale = if mat_scaling {
+            mat_scaling_base()
+                + Piece::all()
+                    .map(|pt| self.board.pieces(pt).popcnt() as i32 * mat_scale(pt))
+                    .sum::<i32>()
+        } else {
+            32768
+        };
+
+        Score::clamp_nomate((eval * scale / 32768).clamp(i16::MIN as i32, i16::MAX as i32) as i16)
     }
 
     pub fn prev_move(&self, ply: usize) -> Option<(Piece, Move)> {

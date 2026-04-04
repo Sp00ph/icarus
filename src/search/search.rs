@@ -102,7 +102,7 @@ pub fn search<Node: NodeType>(
     }
 
     if ply >= MAX_PLY {
-        return pos.eval(&mut thread.nnue);
+        return pos.eval(&mut thread.nnue, thread.mat_scaling);
     }
 
     if depth <= 0 {
@@ -143,7 +143,7 @@ pub fn search<Node: NodeType>(
     } else {
         let raw_eval = tt_entry
             .map(|e| e.eval)
-            .unwrap_or_else(|| pos.eval(&mut thread.nnue));
+            .unwrap_or_else(|| pos.eval(&mut thread.nnue, thread.mat_scaling));
         let static_eval = Score::clamp_nomate(raw_eval.0.saturating_add(thread.history.corr(pos)));
         (raw_eval, static_eval)
     };
@@ -537,7 +537,7 @@ pub fn qsearch<Node: NodeType>(
     }
 
     if ply >= MAX_PLY {
-        return pos.eval(&mut thread.nnue);
+        return pos.eval(&mut thread.nnue, thread.mat_scaling);
     }
 
     let in_check = pos.board().checkers().is_non_empty();
@@ -550,7 +550,7 @@ pub fn qsearch<Node: NodeType>(
     if !in_check {
         raw_eval = tt_entry
             .map(|e| e.eval)
-            .unwrap_or_else(|| pos.eval(&mut thread.nnue));
+            .unwrap_or_else(|| pos.eval(&mut thread.nnue, thread.mat_scaling));
         static_eval = raw_eval + thread.history.corr(pos);
 
         if static_eval >= beta {
