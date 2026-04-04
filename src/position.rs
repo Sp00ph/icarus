@@ -9,7 +9,11 @@ use icarus_common::{
     square::Square,
 };
 
-use crate::{nnue::network::Nnue, score::Score, search::params::see_val};
+use crate::{
+    nnue::network::Nnue,
+    score::Score,
+    search::params::{mat_scale, mat_scaling_base, see_val},
+};
 
 #[derive(Clone)]
 pub struct Position {
@@ -62,9 +66,9 @@ impl Position {
         let eval = nnue.eval(self.board.stm());
 
         let scale = if mat_scaling {
-            25000
+            mat_scaling_base()
                 + Piece::all()
-                    .map(|pt| self.board.pieces(pt).popcnt() as i32 * see_val(pt) as i32)
+                    .map(|pt| self.board.pieces(pt).popcnt() as i32 * mat_scale(pt))
                     .sum::<i32>()
         } else {
             32768
