@@ -60,7 +60,13 @@ impl Position {
     pub fn eval(&self, nnue: &mut Nnue) -> Score {
         nnue.update(&self.board);
         let eval = nnue.eval(self.board.stm());
-        Score::clamp_nomate(eval.clamp(i16::MIN as i32, i16::MAX as i32) as i16)
+        let scale = 2048
+            + 90 * self.board.pieces(Piece::Knight).popcnt() as i32
+            + 90 * self.board.pieces(Piece::Bishop).popcnt() as i32
+            + 180 * self.board.pieces(Piece::Rook).popcnt() as i32
+            + 360 * self.board.pieces(Piece::Queen).popcnt() as i32;
+
+        Score::clamp_nomate((eval * scale / 4096).clamp(i16::MIN as i32, i16::MAX as i32) as i16)
     }
 
     pub fn prev_move(&self, ply: usize) -> Option<(Piece, Move)> {
