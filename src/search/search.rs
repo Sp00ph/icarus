@@ -202,13 +202,16 @@ pub fn search<Node: NodeType>(
         // RFP
         let improving_depth = (depth / DEPTH_SCALE - improving as i32).max(0) as i16;
         if depth < rfp_depth()
-            && !beta.is_win()
             && score_estimate
                 - rfp_margin() * improving_depth
                 - rfp_quad_margin() * improving_depth.pow(2) / 128
                 >= beta
         {
-            return Score(score_estimate.0.midpoint(beta.0));
+            if !score_estimate.is_win() && !beta.is_win() {
+                return Score(score_estimate.0.midpoint(beta.0));
+            } else {
+                return score_estimate;
+            }
         }
 
         // NMP
