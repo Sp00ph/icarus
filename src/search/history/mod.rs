@@ -59,8 +59,9 @@ impl History {
     }
 
     fn cont(&self, pos: &Position, mv: Move) -> i32 {
-        self.cont_even.get(pos.board(), mv, pos.prev_move(1)) as i32
-            + self.cont_odd.get(pos.board(), mv, pos.prev_move(2)) as i32
+        self.cont_odd.get(pos.board(), mv, pos.prev_move(1)) as i32
+            + self.cont_even.get(pos.board(), mv, pos.prev_move(2)) as i32
+            + self.cont_even.get(pos.board(), mv, pos.prev_move(4)) as i32
     }
 
     pub fn score_quiet(&self, pos: &Position, mv: Move) -> i32 {
