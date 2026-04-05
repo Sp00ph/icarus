@@ -6,11 +6,12 @@ use crate::search::{
     params::{
         cont1_bonus_base, cont1_bonus_max, cont1_bonus_scale, cont1_malus_base, cont1_malus_max,
         cont1_malus_scale, cont2_bonus_base, cont2_bonus_max, cont2_bonus_scale, cont2_malus_base,
-        cont2_malus_max, cont2_malus_scale,
+        cont2_malus_max, cont2_malus_scale, cont4_bonus_base, cont4_bonus_max, cont4_bonus_scale,
+        cont4_malus_base, cont4_malus_max, cont4_malus_scale,
     },
 };
 
-pub struct ContHist<const PLY: usize> {
+pub struct ContHist {
     /// [stm][prev piece][prev dst][piece][dst]
     data: [[[[[i16; 64]; 6]; 64]; 6]; 2],
 }
@@ -25,20 +26,22 @@ fn apply_gravity<const MAX_BONUS: i32, const MAX_VALUE: i32>(
     *entry += amount as i16 - decay;
 }
 
-impl<const PLY: usize> ContHist<PLY> {
-    fn bonus(depth: i16) -> i32 {
+impl ContHist {
+    fn bonus<const PLY: usize>(depth: i16) -> i32 {
         let (bonus_base, bonus_scale, bonus_max) = match PLY {
             1 => (cont1_bonus_base(), cont1_bonus_scale(), cont1_bonus_max()),
             2 => (cont2_bonus_base(), cont2_bonus_scale(), cont2_bonus_max()),
+            4 => (cont4_bonus_base(), cont4_bonus_scale(), cont4_bonus_max()),
             _ => unreachable!(),
         };
         (bonus_base + (depth as i32) * bonus_scale).min(bonus_max)
     }
 
-    fn malus(depth: i16) -> i32 {
+    fn malus<const PLY: usize>(depth: i16) -> i32 {
         let (malus_base, malus_scale, malus_max) = match PLY {
             1 => (cont1_malus_base(), cont1_malus_scale(), cont1_malus_max()),
             2 => (cont2_malus_base(), cont2_malus_scale(), cont2_malus_max()),
+            4 => (cont4_malus_base(), cont4_malus_scale(), cont4_malus_max()),
             _ => unreachable!(),
         };
         (malus_base + (depth as i32) * malus_scale).min(malus_max)
@@ -65,7 +68,7 @@ impl<const PLY: usize> ContHist<PLY> {
         })
     }
 
-    pub fn apply_bonus(
+    pub fn apply_bonus<const PLY: usize>(
         &mut self,
         board: &Board,
         mv: Move,
@@ -74,11 +77,15 @@ impl<const PLY: usize> ContHist<PLY> {
         depth: i16,
     ) {
         if let Some(entry) = self.get_mut(board, mv, prev) {
-            apply_gravity::<MAX_HIST_VALUE, MAX_HIST_VALUE>(entry, total, Self::bonus(depth));
+            apply_gravity::<MAX_HIST_VALUE, MAX_HIST_VALUE>(
+                entry,
+                total,
+                Self::bonus::<PLY>(depth),
+            );
         }
     }
 
-    pub fn apply_malus(
+    pub fn apply_malus<const PLY: usize>(
         &mut self,
         board: &Board,
         mv: Move,
@@ -87,7 +94,11 @@ impl<const PLY: usize> ContHist<PLY> {
         depth: i16,
     ) {
         if let Some(entry) = self.get_mut(board, mv, prev) {
-            apply_gravity::<MAX_HIST_VALUE, MAX_HIST_VALUE>(entry, total, -Self::malus(depth));
+            apply_gravity::<MAX_HIST_VALUE, MAX_HIST_VALUE>(
+                entry,
+                total,
+                -Self::malus::<PLY>(depth),
+            );
         }
     }
 }

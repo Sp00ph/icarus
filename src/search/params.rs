@@ -78,6 +78,13 @@ tunable_params!(
     cont2_malus_scale       : i32 = 128     (64..=256);
     cont2_malus_max         : i32 = 2048    (1024..=4096);
 
+    cont4_bonus_base        : i32 = 128     (64..=256);
+    cont4_bonus_scale       : i32 = 128     (64..=256);
+    cont4_bonus_max         : i32 = 2048    (1024..=4096);
+    cont4_malus_base        : i32 = 128     (64..=256);
+    cont4_malus_scale       : i32 = 128     (64..=256);
+    cont4_malus_max         : i32 = 2048    (1024..=4096);
+
     asp_initial_window      : i16 = 25      (10..=100);
     asp_widen_factor        : i32 = 128     (64..=256);
 
