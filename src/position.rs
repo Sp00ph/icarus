@@ -103,7 +103,7 @@ impl Position {
         self.board.terminal_state() == Some(TerminalState::Draw) || self.repetition()
     }
 
-    pub fn cmp_see(&self, mv: Move, threshold: i16) -> bool {
+    pub fn cmp_see(&self, mv: Move, threshold: i32) -> bool {
         // Heavily inspired by <https://github.com/AndyGrant/Ethereal/blob/0e47e9b67f345c75eb965d9fb3e2493b6a11d09a/src/search.c>
 
         let board = &self.board;

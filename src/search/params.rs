@@ -5,11 +5,11 @@ use crate::{nontunable, search::search::DEPTH_SCALE, tunable_params, util::MAX_P
 tunable_params!(
     rfp_margin              : i16 = 50      (25..=100);
     rfp_quad_margin         : i16 = 768     (384..=1536);
-    movepick_see_threshold  : i16 = 0       (-100..=100);
-    qs_see_threshold        : i16 = 0       (-100..=100);
-    tactic_see_base         : i16 = 0       (0..=30);
+    movepick_see_threshold  : i32 = 0       (-100..=100);
+    qs_see_threshold        : i32 = 0       (-100..=100);
+    tactic_see_base         : i32 = 0       (0..=30);
     tactic_see_scale        : i32 = -60     (-120..=-30);
-    quiet_see_base          : i16 = 0       (0..=30);
+    quiet_see_base          : i32 = 0       (0..=30);
     quiet_see_scale         : i32 = -100    (-200..=-50);
     lmp_base                : u32 = 4096    (2048..=8192);
     lmp_scale               : u32 = 1024    (512..=2048);
@@ -25,7 +25,7 @@ tunable_params!(
     se_triple_negext        : i32 = -3072   (-4096..=-1536);
     se_double_negext        : i32 = -2048   (-3072..=-1024);
     se_single_negext        : i32 = -1024   (-1536..=-512);
-    quiet_hist_lmr_div      : i16 = 8192    (4096..=16384);
+    quiet_hist_lmr_div      : i32 = 8192    (4096..=16384);
     probcut_margin          : i16 = 375     (200..=750);
     probcut_depth_offset    : i32 = 2048    (1024..=4096);
 
@@ -91,11 +91,11 @@ tunable_params!(
     move_stability_scale    : u32 = 102     (50..=200);
     move_stability_min      : u32 = 922     (768..=1024);
 
-    pawn_see_val            : i16 = 100     (50..=200);
-    knight_see_val          : i16 = 300     (150..=600);
-    bishop_see_val          : i16 = 300     (150..=600);
-    rook_see_val            : i16 = 500     (250..=1000);
-    queen_see_val           : i16 = 900     (450..=1800);
+    pawn_see_val            : i32 = 100     (50..=200);
+    knight_see_val          : i32 = 300     (150..=600);
+    bishop_see_val          : i32 = 300     (150..=600);
+    rook_see_val            : i32 = 500     (250..=1000);
+    queen_see_val           : i32 = 900     (450..=1800);
 
     mat_scaling_base        : i32 = 25000   (12000..=50000);
     pawn_mat_scale          : i32 = 100     (50..=200);
@@ -122,7 +122,7 @@ nontunable!(
     asp_min_depth           : u16 = 5       (2..=10);
 );
 
-pub fn see_val(piece: Piece) -> i16 {
+pub fn see_val(piece: Piece) -> i32 {
     match piece {
         Piece::Pawn => pawn_see_val(),
         Piece::Knight => knight_see_val(),

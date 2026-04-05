@@ -307,8 +307,7 @@ pub fn search<Node: NodeType>(
         if !Node::ROOT && !best_score.is_loss() {
             if is_tactic {
                 // Tactic SEE Pruning
-                let see_margin =
-                    tactic_see_base() + (tactic_see_scale() * depth / DEPTH_SCALE) as i16;
+                let see_margin = tactic_see_base() + (tactic_see_scale() * depth / DEPTH_SCALE);
                 if depth <= see_max_depth()
                     && move_picker.stage() > Stage::YieldGoodNoisy
                     && !pos.cmp_see(mv, see_margin)
@@ -341,15 +340,14 @@ pub fn search<Node: NodeType>(
                     // History pruning
                     let hist = thread.history.score_quiet(pos, mv);
                     let hist_margin = -hist_prune_scale() * lmr_depth / DEPTH_SCALE;
-                    if depth <= hist_prune_depth() && (hist as i32) < hist_margin {
+                    if depth <= hist_prune_depth() && hist < hist_margin {
                         move_picker.skip_quiets();
                         continue;
                     }
                 }
 
                 // Quiet SEE Pruning
-                let see_margin =
-                    quiet_see_base() + (quiet_see_scale() * lmr_depth / DEPTH_SCALE) as i16;
+                let see_margin = quiet_see_base() + (quiet_see_scale() * lmr_depth / DEPTH_SCALE);
                 if lmr_depth <= see_max_depth() && !pos.cmp_see(mv, see_margin) {
                     continue;
                 }

@@ -58,18 +58,17 @@ impl History {
         unsafe { std::ptr::write_bytes(self, 0, 1) }
     }
 
-    pub fn score_quiet(&self, pos: &Position, mv: Move) -> i16 {
-        let board = pos.board();
-        let oneply = pos.prev_move(1);
-        let twoply = pos.prev_move(2);
-        self.main
-            .get(pos.board(), mv)
-            .saturating_add(self.cont_oneply.get(board, mv, oneply))
-            .saturating_add(self.cont_twoply.get(board, mv, twoply))
+    fn cont(&self, pos: &Position, mv: Move) -> i32 {
+        self.cont_oneply.get(pos.board(), mv, pos.prev_move(1)) as i32
+            + self.cont_twoply.get(pos.board(), mv, pos.prev_move(2)) as i32
     }
 
-    pub fn score_tactic(&self, board: &Board, mv: Move) -> i16 {
-        self.tactic.get(board, mv)
+    pub fn score_quiet(&self, pos: &Position, mv: Move) -> i32 {
+        self.main.get(pos.board(), mv) as i32 + self.cont(pos, mv)
+    }
+
+    pub fn score_tactic(&self, board: &Board, mv: Move) -> i32 {
+        self.tactic.get(board, mv) as i32
     }
 
     pub fn corr(&self, pos: &Position) -> i16 {
@@ -107,10 +106,7 @@ impl History {
         let board = pos.board();
         let oneply = pos.prev_move(1);
         let twoply = pos.prev_move(2);
-        let cont_score = self
-            .cont_oneply
-            .get(board, mv, oneply)
-            .saturating_add(self.cont_twoply.get(board, mv, twoply));
+        let cont_score = self.cont(pos, mv);
 
         if board.is_tactic(mv) {
             self.tactic.apply_bonus(board, mv, depth);

@@ -17,11 +17,11 @@ pub struct ContHist<const PLY: usize> {
 
 fn apply_gravity<const MAX_BONUS: i32, const MAX_VALUE: i32>(
     entry: &mut i16,
-    total: i16,
+    total: i32,
     amount: i32,
 ) {
     let amount = amount.clamp(-MAX_BONUS, MAX_BONUS);
-    let decay = (total as i32 * amount.abs() / MAX_VALUE) as i16;
+    let decay = (total * amount.abs() / MAX_VALUE) as i16;
     *entry += amount as i16 - decay;
 }
 
@@ -70,7 +70,7 @@ impl<const PLY: usize> ContHist<PLY> {
         board: &Board,
         mv: Move,
         prev: Option<(Piece, Move)>,
-        total: i16,
+        total: i32,
         depth: i16,
     ) {
         if let Some(entry) = self.get_mut(board, mv, prev) {
@@ -83,7 +83,7 @@ impl<const PLY: usize> ContHist<PLY> {
         board: &Board,
         mv: Move,
         prev: Option<(Piece, Move)>,
-        total: i16,
+        total: i32,
         depth: i16,
     ) {
         if let Some(entry) = self.get_mut(board, mv, prev) {
