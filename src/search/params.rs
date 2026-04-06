@@ -15,7 +15,7 @@ tunable_params!(
     lmp_scale               : u32 = 1024    (512..=2048);
     fp_base                 : i16 = 100     (50..=200);
     fp_scale                : i32 = 80      (40..=160);
-    fp_hist_scale           : i32 = 256     (0..=1024);
+    fp_hist_scale           : i32 = 128     (0..=1024);
     qsfp_margin             : i16 = 150     (80..=300);
     hist_prune_scale        : i32 = 2000    (1000..=4000);
     se_tt_depth_offset      : i32 = 3072    (1024..=6144);
