@@ -134,7 +134,7 @@ impl MovePicker {
                                 ScoredMove(
                                     mv,
                                     thread.history.score_quiet(pos, mv)
-                                        + 500 * pos.board().gives_direct_check(mv) as i32,
+                                        + 8000 * pos.board().gives_direct_check(mv) as i32,
                                 )
                             }),
                     );
