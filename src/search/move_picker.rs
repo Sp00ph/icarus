@@ -1,6 +1,16 @@
 use arrayvec::ArrayVec;
-use icarus_board::{r#move::Move, movegen::Abort};
-use icarus_common::piece::Piece;
+use icarus_board::{
+    attack_generators::{bishop_moves, rook_moves},
+    r#move::Move,
+    movegen::Abort,
+};
+use icarus_common::{
+    bitboard::Bitboard,
+    direction::{DownLeft, DownRight},
+    lookups::knight_moves,
+    piece::Piece,
+    util::enum_map::enum_map,
+};
 
 use crate::{position::Position, search::params::see_val, search::searcher::ThreadCtx};
 
@@ -125,16 +135,52 @@ impl MovePicker {
 
         if self.stage == Stage::GenQuiet {
             if !self.skip_quiets {
+                let threats = board.attacked();
+                let stm = board.stm();
+                let [mut n, mut b, mut q] = [Bitboard::EMPTY; 3];
+                let pawn_offense = (board.occupied_by(!stm).shift::<DownLeft>(stm.signum())
+                    | board.occupied_by(!stm).shift::<DownRight>(stm.signum()))
+                    & !threats;
+
+                for sq in board.colored_pieces(Piece::Bishop, !stm) & !threats {
+                    n |= knight_moves(sq);
+                    q |= rook_moves(sq, board.occupied());
+                }
+
+                for sq in board.colored_pieces(Piece::Rook, !stm) {
+                    let bishop_moves = bishop_moves(sq, board.occupied());
+                    n |= knight_moves(sq);
+                    b |= bishop_moves;
+                    if !threats.contains(sq) {
+                        q |= bishop_moves;
+                    }
+                }
+
+                for sq in board.colored_pieces(Piece::Queen, !stm) {
+                    n |= knight_moves(sq);
+                }
+
+                let offense = enum_map! {
+                    Piece::Pawn => pawn_offense,
+                    Piece::Knight => n & !threats,
+                    Piece::Bishop => b & !threats,
+                    Piece::Rook => Bitboard::EMPTY,
+                    Piece::Queen => q & !threats,
+                    Piece::King => Bitboard::EMPTY
+                };
+
                 board.gen_quiet_moves(|moves| {
                     self.moves.extend(
                         moves
                             .into_iter()
                             .filter(|mv| self.tt_move != Some(*mv))
                             .map(|mv| {
+                                let pt = board.piece_on(mv.from()).unwrap();
                                 ScoredMove(
                                     mv,
                                     thread.history.score_quiet(pos, mv)
-                                        + 8000 * pos.board().gives_direct_check(mv) as i32,
+                                        + 8000 * pos.board().gives_direct_check(mv) as i32
+                                        + 6000 * offense[pt].contains(mv.to()) as i32,
                                 )
                             }),
                     );
