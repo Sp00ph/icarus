@@ -9,6 +9,7 @@ tunable_params!(
     qs_see_threshold        : i16 = 0       (-100..=100);
     tactic_see_base         : i16 = 0       (0..=30);
     tactic_see_scale        : i32 = -60     (-120..=-30);
+    tactic_see_hist_scale   : i32 = 256     (0..=1024);
     quiet_see_base          : i16 = 0       (0..=30);
     quiet_see_scale         : i32 = -100    (-200..=-50);
     lmp_base                : u32 = 4096    (2048..=8192);
