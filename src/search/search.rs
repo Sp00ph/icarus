@@ -304,11 +304,12 @@ pub fn search<Node: NodeType>(
         }
 
         let is_tactic = pos.board().is_tactic(mv);
+        let is_killer = thread.search_stack[ply as usize].killer == Some(mv);
         let mut lmr = get_lmr(is_tactic, (depth / DEPTH_SCALE) as u8, moves_seen);
         let mut extension = 0;
         let mut score;
 
-        if !Node::ROOT && !best_score.is_loss() {
+        if !Node::ROOT && !best_score.is_loss() && !is_killer {
             if is_tactic {
                 // Tactic SEE Pruning
                 let see_margin =
@@ -624,7 +625,9 @@ pub fn qsearch<Node: NodeType>(
     let futility = static_eval.saturating_add(qsfp_margin());
 
     while let Some(mv) = move_picker.next(pos, thread) {
-        if !best_score.is_loss() {
+        let is_killer = thread.search_stack[ply as usize].killer == Some(mv);
+
+        if !best_score.is_loss() && !is_killer {
             // LMP
             if !in_check && moves_seen > qs_lmp_limit() {
                 break;
