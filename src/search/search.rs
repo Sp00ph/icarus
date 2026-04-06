@@ -304,6 +304,12 @@ pub fn search<Node: NodeType>(
         let mut extension = 0;
         let mut score;
 
+        let hist_score = if is_tactic {
+            thread.history.score_tactic(pos.board(), mv)
+        } else {
+            thread.history.score_quiet(pos, mv)
+        };
+
         if !Node::ROOT && !best_score.is_loss() {
             if is_tactic {
                 // Tactic SEE Pruning
@@ -329,7 +335,9 @@ pub fn search<Node: NodeType>(
                     }
 
                     // FP
-                    let fp_margin = fp_base() + (fp_scale() * lmr_depth / DEPTH_SCALE) as i16;
+                    let fp_margin = fp_base()
+                        + (fp_scale() * lmr_depth / DEPTH_SCALE) as i16
+                        + (fp_hist_scale() * hist_score as i32 / 16384) as i16;
                     if lmr_depth <= fp_depth()
                         && !in_check
                         && static_eval + fp_margin <= alpha
@@ -395,8 +403,8 @@ pub fn search<Node: NodeType>(
         let initial_nodes = thread.nodes.local();
         let new_depth = depth + extension - DEPTH_SCALE;
 
-        let hist_lmr = if pos.board().is_quiet(mv) {
-            thread.history.score_quiet(pos, mv) / quiet_hist_lmr_div()
+        let hist_lmr = if !is_tactic {
+            hist_score / quiet_hist_lmr_div()
         } else {
             0
         };
