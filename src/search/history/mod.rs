@@ -30,8 +30,8 @@ const CORR_SIZE: usize = 16384;
 pub struct History {
     main: MainHist,
     tactic: TacticHist,
-    cont_oneply: ContHist<1>,
-    cont_twoply: ContHist<2>,
+    cont_odd: ContHist,
+    cont_even: ContHist,
 
     pawn_corr: CorrHist,
     minor_corr: CorrHist,
@@ -59,8 +59,9 @@ impl History {
     }
 
     fn cont(&self, pos: &Position, mv: Move) -> i32 {
-        self.cont_oneply.get(pos.board(), mv, pos.prev_move(1)) as i32
-            + self.cont_twoply.get(pos.board(), mv, pos.prev_move(2)) as i32
+        self.cont_odd.get(pos.board(), mv, pos.prev_move(1)) as i32
+            + self.cont_even.get(pos.board(), mv, pos.prev_move(2)) as i32
+            + self.cont_even.get(pos.board(), mv, pos.prev_move(4)) as i32
     }
 
     pub fn score_quiet(&self, pos: &Position, mv: Move) -> i32 {
@@ -106,23 +107,28 @@ impl History {
         let board = pos.board();
         let oneply = pos.prev_move(1);
         let twoply = pos.prev_move(2);
+        let fourply = pos.prev_move(4);
         let cont_score = self.cont(pos, mv);
 
         if board.is_tactic(mv) {
             self.tactic.apply_bonus(board, mv, depth);
         } else {
             self.main.apply_bonus(board, mv, depth);
-            self.cont_oneply
-                .apply_bonus(board, mv, oneply, cont_score, depth);
-            self.cont_twoply
-                .apply_bonus(board, mv, twoply, cont_score, depth);
+            self.cont_odd
+                .apply_bonus::<1>(board, mv, oneply, cont_score, depth);
+            self.cont_even
+                .apply_bonus::<2>(board, mv, twoply, cont_score, depth);
+            self.cont_even
+                .apply_bonus::<4>(board, mv, fourply, cont_score, depth);
 
             for &quiet in quiets {
                 self.main.apply_malus(board, quiet, depth);
-                self.cont_oneply
-                    .apply_malus(board, quiet, oneply, cont_score, depth);
-                self.cont_twoply
-                    .apply_malus(board, quiet, twoply, cont_score, depth);
+                self.cont_odd
+                    .apply_malus::<1>(board, quiet, oneply, cont_score, depth);
+                self.cont_even
+                    .apply_malus::<2>(board, quiet, twoply, cont_score, depth);
+                self.cont_even
+                    .apply_malus::<4>(board, quiet, fourply, cont_score, depth);
             }
         }
 
