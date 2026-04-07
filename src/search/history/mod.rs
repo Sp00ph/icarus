@@ -65,7 +65,7 @@ impl History {
     }
 
     pub fn score_quiet(&self, pos: &Position, mv: Move) -> i32 {
-        self.main.get(pos.board(), mv) as i32 + self.cont(pos, mv)
+        2 * self.main.get(pos.board(), mv) as i32 + self.cont(pos, mv)
     }
 
     pub fn score_tactic(&self, board: &Board, mv: Move) -> i32 {
