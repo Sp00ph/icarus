@@ -3,26 +3,24 @@ use icarus_common::piece::Piece;
 use crate::{nontunable, search::search::DEPTH_SCALE, tunable_params, util::MAX_PLY};
 
 tunable_params!(
-    lmr_base                : i32 = 512     (256..=1024);
-    lmr_quiet_div           : i32 = 1536    (768..=3072);
-    lmr_tactic_div          : i32 = 3584    (1792..=7168);
-    lmr_nonpv               : i32 = 1024    (512..=2048);
-    lmr_ttpv                : i32 = 1024    (512..=2048);
-    lmr_check               : i32 = 1024    (512..=2048);
-    lmr_cutnode             : i32 = 1024    (512..=2048);
-
-    pawn_see_val            : i32 = 100     (50..=200);
-    knight_see_val          : i32 = 300     (150..=600);
-    bishop_see_val          : i32 = 300     (150..=600);
-    rook_see_val            : i32 = 500     (250..=1000);
-    queen_see_val           : i32 = 900     (450..=1800);
-
-    mat_scaling_base        : i32 = 25000   (12000..=50000);
-    pawn_mat_scale          : i32 = 100     (50..=200);
-    knight_mat_scale        : i32 = 300     (150..=600);
-    bishop_mat_scale        : i32 = 300     (150..=600);
-    rook_mat_scale          : i32 = 500     (250..=1000);
-    queen_mat_scale         : i32 = 900     (450..=1800);
+    lmr_base                : i32 = 509     (256..=1024);
+    lmr_quiet_div           : i32 = 1670    (768..=3072);
+    lmr_tactic_div          : i32 = 3614    (1792..=7168);
+    lmr_nonpv               : i32 = 948    (512..=2048);
+    lmr_ttpv                : i32 = 1054    (512..=2048);
+    lmr_check               : i32 = 994    (512..=2048);
+    lmr_cutnode             : i32 = 1034    (512..=2048);
+    pawn_see_val            : i32 = 99     (50..=200);
+    knight_see_val          : i32 = 299     (150..=600);
+    bishop_see_val          : i32 = 302     (150..=600);
+    rook_see_val            : i32 = 506     (250..=1000);
+    queen_see_val           : i32 = 894     (450..=1800);
+    mat_scaling_base        : i32 = 26850   (12000..=50000);
+    pawn_mat_scale          : i32 = 106     (50..=200);
+    knight_mat_scale        : i32 = 307     (150..=600);
+    bishop_mat_scale        : i32 = 311     (150..=600);
+    rook_mat_scale          : i32 = 487     (250..=1000);
+    queen_mat_scale         : i32 = 874     (450..=1800);
 );
 
 nontunable!(
