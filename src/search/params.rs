@@ -3,6 +3,45 @@ use icarus_common::piece::Piece;
 use crate::{nontunable, search::search::DEPTH_SCALE, tunable_params, util::MAX_PLY};
 
 tunable_params!(
+    lmr_base                : i32 = 512     (256..=1024);
+    lmr_quiet_div           : i32 = 1536    (768..=3072);
+    lmr_tactic_div          : i32 = 3584    (1792..=7168);
+    lmr_nonpv               : i32 = 1024    (512..=2048);
+    lmr_ttpv                : i32 = 1024    (512..=2048);
+    lmr_check               : i32 = 1024    (512..=2048);
+    lmr_cutnode             : i32 = 1024    (512..=2048);
+
+    pawn_see_val            : i32 = 100     (50..=200);
+    knight_see_val          : i32 = 300     (150..=600);
+    bishop_see_val          : i32 = 300     (150..=600);
+    rook_see_val            : i32 = 500     (250..=1000);
+    queen_see_val           : i32 = 900     (450..=1800);
+
+    mat_scaling_base        : i32 = 25000   (12000..=50000);
+    pawn_mat_scale          : i32 = 100     (50..=200);
+    knight_mat_scale        : i32 = 300     (150..=600);
+    bishop_mat_scale        : i32 = 300     (150..=600);
+    rook_mat_scale          : i32 = 500     (250..=1000);
+    queen_mat_scale         : i32 = 900     (450..=1800);
+);
+
+nontunable!(
+    rfp_depth               : i32 = 6144    (4096..=12288);
+    nmp_depth               : i32 = 3072    (0..=8192);
+    nmp_red_base            : i32 = 6144    (3072..=12288);
+    nmp_red_scale_div       : i32 = 640     (256..=1280);
+    nmp_verif_min_depth     : i32 = 14336   (7168..=21504);
+    see_max_depth           : i32 = 10240   (5120..=15360);
+    fp_depth                : i32 = 8192    (4096..=16384);
+    hist_prune_depth        : i32 = 5120    (2048..=10240);
+    se_min_depth            : i32 = 8192    (6144..=10240);
+    se_depth_offset         : i32 = 1024    (0..=3072);
+    se_depth_scale          : i32 = 64      (32..=128);
+    lmr_min_depth           : i32 = 2048    (1024..=6144);
+    qs_lmp_limit            : i16 = 2       (1..=4);
+    asp_min_depth           : u16 = 5       (2..=10);
+
+
     rfp_margin              : i16 = 50      (25..=100);
     rfp_quad_margin         : i16 = 768     (384..=1536);
     movepick_see_threshold  : i32 = 0       (-100..=100);
@@ -28,14 +67,6 @@ tunable_params!(
     quiet_hist_lmr_div      : i32 = 8192    (4096..=16384);
     probcut_margin          : i16 = 375     (200..=750);
     probcut_depth_offset    : i32 = 2048    (1024..=4096);
-
-    lmr_base                : i32 = 512     (256..=1024);
-    lmr_quiet_div           : i32 = 1536    (768..=3072);
-    lmr_tactic_div          : i32 = 3584    (1792..=7168);
-    lmr_nonpv               : i32 = 1024    (512..=2048);
-    lmr_ttpv                : i32 = 1024    (512..=2048);
-    lmr_check               : i32 = 1024    (512..=2048);
-    lmr_cutnode             : i32 = 1024    (512..=2048);
 
     hindsight_ext_min_red   : i32 = 3072    (1536..=6144);
     hindsight_ext_ext       : i32 = 1024    (512..=2048);
@@ -97,36 +128,6 @@ tunable_params!(
     move_stability_base     : u32 = 1840    (920..=2760);
     move_stability_scale    : u32 = 102     (50..=200);
     move_stability_min      : u32 = 922     (768..=1024);
-
-    pawn_see_val            : i32 = 100     (50..=200);
-    knight_see_val          : i32 = 300     (150..=600);
-    bishop_see_val          : i32 = 300     (150..=600);
-    rook_see_val            : i32 = 500     (250..=1000);
-    queen_see_val           : i32 = 900     (450..=1800);
-
-    mat_scaling_base        : i32 = 25000   (12000..=50000);
-    pawn_mat_scale          : i32 = 100     (50..=200);
-    knight_mat_scale        : i32 = 300     (150..=600);
-    bishop_mat_scale        : i32 = 300     (150..=600);
-    rook_mat_scale          : i32 = 500     (250..=1000);
-    queen_mat_scale         : i32 = 900     (450..=1800);
-);
-
-nontunable!(
-    rfp_depth               : i32 = 6144    (4096..=12288);
-    nmp_depth               : i32 = 3072    (0..=8192);
-    nmp_red_base            : i32 = 6144    (3072..=12288);
-    nmp_red_scale_div       : i32 = 640     (256..=1280);
-    nmp_verif_min_depth     : i32 = 14336   (7168..=21504);
-    see_max_depth           : i32 = 10240   (5120..=15360);
-    fp_depth                : i32 = 8192    (4096..=16384);
-    hist_prune_depth        : i32 = 5120    (2048..=10240);
-    se_min_depth            : i32 = 8192    (6144..=10240);
-    se_depth_offset         : i32 = 1024    (0..=3072);
-    se_depth_scale          : i32 = 64      (32..=128);
-    lmr_min_depth           : i32 = 2048    (1024..=6144);
-    qs_lmp_limit            : i16 = 2       (1..=4);
-    asp_min_depth           : u16 = 5       (2..=10);
 );
 
 pub fn see_val(piece: Piece) -> i32 {
