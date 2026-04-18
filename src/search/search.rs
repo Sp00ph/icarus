@@ -216,10 +216,11 @@ pub fn search<Node: NodeType>(
 
         // NMP
         if depth >= nmp_depth()
+            && cutnode
             && ply >= thread.min_nmp_ply
             && static_eval >= beta
             && pos.prev_move(1).is_some()
-            && cutnode
+            && tt_entry.is_none_or(|e| e.flags.tt_flag() != TTFlag::Upper)
         {
             pos.make_null_move();
             thread.global.ttable.prefetch(pos.board());
