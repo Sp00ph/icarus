@@ -23,7 +23,7 @@ fn apply_gravity<const MAX_BONUS: i32, const MAX_VALUE: i32>(
 ) {
     let amount = amount.clamp(-MAX_BONUS, MAX_BONUS);
     let decay = total * amount.abs() / MAX_VALUE;
-    *entry = ((*entry as i32) + (amount - decay)).clamp(-MAX_VALUE, MAX_VALUE) as i16;
+    *entry = ((*entry as i32) + (amount - decay)).clamp(i16::MIN as i32, i16::MAX as i32) as i16;
 }
 
 impl ContHist {
