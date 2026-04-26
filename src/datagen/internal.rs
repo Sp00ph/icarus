@@ -33,7 +33,7 @@ use crate::{
     position::Position,
     score::Score,
     search::{
-        searcher::{GlobalCtx, SearchParams, ThreadCtx},
+        searcher::{GlobalCtx, Print, SearchParams, ThreadCtx},
         transposition_table::{DEFAULT_TT_SIZE, TTable},
     },
     uci::SearchLimit,
@@ -280,7 +280,7 @@ fn play_game(
             pos: pos.clone(),
             root_moves: None,
             chess960: ctx.dfrc,
-            print_info: false,
+            print_info: Print::None,
         });
         let mv = thread_ctxs[stm].search_stack[0].pv[0];
 

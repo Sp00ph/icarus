@@ -14,7 +14,7 @@ use crate::{
     nnue::network::Nnue,
     position::Position,
     search::{
-        searcher::{MAX_THREADS, Searcher},
+        searcher::{MAX_THREADS, Print, Searcher},
         time_manager::DEFAULT_MOVE_OVERHEAD,
         transposition_table::{DEFAULT_TT_SIZE, MAX_TT_SIZE},
     },
@@ -28,6 +28,7 @@ pub struct Engine {
     use_soft_nodes: bool,
     chess960: bool,
     move_overhead: u64,
+    minimal: bool,
     searcher: Searcher,
 }
 
@@ -38,6 +39,7 @@ impl Engine {
             use_soft_nodes: false,
             chess960: false,
             move_overhead: DEFAULT_MOVE_OVERHEAD,
+            minimal: false,
             searcher: Searcher::default(),
         }
     }
@@ -152,6 +154,7 @@ impl Engine {
         );
         println!("option name Hash type spin default {DEFAULT_TT_SIZE} min 1 max {MAX_TT_SIZE}");
         println!("option name Threads type spin default 1 min 1 max {MAX_THREADS}");
+        println!("option name Minimal type check default false");
         #[cfg(feature = "tune")]
         list_params();
         println!("uciok");
@@ -220,6 +223,14 @@ impl Engine {
                 }
                 self.searcher.change_threads(val);
                 println!("info string Started {val} threads");
+            }
+            "minimal" => {
+                let Ok(val) = value.parse::<bool>() else {
+                    println!("info string Unknown value {value}");
+                    return;
+                };
+                self.minimal = val;
+                println!("info string Set Minimal to {val}");
             }
             #[cfg(feature = "tune")]
             name if valid_param_name(name) => {
@@ -313,7 +324,11 @@ impl Engine {
             self.use_soft_nodes,
             self.chess960,
             self.move_overhead,
-            true,
+            if self.minimal {
+                Print::Minimal
+            } else {
+                Print::Full
+            },
         );
     }
 

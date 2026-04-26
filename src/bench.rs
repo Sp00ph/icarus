@@ -8,7 +8,10 @@ use icarus_board::board::Board;
 use crate::{
     engine::Engine,
     position::Position,
-    search::{searcher::Searcher, time_manager::DEFAULT_MOVE_OVERHEAD},
+    search::{
+        searcher::{Print, Searcher},
+        time_manager::DEFAULT_MOVE_OVERHEAD,
+    },
     uci::SearchLimit,
 };
 
@@ -84,7 +87,7 @@ impl Engine {
                 false,
                 false,
                 DEFAULT_MOVE_OVERHEAD,
-                false,
+                Print::None,
             );
             searcher.wait();
             duration += start.elapsed();

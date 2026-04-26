@@ -12,7 +12,7 @@ use crate::{
     position::Position,
     search::{
         move_picker::MAX_MOVES,
-        searcher::{GlobalCtx, SearchParams, ThreadCtx},
+        searcher::{GlobalCtx, Print, SearchParams, ThreadCtx},
         transposition_table::{DEFAULT_TT_SIZE, TTable},
     },
     uci::SearchLimit,
@@ -71,7 +71,7 @@ pub fn try_generate_pos(
         pos,
         root_moves: None,
         chess960: dfrc,
-        print_info: false,
+        print_info: Print::None,
     });
 
     let limit = 1000;
