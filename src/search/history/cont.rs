@@ -23,7 +23,9 @@ fn apply_gravity<const MAX_BONUS: i32, const MAX_VALUE: i32>(
 ) {
     let amount = amount.clamp(-MAX_BONUS, MAX_BONUS);
     let decay = (total * amount.abs() / MAX_VALUE) as i16;
-    *entry += amount as i16 - decay;
+
+    // FIXME: Figure out why the hell fixing overflow here loses elo.
+    *entry = entry.wrapping_add((amount as i16).wrapping_sub(decay));
 }
 
 impl ContHist {
