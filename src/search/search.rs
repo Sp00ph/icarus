@@ -299,6 +299,9 @@ pub fn search<Node: NodeType>(
         if singular == Some(mv) {
             continue;
         }
+        if Node::ROOT && !thread.root_moves.contains(&mv) {
+            continue;
+        }
 
         let is_tactic = pos.board().is_tactic(mv);
         let mut lmr = get_lmr(is_tactic, (depth / DEPTH_SCALE) as u8, moves_seen);
