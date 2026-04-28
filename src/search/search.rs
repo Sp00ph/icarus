@@ -123,6 +123,7 @@ pub fn search<Node: NodeType>(
     if !Node::PV
         && !singular_search
         && let Some(e) = tt_entry
+        && (e.score <= alpha || cutnode)
         && e.depth as i32 * DEPTH_SCALE >= depth
     {
         let score = e.score;
