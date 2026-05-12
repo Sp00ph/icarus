@@ -12,6 +12,16 @@ const _Q1: i16 = 128;
 const Q: i32 = 64;
 const SCALE: i32 = 400;
 
+#[cfg(any(feature = "count-act", feature = "count-nnz"))]
+use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+#[cfg(feature = "count-act")]
+pub static ACT_COUNTS: [AtomicUsize; L1 / 2] = [const { AtomicUsize::new(0) }; L1 / 2];
+
+#[cfg(feature = "count-nnz")]
+pub static NNZ_CNT: AtomicUsize = AtomicUsize::new(0);
+#[cfg(feature = "count-nnz")]
+pub static NNZ_DIV: AtomicUsize = AtomicUsize::new(0);
+
 #[inline(always)]
 fn activate_ft(us: &[i16; L1], them: &[i16; L1]) -> [i8; L1] {
     let mut out = [const { MaybeUninit::<i8>::uninit() }; L1];
@@ -81,6 +91,12 @@ fn propagate_l1(act_ft: &[i8; L1]) -> [i32; L2] {
                 nnz_count += cnt as usize;
                 base = simd::i16::add(base, simd::i16::splat(simd::i32::LANES as i16));
             }
+        }
+
+        #[cfg(feature = "count-nnz")]
+        {
+            NNZ_CNT.fetch_add(nnz_count, Relaxed);
+            NNZ_DIV.fetch_add(L1 / 4, Relaxed);
         }
 
         // in [0, Q0^2 * Q1 / 2^9]
@@ -180,6 +196,15 @@ fn propagate_l3(act_l2: &[i32; L3]) -> i32 {
 pub fn forward(us: &[i16; L1], them: &[i16; L1]) -> i32 {
     // in [0, Q1]
     let act_ft = activate_ft(us, them);
+
+    #[cfg(feature = "count-act")]
+    for i in 0..L1 / 2 {
+        let add = usize::from(act_ft[i] != 0) + usize::from(act_ft[i + L1 / 2] != 0);
+        if add != 0 {
+            ACT_COUNTS[i].fetch_add(add, Relaxed);
+        }
+    }
+
     // in [0, Q^2]
     let act_l1 = propagate_l1(&act_ft);
     // in [0, Q^3]
