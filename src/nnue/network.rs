@@ -22,7 +22,10 @@ use crate::{
 
 // 704 instead of 768 because of king plane merging
 pub const INPUT: usize = 704;
-pub const HL: usize = 1024;
+pub const L1: usize = 1024;
+pub const L2: usize = 16;
+pub const L3: usize = 32;
+
 pub const NUM_KING_BUCKETS: usize = 14;
 #[rustfmt::skip]
 pub static KING_BUCKET_LAYOUT: [u8; 64] = [
@@ -50,10 +53,14 @@ pub static NET: Network =
 
 #[repr(C, align(64))]
 pub struct Network {
-    pub ft_weight: [[[i16; HL]; INPUT]; NUM_KING_BUCKETS],
-    pub ft_bias: [i16; HL],
-    pub out_weight: [[i16; HL]; 2],
-    pub out_bias: i16,
+    pub l0w: [[[i16; L1]; INPUT]; NUM_KING_BUCKETS],
+    pub l0b: [i16; L1],
+    pub l1w: [[i8; L2 * 4]; L1 / 4],
+    pub l1b: [i32; L2],
+    pub l2w: [[i32; L3]; L2],
+    pub l2b: [i32; L3],
+    pub l3w: [i32; L3],
+    pub l3b: i32,
 }
 
 pub struct Nnue {
@@ -67,7 +74,7 @@ impl Nnue {
         let mut this = Self {
             stack: vec![
                 Accumulator {
-                    values: enum_map! { _ => [0; HL] },
+                    values: enum_map! { _ => [0; L1] },
                     dirty: Default::default(),
                     needs_refresh: Default::default(),
                     updates: Default::default(),
@@ -131,7 +138,7 @@ impl Nnue {
             }
         }
 
-        let weights = &NET.ft_weight[bucket];
+        let weights = &NET.l0w[bucket];
         let values = &mut entry.features;
 
         let (chunks, rem) = adds.as_chunks();
@@ -232,7 +239,7 @@ impl Nnue {
             return;
         };
 
-        let weights = &NET.ft_weight[bucket];
+        let weights = &NET.l0w[bucket];
 
         for idx in clean_idx..self.idx {
             let [clean, dirty] = self.stack.get_disjoint_mut([idx, idx + 1]).unwrap();
