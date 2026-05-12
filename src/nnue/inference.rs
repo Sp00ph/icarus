@@ -18,7 +18,7 @@ fn activate_ft(us: &[i16; L1], them: &[i16; L1]) -> [i8; L1] {
 
     unsafe {
         for i in (0..L1 / 2).step_by(2 * simd::i16::LANES) {
-            use simd::i16::{LANES, load, max, min, mulhi_shl7, packs, splat};
+            use simd::i16::{LANES, load, max, min, mulhi_shl7, packus, splat};
 
             let mut us1 = load(us.as_ptr().add(i));
             let mut us2 = load(us.as_ptr().add(i + L1 / 2));
@@ -30,14 +30,15 @@ fn activate_ft(us: &[i16; L1], them: &[i16; L1]) -> [i8; L1] {
             let mut them3 = load(them.as_ptr().add(i + LANES));
             let mut them4 = load(them.as_ptr().add(i + L1 / 2 + LANES));
 
-            us1 = min(max(us1, splat(0)), splat(Q0));
+            // We can save the max(_, 0) on some of the vectors, as `packus` will clamp any negative values to 0.
+            us1 = min(us1, splat(Q0));
+            us3 = min(us3, splat(Q0));
             us2 = min(max(us2, splat(0)), splat(Q0));
-            us3 = min(max(us3, splat(0)), splat(Q0));
             us4 = min(max(us4, splat(0)), splat(Q0));
 
-            them1 = min(max(them1, splat(0)), splat(Q0));
+            them1 = min(them1, splat(Q0));
+            them3 = min(them3, splat(Q0));
             them2 = min(max(them2, splat(0)), splat(Q0));
-            them3 = min(max(them3, splat(0)), splat(Q0));
             them4 = min(max(them4, splat(0)), splat(Q0));
 
             let us_pair1 = mulhi_shl7(us1, us2);
@@ -46,8 +47,8 @@ fn activate_ft(us: &[i16; L1], them: &[i16; L1]) -> [i8; L1] {
             let them_pair1 = mulhi_shl7(them1, them2);
             let them_pair2 = mulhi_shl7(them3, them4);
 
-            let p1 = packs(us_pair1, us_pair2);
-            let p2 = packs(them_pair1, them_pair2);
+            let p1 = packus(us_pair1, us_pair2);
+            let p2 = packus(them_pair1, them_pair2);
 
             simd::i8::store(out.as_mut_ptr().add(i).cast(), p1);
             simd::i8::store(out.as_mut_ptr().add(i + L1 / 2).cast(), p2);
@@ -83,7 +84,6 @@ fn propagate_l1(act_ft: &[i8; L1]) -> [i32; L2] {
         }
 
         let mut out = [0; L2];
-        const SHIFT: i32 = 8;
         for i in 0..L2 / simd::i32::LANES {
             use simd::i32::*;
 
@@ -94,7 +94,7 @@ fn propagate_l1(act_ft: &[i8; L1]) -> [i32; L2] {
                 sum = add(sum, partial_sum);
             }
 
-            let shifted = add(bias, shr_const::<SHIFT>(sum));
+            let shifted = add(bias, shr_const::<8>(sum));
             let clamped = min(max(shifted, splat(0)), splat(Q));
             let activated = mul(clamped, clamped);
             store(out.as_mut_ptr().add(i * LANES), activated);
