@@ -119,7 +119,7 @@ pub mod i32 {
 
     #[target_feature(enable = "avx2")]
     pub fn shr_const<const N: i32>(v: I32Vec) -> I32Vec {
-        _mm256_srli_epi32(v, N)
+        _mm256_srai_epi32(v, N)
     }
 
     #[target_feature(enable = "avx2")]

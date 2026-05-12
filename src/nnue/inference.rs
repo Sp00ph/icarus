@@ -1,4 +1,3 @@
-#![allow(clippy::identity_op)]
 use std::mem::{MaybeUninit, transmute};
 
 use crate::nnue::{
@@ -12,7 +11,7 @@ const Q: i32 = 64;
 const SCALE: i32 = 400;
 
 #[inline(always)]
-fn activate_ft<'a>(us: &[i16; L1], them: &[i16; L1]) -> [i8; L1] {
+fn activate_ft(us: &[i16; L1], them: &[i16; L1]) -> [i8; L1] {
     let mut out = [const { MaybeUninit::<i8>::uninit() }; L1];
 
     const { assert!((L1 / 2).is_multiple_of(2 * simd::i16::LANES)) };
@@ -76,7 +75,7 @@ fn propagate_l1(act_ft: &[i8; L1]) -> [i32; L2] {
                     let ft_vec = simd::i32::splat(transmute(ft_32[i]));
                     intermediate[j][i_inner] = simd::i8::dpbusd(
                         intermediate[j][i_inner],
-                        ft_vec,
+                        simd::i32::reinterpret_i8(ft_vec),
                         simd::i8::load(NET.l1w[i].as_ptr().add(j * simd::i8::LANES)),
                     );
                 }
@@ -100,7 +99,6 @@ fn propagate_l1(act_ft: &[i8; L1]) -> [i32; L2] {
             let activated = mul(clamped, clamped);
             store(out.as_mut_ptr().add(i * LANES), activated);
         }
-
         out
     }
 }
@@ -151,8 +149,8 @@ pub fn forward(us: &[i16; L1], them: &[i16; L1]) -> i32 {
     let act_l1 = propagate_l1(&act_ft);
     // in [0, Q^3]
     let act_l2 = propagate_l2(&act_l1);
-    // in [0, Q^4]
-    let scaled = propagate_l3(&act_l2) * SCALE;
+    // in [0, SCALE * Q^4]
+    let scaled = propagate_l3(&act_l2) as i64 * SCALE as i64;
 
-    scaled / Q.pow(4)
+    (scaled / (Q.pow(4) as i64)) as i32
 }
