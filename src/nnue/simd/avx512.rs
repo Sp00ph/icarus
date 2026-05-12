@@ -1,3 +1,4 @@
+#![allow(clippy::missing_safety_doc)]
 use std::arch::x86_64::*;
 
 pub type I8Vec = __m512i;

@@ -1,3 +1,4 @@
+#![allow(clippy::missing_safety_doc)]
 use std::arch::x86_64::*;
 
 pub type I8Vec = __m256i;
@@ -135,8 +136,8 @@ pub mod i32 {
     #[target_feature(enable = "avx2")]
     pub fn reduce_sum(v: I32Vec) -> i32 {
         let sum128 = _mm_add_epi32(_mm256_castsi256_si128(v), _mm256_extracti128_si256(v, 1));
-        let sum64 = _mm_add_epi64(sum128, _mm_shuffle_epi32(sum128, 0xee));
-        let sum32 = _mm_add_epi64(sum64, _mm_shuffle_epi32(sum64, 0x55));
+        let sum64 = _mm_add_epi32(sum128, _mm_shuffle_epi32(sum128, 0xee));
+        let sum32 = _mm_add_epi32(sum64, _mm_shuffle_epi32(sum64, 0x55));
         _mm_cvtsi128_si32(sum32)
     }
 }
