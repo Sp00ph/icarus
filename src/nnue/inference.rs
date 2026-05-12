@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop, clippy::missing_transmute_annotations)]
+
 use std::mem::{MaybeUninit, transmute};
 
 use crate::nnue::{
