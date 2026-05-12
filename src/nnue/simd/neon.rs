@@ -1,4 +1,8 @@
 #![allow(clippy::missing_safety_doc)]
+
+#[path = "nnz_table.rs"]
+mod nnz_table;
+
 use std::arch::aarch64::*;
 
 pub type I8Vec = int8x16_t;
@@ -47,6 +51,11 @@ pub mod i8 {
             }
         }
     }
+
+    #[target_feature(enable = "neon")]
+    pub fn reinterpret_i32(v: I8Vec) -> I32Vec {
+        vreinterpretq_s32_s8(v)
+    }
 }
 
 pub mod i16 {
@@ -67,6 +76,11 @@ pub mod i16 {
     #[target_feature(enable = "neon")]
     pub fn splat(n: i16) -> I16Vec {
         vdupq_n_s16(n)
+    }
+
+    #[target_feature(enable = "neon")]
+    pub fn add(l: I16Vec, r: I16Vec) -> I16Vec {
+        vaddq_s16(l, r)
     }
 
     #[target_feature(enable = "neon")]
@@ -143,5 +157,13 @@ pub mod i32 {
     #[target_feature(enable = "neon")]
     pub fn reduce_sum(v: I32Vec) -> i32 {
         vaddvq_s32(v)
+    }
+
+    #[target_feature(enable = "neon")]
+    pub fn nnz_indices(v: I32Vec) -> (I16Vec, u16) {
+        let mask = vtstq_s32(v, v);
+        let bitmask = vaddvq_u32(vandq_u32(mask, unsafe { vld1q_u32([1, 2, 4, 8].as_ptr()) }));
+        let idxs = unsafe { vld1q_s16(nnz_table::NNZ_TABLE[bitmask as usize].as_ptr()) };
+        (idxs, bitmask.count_ones() as u16)
     }
 }

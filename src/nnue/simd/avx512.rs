@@ -40,6 +40,11 @@ pub mod i8 {
             }
         }
     }
+
+    #[target_feature(enable = "avx512f")]
+    pub fn reinterpret_i32(v: I8Vec) -> I32Vec {
+        v
+    }
 }
 
 pub mod i16 {
@@ -60,6 +65,11 @@ pub mod i16 {
     #[target_feature(enable = "avx512f")]
     pub fn splat(n: i16) -> I16Vec {
         _mm512_set1_epi16(n)
+    }
+
+    #[target_feature(enable = "avx512bw")]
+    pub fn add(l: I16Vec, r: I16Vec) -> I16Vec {
+        _mm512_add_epi16(l, r)
     }
 
     #[target_feature(enable = "avx512bw")]
@@ -138,5 +148,16 @@ pub mod i32 {
     #[target_feature(enable = "avx512f")]
     pub fn reduce_sum(v: I32Vec) -> i32 {
         _mm512_reduce_add_epi32(v)
+    }
+
+    #[target_feature(enable = "avx512vbmi2,avx512vl")]
+    pub fn nnz_indices(v: I32Vec) -> (I16Vec, u16) {
+        let nnz_mask = _mm512_test_epi32_mask(v, v);
+        let idxs: [i16; 16] = std::array::from_fn(|i| i as i16);
+        let idxs = unsafe { _mm256_loadu_si256(idxs.as_ptr().cast()) };
+        (
+            _mm512_castsi256_si512(_mm256_maskz_compress_epi16(nnz_mask, idxs)),
+            nnz_mask.count_ones() as u16,
+        )
     }
 }

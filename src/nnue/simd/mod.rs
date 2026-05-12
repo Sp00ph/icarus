@@ -1,5 +1,5 @@
 cfg_select! {
-    target_feature = "avx512bw" => {
+    all(target_feature = "avx512bw", target_feature = "avx512vl", target_feature = "avx512vbmi2") => {
         mod avx512;
         pub use avx512::*;
     }
