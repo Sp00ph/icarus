@@ -145,9 +145,9 @@ fn propagate_l1(act_ft: &[i8; L1]) -> [i32; L2 * 2] {
                 sum = add(sum, partial_sum);
             }
 
-            let shifted = add(bias, shr_const::<8>(sum));
-
-            let crelu = clamp(shl_const::<6>(shifted), 0, Q * Q);
+            let biased = add(bias, sum);
+            let shifted = shr_const::<8>(biased);
+            let crelu = clamp(shr_const::<{ 8 - 6 }>(add(bias, sum)), 0, Q * Q);
             let csrelu = clamp(mul(shifted, shifted), 0, Q * Q);
 
             store(out.as_mut_ptr().add(i * LANES), crelu);
