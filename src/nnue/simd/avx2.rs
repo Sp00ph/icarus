@@ -45,7 +45,7 @@ pub mod i8 {
             }
         }
     }
-    
+
     #[target_feature(enable = "avx2")]
     pub fn reinterpret_i32(v: I8Vec) -> I32Vec {
         v
@@ -85,6 +85,11 @@ pub mod i16 {
     #[target_feature(enable = "avx2")]
     pub fn max(l: I16Vec, r: I16Vec) -> I16Vec {
         _mm256_max_epi16(l, r)
+    }
+
+    #[target_feature(enable = "avx2")]
+    pub fn clamp(v: I16Vec, lo: i16, hi: i16) -> I16Vec {
+        min(max(v, splat(lo)), splat(hi))
     }
 
     #[target_feature(enable = "avx2")]
@@ -139,6 +144,11 @@ pub mod i32 {
     }
 
     #[target_feature(enable = "avx2")]
+    pub fn shl_const<const N: i32>(v: I32Vec) -> I32Vec {
+        _mm256_slli_epi32(v, N)
+    }
+
+    #[target_feature(enable = "avx2")]
     pub fn min(l: I32Vec, r: I32Vec) -> I32Vec {
         _mm256_min_epi32(l, r)
     }
@@ -146,6 +156,11 @@ pub mod i32 {
     #[target_feature(enable = "avx2")]
     pub fn max(l: I32Vec, r: I32Vec) -> I32Vec {
         _mm256_max_epi32(l, r)
+    }
+
+    #[target_feature(enable = "avx2")]
+    pub fn clamp(v: I32Vec, lo: i32, hi: i32) -> I32Vec {
+        min(max(v, splat(lo)), splat(hi))
     }
 
     #[target_feature(enable = "avx2")]

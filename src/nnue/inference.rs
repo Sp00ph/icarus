@@ -30,7 +30,7 @@ fn activate_ft(us: &[i16; L1], them: &[i16; L1]) -> [i8; L1] {
 
     unsafe {
         for i in (0..L1 / 2).step_by(2 * simd::i16::LANES) {
-            use simd::i16::{LANES, load, max, min, mulhi_shl7, packus, splat};
+            use simd::i16::{LANES, clamp, load, min, mulhi_shl7, packus, splat};
 
             let mut us1 = load(us.as_ptr().add(i));
             let mut us2 = load(us.as_ptr().add(i + L1 / 2));
@@ -45,13 +45,13 @@ fn activate_ft(us: &[i16; L1], them: &[i16; L1]) -> [i8; L1] {
             // We can save the max(_, 0) on some of the vectors, as `packus` will clamp any negative values to 0.
             us1 = min(us1, splat(Q0));
             us3 = min(us3, splat(Q0));
-            us2 = min(max(us2, splat(0)), splat(Q0));
-            us4 = min(max(us4, splat(0)), splat(Q0));
+            us2 = clamp(us2, 0, Q0);
+            us4 = clamp(us4, 0, Q0);
 
             them1 = min(them1, splat(Q0));
             them3 = min(them3, splat(Q0));
-            them2 = min(max(them2, splat(0)), splat(Q0));
-            them4 = min(max(them4, splat(0)), splat(Q0));
+            them2 = clamp(them2, 0, Q0);
+            them4 = clamp(them4, 0, Q0);
 
             let us_pair1 = mulhi_shl7(us1, us2);
             let us_pair2 = mulhi_shl7(us3, us4);
@@ -71,7 +71,7 @@ fn activate_ft(us: &[i16; L1], them: &[i16; L1]) -> [i8; L1] {
 }
 
 #[inline(always)]
-fn propagate_l1(act_ft: &[i8; L1]) -> [i32; L2] {
+fn propagate_l1(act_ft: &[i8; L1]) -> [i32; L2 * 2] {
     const UNROLL: usize = 4;
     const { assert!(L2.is_multiple_of(simd::i32::LANES)) };
     const { assert!((L1 / 4).is_multiple_of(UNROLL)) };
@@ -134,7 +134,7 @@ fn propagate_l1(act_ft: &[i8; L1]) -> [i32; L2] {
             i_outer += 1;
         }
 
-        let mut out = [0; L2];
+        let mut out = [0; 2 * L2];
         for i in 0..L2 / simd::i32::LANES {
             use simd::i32::*;
 
@@ -146,21 +146,24 @@ fn propagate_l1(act_ft: &[i8; L1]) -> [i32; L2] {
             }
 
             let shifted = add(bias, shr_const::<8>(sum));
-            let clamped = min(max(shifted, splat(0)), splat(Q));
-            let activated = mul(clamped, clamped);
-            store(out.as_mut_ptr().add(i * LANES), activated);
+
+            let crelu = clamp(shl_const::<6>(shifted), 0, Q * Q);
+            let csrelu = clamp(mul(shifted, shifted), 0, Q * Q);
+
+            store(out.as_mut_ptr().add(i * LANES), crelu);
+            store(out.as_mut_ptr().add(i * LANES + L2), csrelu);
         }
         out
     }
 }
 
-fn propagate_l2(act_l1: &[i32; L2]) -> [i32; L3] {
+fn propagate_l2(act_l1: &[i32; L2 * 2]) -> [i32; L3] {
     use simd::{I32Vec, i32::*};
     unsafe {
         let mut sums: [I32Vec; L3 / LANES] =
             std::array::from_fn(|i| load(NET.l2b.as_ptr().add(i * LANES)));
 
-        for i in 0..L2 {
+        for i in 0..L2 * 2 {
             let r = splat(act_l1[i]);
             for j in 0..L3 / LANES {
                 let l = load(NET.l2w[i].as_ptr().add(j * LANES));

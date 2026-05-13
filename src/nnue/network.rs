@@ -57,7 +57,7 @@ pub struct Network {
     pub l0b: [i16; L1],
     pub l1w: [[i8; L2 * 4]; L1 / 4],
     pub l1b: [i32; L2],
-    pub l2w: [[i32; L3]; L2],
+    pub l2w: [[i32; L3]; L2 * 2],
     pub l2b: [i32; L3],
     pub l3w: [i32; L3],
     pub l3b: i32,
