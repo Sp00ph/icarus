@@ -144,11 +144,6 @@ pub mod i32 {
     }
 
     #[target_feature(enable = "avx2")]
-    pub fn shl_const<const N: i32>(v: I32Vec) -> I32Vec {
-        _mm256_slli_epi32(v, N)
-    }
-
-    #[target_feature(enable = "avx2")]
     pub fn min(l: I32Vec, r: I32Vec) -> I32Vec {
         _mm256_min_epi32(l, r)
     }

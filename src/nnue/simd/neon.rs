@@ -94,6 +94,11 @@ pub mod i16 {
     }
 
     #[target_feature(enable = "neon")]
+    pub fn clamp(v: I16Vec, lo: i16, hi: i16) -> I16Vec {
+        min(max(v, splat(lo)), splat(hi))
+    }
+
+    #[target_feature(enable = "neon")]
     pub fn mulhi_shl7(l: I16Vec, r: I16Vec) -> I16Vec {
         vqdmulhq_s16(l, vshlq_n_s16(r, 6))
     }
@@ -152,6 +157,11 @@ pub mod i32 {
     #[target_feature(enable = "neon")]
     pub fn max(l: I32Vec, r: I32Vec) -> I32Vec {
         vmaxq_s32(l, r)
+    }
+
+    #[target_feature(enable = "neon")]
+    pub fn clamp(v: I32Vec, lo: i32, hi: i32) -> I32Vec {
+        min(max(v, splat(lo)), splat(hi))
     }
 
     #[target_feature(enable = "neon")]
