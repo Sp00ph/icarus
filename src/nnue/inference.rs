@@ -145,7 +145,7 @@ fn propagate_l1(act_ft: &[i8; L1]) -> [i32; L2] {
                 sum = add(sum, partial_sum);
             }
 
-            let shifted = add(bias, shr_const::<8>(sum));
+            let shifted = shr_const::<8>(add(bias, sum));
             let clamped = min(max(shifted, splat(0)), splat(Q));
             let activated = mul(clamped, clamped);
             store(out.as_mut_ptr().add(i * LANES), activated);
@@ -192,7 +192,6 @@ fn propagate_l3(act_l2: &[i32; L3]) -> i32 {
     }
 }
 
-#[inline(never)]
 pub fn forward(us: &[i16; L1], them: &[i16; L1]) -> i32 {
     // in [0, Q1]
     let act_ft = activate_ft(us, them);

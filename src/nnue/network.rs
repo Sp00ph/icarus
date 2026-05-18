@@ -22,7 +22,7 @@ use crate::{
 
 // 704 instead of 768 because of king plane merging
 pub const INPUT: usize = 704;
-pub const L1: usize = 1024;
+pub const L1: usize = 1280;
 pub const L2: usize = 16;
 pub const L3: usize = 32;
 
