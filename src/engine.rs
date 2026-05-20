@@ -257,6 +257,7 @@ impl Engine {
         for mv in moves {
             self.position.make_move(mv, None);
         }
+        self.position.prune_preroot_hashes();
     }
 
     fn display(&self) {
