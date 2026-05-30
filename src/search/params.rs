@@ -5,6 +5,7 @@ use crate::{nontunable, search::search::DEPTH_SCALE, tunable_params, util::MAX_P
 tunable_params!(
     rfp_margin              : i16 = 50      (25..=100);
     rfp_quad_margin         : i16 = 768     (384..=1536);
+    rfp_margin_opp_worsening: i16 = 15      (8..=30);
     movepick_see_threshold  : i32 = 0       (-100..=100);
     qs_see_threshold        : i32 = 0       (-100..=100);
     tactic_see_base         : i32 = 0       (0..=30);

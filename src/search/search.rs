@@ -186,6 +186,12 @@ pub fn search<Node: NodeType>(
     } else {
         true
     };
+    let opp_worsen_rate = if Node::ROOT || in_check {
+        0
+    } else {
+        thread.search_stack[ply as usize].static_eval.0 as i32
+            + thread.search_stack[ply as usize - 1].static_eval.0 as i32
+    };
 
     // Hindsight ext
     if !Node::ROOT
@@ -193,7 +199,7 @@ pub fn search<Node: NodeType>(
         && !singular_search
         && thread.search_stack[ply as usize - 1].reduction >= hindsight_ext_min_red()
         && thread.search_stack[ply as usize - 1].static_eval != Score::NONE
-        && static_eval < -thread.search_stack[ply as usize - 1].static_eval
+        && opp_worsen_rate < 0
     {
         depth += hindsight_ext_ext();
     }
@@ -205,6 +211,7 @@ pub fn search<Node: NodeType>(
             && score_estimate
                 - rfp_margin() * improving_depth
                 - rfp_quad_margin() * improving_depth.pow(2) / 128
+                - i16::from(opp_worsen_rate > 0) * rfp_margin_opp_worsening()
                 >= beta
         {
             if !score_estimate.is_win() && !beta.is_win() {
