@@ -121,7 +121,8 @@ nontunable!(
     see_max_depth           : i32 = 10240   (5120..=15360);
     fp_depth                : i32 = 8192    (4096..=16384);
     hist_prune_depth        : i32 = 5120    (2048..=10240);
-    se_min_depth            : i32 = 8192    (6144..=10240);
+    se_min_depth            : i32 = 7168    (6144..=10240);
+    se_min_depth_ttpv       : i32 = 1024    (512..=2048);
     se_depth_offset         : i32 = 1024    (0..=3072);
     se_depth_scale          : i32 = 64      (32..=128);
     lmr_min_depth           : i32 = 2048    (1024..=6144);

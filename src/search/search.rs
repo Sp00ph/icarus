@@ -360,8 +360,8 @@ pub fn search<Node: NodeType>(
 
         if !Node::ROOT
             && !singular_search
-            && depth >= se_min_depth()
             && let Some(tte) = tt_entry
+            && depth >= se_min_depth() + se_min_depth_ttpv() * tte.flags.pv() as i32
             && tte.mv.is_some_and(|tt_mv| tt_mv == mv)
             && tte.depth as i32 * DEPTH_SCALE >= (depth - se_tt_depth_offset())
             && tte.flags.tt_flag() != TTFlag::Upper
