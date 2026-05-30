@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use icarus_board::{
     attack_generators::{bishop_moves, rook_moves},
     board::{Board, TerminalState},
@@ -20,6 +22,11 @@ pub struct Position {
     board: Board,
     /// Previously played boards. `history[0]` is the starting position.
     history: Vec<Board>,
+    /// Zobrist hashes of the previous positions, used for repetition detection.
+    /// We store these separately to the history, because pre-root hashes are pruned,
+    /// by only keeping the ones that occurred twice already. This way, we don't immediately
+    /// return draw scores on positions that occurred before root.
+    hashes: Vec<u64>,
     moves: Vec<Option<(Piece, Move)>>,
 }
 
@@ -28,6 +35,7 @@ impl Position {
         Self {
             board,
             history: vec![],
+            hashes: vec![],
             moves: vec![],
         }
     }
@@ -38,12 +46,14 @@ impl Position {
             nnue.make_move(&self.board, mv);
         }
         self.history.push(self.board);
+        self.hashes.push(self.board.hash());
         self.board.make_move(mv);
         self.moves.push(Some((piece, mv)));
     }
 
     pub fn make_null_move(&mut self) {
         self.history.push(self.board);
+        self.hashes.push(self.board.hash());
         self.board.make_null_move();
         self.moves.push(None);
     }
@@ -54,11 +64,18 @@ impl Position {
         }
         self.board = self.history.pop().unwrap();
         self.moves.pop();
+        self.hashes.pop();
     }
 
     pub fn unmake_null_move(&mut self) {
         self.board = self.history.pop().unwrap();
         self.moves.pop();
+        self.hashes.pop();
+    }
+
+    pub fn prune_preroot_hashes(&mut self) {
+        let mut seen = HashSet::new();
+        self.hashes.retain(|&h| !seen.insert(h));
     }
 
     pub fn eval(&self, nnue: &mut Nnue, mat_scaling: bool) -> Score {
@@ -89,14 +106,11 @@ impl Position {
     }
 
     pub fn repetition(&self) -> bool {
-        // It's important for codegen quality here that we skip(3).take(max(hm - 3, 0)) instead of take(hm).skip(3)
-        self.history
+        self.hashes
             .iter()
             .rev()
-            .skip(3)
-            .take((self.board.halfmove_clock() as usize).saturating_sub(3))
-            .step_by(2)
-            .any(|b| b.hash() == self.board.hash())
+            .take(self.board.halfmove_clock() as usize)
+            .any(|&b| b == self.board.hash())
     }
 
     pub fn is_draw(&self) -> bool {
