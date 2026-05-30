@@ -270,7 +270,7 @@ pub fn search<Node: NodeType>(
         }
     }
 
-    let probcut_beta = beta.saturating_add(probcut_margin());
+    let probcut_beta = beta.saturating_add(probcut_margin() - 60 * improving as i16);
     if !Node::PV
         && !singular_search
         && !in_check
