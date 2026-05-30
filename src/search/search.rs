@@ -360,37 +360,44 @@ pub fn search<Node: NodeType>(
 
         if !Node::ROOT
             && !singular_search
-            && depth >= se_min_depth()
             && let Some(tte) = tt_entry
             && tte.mv.is_some_and(|tt_mv| tt_mv == mv)
-            && tte.depth as i32 * DEPTH_SCALE >= (depth - se_tt_depth_offset())
-            && tte.flags.tt_flag() != TTFlag::Upper
         {
-            let s_beta = tte
-                .score
-                .saturating_add((-depth * se_beta_scale() / (DEPTH_SCALE * 128)) as i16)
-                .max(-Score::MAX_MATE + 1);
-            let s_depth = (depth - se_depth_offset()) * se_depth_scale() / 128;
+            if depth >= se_min_depth()
+                && tte.depth as i32 * DEPTH_SCALE >= (depth - se_tt_depth_offset())
+                && tte.flags.tt_flag() != TTFlag::Upper
+            {
+                let s_beta = tte
+                    .score
+                    .saturating_add((-depth * se_beta_scale() / (DEPTH_SCALE * 128)) as i16)
+                    .max(-Score::MAX_MATE + 1);
+                let s_depth = (depth - se_depth_offset()) * se_depth_scale() / 128;
 
-            thread.search_stack[ply as usize].singular = Some(mv);
-            let score = search::<NonPV>(pos, s_depth, ply, s_beta - 1, s_beta, cutnode, thread);
-            thread.search_stack[ply as usize].singular = None;
+                thread.search_stack[ply as usize].singular = Some(mv);
+                let score = search::<NonPV>(pos, s_depth, ply, s_beta - 1, s_beta, cutnode, thread);
+                thread.search_stack[ply as usize].singular = None;
 
-            if score < s_beta {
+                if score < s_beta {
+                    extension = se_single_ext();
+                    // double extension
+                    extension +=
+                        se_double_ext() * i32::from(!Node::PV && score + se_dext_margin() < beta);
+                } else if s_beta >= beta {
+                    return s_beta;
+                } else if tte.score >= beta {
+                    extension = se_triple_negext();
+                } else if cutnode {
+                    // double negext
+                    extension = se_double_negext();
+                } else if tte.score <= alpha {
+                    // negext
+                    extension = se_single_negext();
+                }
+            } else if depth <= ldse_max_depth()
+                && static_eval <= alpha.saturating_add(-ldse_margin())
+                && tte.flags.tt_flag() == TTFlag::Lower
+            {
                 extension = se_single_ext();
-                // double extension
-                extension +=
-                    se_double_ext() * i32::from(!Node::PV && score + se_dext_margin() < beta);
-            } else if s_beta >= beta {
-                return s_beta;
-            } else if tte.score >= beta {
-                extension = se_triple_negext();
-            } else if cutnode {
-                // double negext
-                extension = se_double_negext();
-            } else if tte.score <= alpha {
-                // negext
-                extension = se_single_negext();
             }
         }
 

@@ -124,6 +124,8 @@ nontunable!(
     se_min_depth            : i32 = 8192    (6144..=10240);
     se_depth_offset         : i32 = 1024    (0..=3072);
     se_depth_scale          : i32 = 64      (32..=128);
+    ldse_max_depth          : i32 = 7168    (3184..=14336);
+    ldse_margin             : i16 = 25      (12..=50);
     lmr_min_depth           : i32 = 2048    (1024..=6144);
     qs_lmp_limit            : i16 = 2       (1..=4);
     asp_min_depth           : u16 = 5       (2..=10);
