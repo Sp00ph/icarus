@@ -510,7 +510,6 @@ pub fn search<Node: NodeType>(
     }
 
     if !in_check
-        && !singular_search
         && best_move.is_none_or(|mv| pos.board().is_quiet(mv))
         && match flag {
             TTFlag::Lower => best_score > static_eval,
