@@ -346,6 +346,7 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: Print) -> Score
         let mut delta = asp_initial_window();
         let mut alpha = best_score.saturating_add(-delta);
         let mut beta = best_score.saturating_add(delta);
+        let mut asp_red = 0;
 
         if depth < asp_min_depth() {
             (alpha, beta) = (-Score::INFINITE, Score::INFINITE);
@@ -357,9 +358,10 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: Print) -> Score
                 beta = beta.max(alpha + 1);
             }
 
+            let search_depth = DEPTH_SCALE.max((depth as i32) * DEPTH_SCALE - asp_red);
             let new_score = search::<Root>(
                 &mut pos,
-                (depth as i32) * DEPTH_SCALE,
+                search_depth,
                 0,
                 alpha,
                 beta,
@@ -379,8 +381,10 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: Print) -> Score
                 beta = Score(alpha.0.midpoint(beta.0));
                 alpha = new_score.saturating_add(-delta);
                 bound = TTFlag::Upper;
+                asp_red = 0;
             } else if new_score >= beta {
                 bound = TTFlag::Lower;
+                asp_red = (asp_red + 128).min(384);
                 beta = new_score.saturating_add(delta);
             } else {
                 best_score = new_score;
