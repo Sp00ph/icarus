@@ -123,13 +123,13 @@ pub fn search<Node: NodeType>(
     if !Node::PV
         && !singular_search
         && let Some(e) = tt_entry
+        && (cutnode || e.score <= alpha)
         && e.depth as i32 * DEPTH_SCALE >= depth
     {
-        let score = e.score;
         match e.flags.tt_flag() {
-            TTFlag::Exact => return score,
-            TTFlag::Lower if score >= beta => return score,
-            TTFlag::Upper if score <= alpha => return score,
+            TTFlag::Exact => return e.score,
+            TTFlag::Lower if e.score >= beta => return e.score,
+            TTFlag::Upper if e.score <= alpha => return e.score,
             _ => {}
         }
     }
