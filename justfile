@@ -21,6 +21,9 @@ build arch outname="icarus" $ICARUS_RELEASE="":
 bench: build-native
     ./icarus{{ ext }} bench
 
+run: build-native
+    ./icarus{{ ext }}
+
 build-x86-releases:
     just build "x86-64" icarus-{{ os() }}-generic 1
     just build "x86-64-v3" icarus-{{ os() }}-avx2 1
