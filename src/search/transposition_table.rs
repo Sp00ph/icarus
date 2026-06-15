@@ -178,9 +178,10 @@ impl TTable {
         let len = (mb * 1024 * 1024 / size_of::<TTCluster>() as u64) as usize;
         let mut mmap = MmapOptions::new()
             .len(len * size_of::<TTClusterMemory>())
-            .huge(None)
             .map_anon()
             .unwrap();
+        #[cfg(unix)]
+        mmap.advise(memmap2::Advice::HugePage).unwrap();
         assert!(mmap.as_ptr().cast::<TTClusterMemory>().is_aligned());
 
         // SAFETY: We constructed the memory map to have sufficient length to hold the TT, and
