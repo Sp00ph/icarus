@@ -6,10 +6,13 @@ use std::{
 use icarus_board::board::Board;
 
 use crate::{
-    engine::Engine, position::Position, search::{
+    engine::Engine,
+    position::Position,
+    search::{
         searcher::{Print, Searcher},
         time_manager::DEFAULT_MOVE_OVERHEAD,
-    }, uci::SearchLimit
+    },
+    uci::SearchLimit,
 };
 
 #[cfg(feature = "count-nnz")]
@@ -100,6 +103,9 @@ impl Engine {
         #[cfg(feature = "count-act")]
         println!("{:?}", crate::nnue::inference::ACT_COUNTS);
         #[cfg(feature = "count-nnz")]
-        println!("{:.2}%", NNZ_CNT.load(Ordering::Relaxed) as f64 / NNZ_DIV.load(Ordering::Relaxed) as f64 * 100.0)
+        println!(
+            "{:.2}%",
+            NNZ_CNT.load(Ordering::Relaxed) as f64 / NNZ_DIV.load(Ordering::Relaxed) as f64 * 100.0
+        )
     }
 }

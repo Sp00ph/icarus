@@ -6,7 +6,7 @@ use icarus_common::{
     util::enum_map::EnumMap,
 };
 
-use crate::nnue::network::{L1, INPUT, NET, NUM_KING_BUCKETS, should_mirror};
+use crate::nnue::network::{INPUT, L1, NET, NUM_KING_BUCKETS, should_mirror};
 
 #[derive(Debug, Clone)]
 pub struct Accumulator {

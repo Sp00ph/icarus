@@ -352,10 +352,10 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: Print) -> Score
         }
 
         'asp_window: loop {
-            if best_score.is_mate() {
-                alpha = alpha.max(best_score - 1);
-                beta = beta.max(alpha + 1);
-            }
+            // if best_score.is_mate() {
+            //     alpha = alpha.max(best_score - 1);
+            //     beta = beta.max(alpha + 1);
+            // }
 
             let new_score = search::<Root>(
                 &mut pos,
