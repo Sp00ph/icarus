@@ -216,8 +216,9 @@ impl Engine {
                     println!("info string Invalid Hash size!");
                     return;
                 }
+                let t = Instant::now();
                 self.searcher.resize_ttable(val);
-                println!("info string Set TT size to {val}MiB");
+                println!("info string Initialized {val}MiB TT in {:.2?}", t.elapsed())
             }
             "threads" => {
                 if self.searcher.is_running() {
