@@ -109,7 +109,7 @@ impl Engine {
     fn handle_cmd(&mut self, command: UciCommand) -> Abort {
         match command {
             UciCommand::Uci => self.uci(),
-            UciCommand::NewGame => self.searcher.newgame(),
+            UciCommand::NewGame => self.newgame(),
             UciCommand::IsReady => self.isready(),
             UciCommand::SetOption { name, value } => self.setoption(name, value),
             UciCommand::Position {
@@ -174,6 +174,12 @@ impl Engine {
 
     fn isready(&self) {
         println!("readyok");
+    }
+
+    fn newgame(&mut self) {
+        let t = Instant::now();
+        self.searcher.newgame();
+        println!("info string Reset engine state in {:.2?}", t.elapsed());
     }
 
     fn setoption(&mut self, name: String, value: String) {
