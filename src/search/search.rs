@@ -314,7 +314,7 @@ pub fn search<Node: NodeType>(
                 let see_margin = tactic_see_base() + (tactic_see_scale() * depth / DEPTH_SCALE);
                 if depth <= see_max_depth()
                     && move_picker.stage() > Stage::YieldGoodNoisy
-                    && !pos.cmp_see(mv, see_margin)
+                    && !thread.see_cache.cmp_see(pos.board(), mv, see_margin)
                 {
                     continue;
                 }
@@ -352,7 +352,9 @@ pub fn search<Node: NodeType>(
 
                 // Quiet SEE Pruning
                 let see_margin = quiet_see_base() + (quiet_see_scale() * lmr_depth / DEPTH_SCALE);
-                if lmr_depth <= see_max_depth() && !pos.cmp_see(mv, see_margin) {
+                if lmr_depth <= see_max_depth()
+                    && !thread.see_cache.cmp_see(pos.board(), mv, see_margin)
+                {
                     continue;
                 }
             }
@@ -634,7 +636,7 @@ pub fn qsearch<Node: NodeType>(
                 continue;
             }
             // FP
-            if !in_check && futility <= alpha && !pos.cmp_see(mv, 1) {
+            if !in_check && futility <= alpha && !thread.see_cache.cmp_see(pos.board(), mv, 1) {
                 best_score = best_score.max(futility);
                 continue;
             }

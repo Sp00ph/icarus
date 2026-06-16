@@ -21,6 +21,7 @@ use crate::{
         history::History,
         params::{asp_initial_window, asp_min_depth, asp_widen_factor},
         search::{DEPTH_SCALE, Root, search},
+        see::SeeCache,
         time_manager::TimeManager,
         transposition_table::{DEFAULT_TT_SIZE, TTFlag, TTable},
     },
@@ -67,6 +68,7 @@ pub struct ThreadCtx {
 
     // boxed because of stack size concerns
     pub history: Box<History>,
+    pub see_cache: SeeCache,
 
     pub nnue: Nnue,
 }
@@ -89,6 +91,7 @@ impl ThreadCtx {
                 .unwrap(),
             root_pv: Default::default(),
             history: History::new(),
+            see_cache: SeeCache { cache: [0; _] },
             nnue: Nnue::new(&Board::start_pos()),
             min_nmp_ply: 0,
         }

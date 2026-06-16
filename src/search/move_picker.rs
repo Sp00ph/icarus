@@ -72,7 +72,7 @@ impl MovePicker {
         (idx, self.moves[idx].0)
     }
 
-    pub fn next(&mut self, pos: &Position, thread: &ThreadCtx) -> Option<Move> {
+    pub fn next(&mut self, pos: &Position, thread: &mut ThreadCtx) -> Option<Move> {
         let board = pos.board();
 
         if self.stage == Stage::TTMove {
@@ -115,7 +115,7 @@ impl MovePicker {
             self.moves.swap(self.index, i);
             self.index += 1;
 
-            if pos.cmp_see(mv, self.see_threshold) {
+            if thread.see_cache.cmp_see(pos.board(), mv, self.see_threshold) {
                 return Some(mv);
             }
 
