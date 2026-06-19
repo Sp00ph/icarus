@@ -380,7 +380,7 @@ pub fn search<Node: NodeType>(
                 extension = se_single_ext();
                 // double extension
                 extension +=
-                    se_double_ext() * i32::from(!Node::PV && score + se_dext_margin() < beta);
+                    se_double_ext() * i32::from(!Node::PV && score + se_dext_margin() < s_beta);
             } else if score >= beta {
                 return if score.is_mate() {
                     score
