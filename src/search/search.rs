@@ -381,8 +381,12 @@ pub fn search<Node: NodeType>(
                 // double extension
                 extension +=
                     se_double_ext() * i32::from(!Node::PV && score + se_dext_margin() < beta);
-            } else if s_beta >= beta {
-                return s_beta;
+            } else if score >= beta {
+                return if score.is_mate() {
+                    score
+                } else {
+                    Score(score.0.midpoint(beta.0))
+                };
             } else if tte.score >= beta {
                 extension = se_triple_negext();
             } else if cutnode {
