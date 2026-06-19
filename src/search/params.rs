@@ -11,8 +11,8 @@ tunable_params!(
     tactic_see_scale        : i32 = -60     (-120..=-30);
     quiet_see_base          : i32 = 0       (0..=30);
     quiet_see_scale         : i32 = -100    (-200..=-50);
-    lmp_base                : u32 = 4096    (2048..=8192);
-    lmp_scale               : u32 = 1024    (512..=2048);
+    lmp_base                : i32 = 4096    (2048..=8192);
+    lmp_scale               : i32 = 1024    (512..=2048);
     fp_base                 : i16 = 100     (50..=200);
     fp_scale                : i32 = 80      (40..=160);
     qsfp_margin             : i16 = 150     (80..=300);

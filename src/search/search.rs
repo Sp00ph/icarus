@@ -323,11 +323,13 @@ pub fn search<Node: NodeType>(
 
                 if !move_picker.no_more_quiets() {
                     // LMP
-                    let lmp_margin = (lmp_base()
-                        + lmp_scale() * ((lmr_depth / DEPTH_SCALE) as u32).pow(2))
-                        >> u32::from(!improving);
+                    let hist = thread.history.score_quiet(pos, mv);
+                    let lmp_margin = ((lmp_base()
+                        + lmp_scale() * (lmr_depth / DEPTH_SCALE).pow(2))
+                        >> u32::from(!improving))
+                        + hist / 16384;
 
-                    if moves_seen as u32 * 1024 >= lmp_margin {
+                    if moves_seen as i32 * 1024 >= lmp_margin {
                         move_picker.skip_quiets();
                     }
 
@@ -342,7 +344,6 @@ pub fn search<Node: NodeType>(
                     }
 
                     // History pruning
-                    let hist = thread.history.score_quiet(pos, mv);
                     let hist_margin = -hist_prune_scale() * lmr_depth / DEPTH_SCALE;
                     if depth <= hist_prune_depth() && hist < hist_margin {
                         move_picker.skip_quiets();
