@@ -327,7 +327,7 @@ pub fn search<Node: NodeType>(
                     let lmp_margin = ((lmp_base()
                         + lmp_scale() * (lmr_depth / DEPTH_SCALE).pow(2))
                         >> u32::from(!improving))
-                        + hist / 16384;
+                        + hist / 8192;
 
                     if moves_seen as i32 * 1024 >= lmp_margin {
                         move_picker.skip_quiets();
