@@ -218,7 +218,7 @@ pub fn search<Node: NodeType>(
         if depth >= nmp_depth()
             && cutnode
             && ply >= thread.min_nmp_ply
-            && static_eval >= beta
+            && score_estimate >= beta
             && pos.prev_move(1).is_some()
             && tt_entry.is_none_or(|e| e.flags.tt_flag() != TTFlag::Upper)
         {
