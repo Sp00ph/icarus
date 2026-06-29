@@ -118,6 +118,8 @@ nontunable!(
     nmp_red_base            : i32 = 6144    (3072..=12288);
     nmp_red_scale_div       : i32 = 640     (256..=1280);
     nmp_verif_min_depth     : i32 = 14336   (7168..=21504);
+    nmp_base_margin         : i32 = 200     (100..=400);
+    nmp_depth_scale         : i32 = 1280    (640..=2560);
     see_max_depth           : i32 = 10240   (5120..=15360);
     fp_depth                : i32 = 8192    (4096..=16384);
     hist_prune_depth        : i32 = 5120    (2048..=10240);

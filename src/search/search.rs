@@ -215,10 +215,12 @@ pub fn search<Node: NodeType>(
         }
 
         // NMP
+        let nmp_margin =
+            (nmp_base_margin() - depth * nmp_depth_scale() / DEPTH_SCALE / 128).max(0) as i16;
         if depth >= nmp_depth()
             && cutnode
             && ply >= thread.min_nmp_ply
-            && static_eval >= beta
+            && static_eval >= beta + nmp_margin
             && pos.prev_move(1).is_some()
             && tt_entry.is_none_or(|e| e.flags.tt_flag() != TTFlag::Upper)
         {
