@@ -114,7 +114,7 @@ pub fn search<Node: NodeType>(
     }
 
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
-    let tt_move = tt_entry.and_then(|e| e.mv);
+    let mut tt_move = tt_entry.and_then(|e| e.mv);
     let tt_pv = Node::PV || tt_entry.is_some_and(|e| e.flags.pv());
     let singular = thread.search_stack[ply as usize].singular;
     let singular_search = singular.is_some();
@@ -283,6 +283,36 @@ pub fn search<Node: NodeType>(
         && (tte.depth as i32) * DEPTH_SCALE >= depth - probcut_depth_offset()
     {
         return tte.score;
+    }
+
+    // Internal Iterative Deepening (IID)
+    if !Node::ROOT
+        && Node::PV
+        && depth >= 8192
+        && !in_check
+        && !singular_search
+        && tt_move.is_none()
+    {
+        let prev_in_iid = thread.in_iid;
+
+        thread.in_iid = true;
+        search::<PV>(
+            pos,
+            (iid_depth_scale() * depth) / 1024 - iid_depth_offset(),
+            ply,
+            alpha,
+            beta,
+            cutnode,
+            thread,
+        );
+        thread.in_iid = prev_in_iid;
+
+        if let Some(entry) = thread.global.ttable.fetch(pos.board().hash(), ply) {
+            tt_move = entry.mv;
+            if thread.in_iid && depth <= (entry.depth as i32) * DEPTH_SCALE {
+                return entry.score;
+            }
+        }
     }
 
     let mut move_picker = MovePicker::new(tt_move, false, movepick_see_threshold());
