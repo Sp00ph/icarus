@@ -71,7 +71,7 @@ fn activate_ft(us: &[i16; L1], them: &[i16; L1]) -> [i8; L1] {
 }
 
 #[inline(always)]
-fn propagate_l1(act_ft: &[i8; L1]) -> [i32; L2] {
+fn propagate_l1(act_ft: &[i8; L1]) -> ([i32; L2], [i32; L2]) {
     const UNROLL: usize = 4;
     const { assert!(L2.is_multiple_of(simd::i32::LANES)) };
     const { assert!((L1 / 4).is_multiple_of(UNROLL)) };
@@ -135,6 +135,7 @@ fn propagate_l1(act_ft: &[i8; L1]) -> [i32; L2] {
         }
 
         let mut out = [0; L2];
+        let mut preact = [0; L2];
         for i in 0..L2 / simd::i32::LANES {
             use simd::i32::*;
 
@@ -146,15 +147,16 @@ fn propagate_l1(act_ft: &[i8; L1]) -> [i32; L2] {
             }
 
             let shifted = add(bias, shr_const::<8>(sum));
+            store(preact.as_mut_ptr().add(i * LANES), shifted);
             let clamped = min(max(shifted, splat(0)), splat(Q));
             let activated = mul(clamped, clamped);
             store(out.as_mut_ptr().add(i * LANES), activated);
         }
-        out
+        (out, preact)
     }
 }
 
-fn propagate_l2(act_l1: &[i32; L2]) -> [i32; L3] {
+fn propagate_l2(act_l1: &[i32; L2], preact_l1: &[i32; L2]) -> [i32; L3] {
     use simd::{I32Vec, i32::*};
     unsafe {
         let mut sums: [I32Vec; L3 / LANES] =
@@ -175,7 +177,7 @@ fn propagate_l2(act_l1: &[i32; L2]) -> [i32; L3] {
         }
 
         for i in 0..L2 {
-            out[i] += act_l1[i] * Q;
+            out[i] += preact_l1[i] * Q * Q;
         }
 
         out
@@ -210,9 +212,9 @@ pub fn forward(us: &[i16; L1], them: &[i16; L1]) -> i32 {
     }
 
     // in [0, Q^2]
-    let act_l1 = propagate_l1(&act_ft);
+    let (act_l1, preact_l1) = propagate_l1(&act_ft);
     // in [0, Q^3]
-    let act_l2 = propagate_l2(&act_l1);
+    let act_l2 = propagate_l2(&act_l1, &preact_l1);
     // in [0, SCALE * Q^4]
     let scaled = propagate_l3(&act_l2) as i64 * SCALE as i64;
 
