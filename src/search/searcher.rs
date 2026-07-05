@@ -64,6 +64,8 @@ pub struct ThreadCtx {
 
     // Used for NMP verification search
     pub min_nmp_ply: u16,
+    // Are we currently in an IID search?
+    pub in_iid: bool,
 
     // boxed because of stack size concerns
     pub history: Box<History>,
@@ -91,6 +93,7 @@ impl ThreadCtx {
             history: History::new(),
             nnue: Nnue::new(&Board::start_pos()),
             min_nmp_ply: 0,
+            in_iid: false,
         }
     }
 

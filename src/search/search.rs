@@ -285,6 +285,7 @@ pub fn search<Node: NodeType>(
         return tte.score;
     }
 
+    // Internal Iterative Deepening (IID)
     if !Node::ROOT
         && Node::PV
         && depth >= 8192
@@ -292,18 +293,25 @@ pub fn search<Node: NodeType>(
         && !singular_search
         && tt_move.is_none()
     {
+        let prev_in_iid = thread.in_iid;
+
+        thread.in_iid = true;
         search::<PV>(
             pos,
-            (3 * depth - 7168) / 4,
+            (iid_depth_scale() * depth) / 1024 - iid_depth_offset(),
             ply,
             alpha,
             beta,
             cutnode,
             thread,
         );
+        thread.in_iid = prev_in_iid;
 
         if let Some(entry) = thread.global.ttable.fetch(pos.board().hash(), ply) {
             tt_move = entry.mv;
+            if thread.in_iid && depth <= (entry.depth as i32) * DEPTH_SCALE {
+                return entry.score;
+            }
         }
     }
 
