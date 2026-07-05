@@ -113,7 +113,10 @@ pub fn search<Node: NodeType>(
         thread.nodes.inc();
     }
 
-    let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
+    let tt_entry = thread
+        .global
+        .ttable
+        .fetch(pos.board().hash_halfmove_bucketed(), ply);
     let mut tt_move = tt_entry.and_then(|e| e.mv);
     let tt_pv = Node::PV || tt_entry.is_some_and(|e| e.flags.pv());
     let singular = thread.search_stack[ply as usize].singular;
@@ -166,7 +169,7 @@ pub fn search<Node: NodeType>(
 
     if !singular_search && !in_check && tt_entry.is_none() {
         thread.global.ttable.store(
-            pos.board().hash(),
+            pos.board().hash_halfmove_bucketed(),
             0,
             ply,
             raw_eval,
@@ -307,7 +310,11 @@ pub fn search<Node: NodeType>(
         );
         thread.in_iid = prev_in_iid;
 
-        if let Some(entry) = thread.global.ttable.fetch(pos.board().hash(), ply) {
+        if let Some(entry) = thread
+            .global
+            .ttable
+            .fetch(pos.board().hash_halfmove_bucketed(), ply)
+        {
             tt_move = entry.mv;
             if thread.in_iid && depth <= (entry.depth as i32) * DEPTH_SCALE {
                 return entry.score;
@@ -532,7 +539,7 @@ pub fn search<Node: NodeType>(
 
     if !singular_search {
         thread.global.ttable.store(
-            pos.board().hash(),
+            pos.board().hash_halfmove_bucketed(),
             (depth / DEPTH_SCALE) as u8,
             ply,
             raw_eval,
@@ -594,7 +601,10 @@ pub fn qsearch<Node: NodeType>(
     }
 
     let in_check = pos.board().checkers().is_non_empty();
-    let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
+    let tt_entry = thread
+        .global
+        .ttable
+        .fetch(pos.board().hash_halfmove_bucketed(), ply);
     let tt_pv = Node::PV || tt_entry.is_some_and(|e| e.flags.pv());
 
     let mut raw_eval = Score::NONE;
@@ -620,7 +630,7 @@ pub fn qsearch<Node: NodeType>(
 
         if tt_entry.is_none() {
             thread.global.ttable.store(
-                pos.board().hash(),
+                pos.board().hash_halfmove_bucketed(),
                 0,
                 ply,
                 raw_eval,
@@ -709,7 +719,7 @@ pub fn qsearch<Node: NodeType>(
     }
 
     thread.global.ttable.store(
-        pos.board().hash(),
+        pos.board().hash_halfmove_bucketed(),
         0,
         ply,
         raw_eval,

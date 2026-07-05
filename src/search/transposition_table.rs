@@ -246,7 +246,10 @@ impl TTable {
             use std::arch::x86_64::{_MM_HINT_T0, _mm_prefetch};
             unsafe {
                 _mm_prefetch(
-                    self.entries().as_ptr().add(self.index(board.hash())).cast(),
+                    self.entries()
+                        .as_ptr()
+                        .add(self.index(board.hash_halfmove_bucketed()))
+                        .cast(),
                     _MM_HINT_T0,
                 );
             }

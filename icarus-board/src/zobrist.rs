@@ -5,6 +5,8 @@ use icarus_common::{
 
 struct Xoshiro256PlusPlus([u64; 4]);
 
+pub const HALFMOVE_BUCKETS: usize = 16;
+
 impl Xoshiro256PlusPlus {
     const fn next(&mut self) -> u64 {
         let s = &mut self.0;
@@ -28,6 +30,7 @@ pub struct Zobrist {
     pub black_to_move: u64,
     castles: [[u64; File::COUNT]; Color::COUNT],
     en_passant: [u64; File::COUNT],
+    pub halfmove_buckets: [u64; HALFMOVE_BUCKETS],
 }
 
 impl Zobrist {
@@ -53,6 +56,7 @@ pub static ZOBRIST: Zobrist = {
         black_to_move: 0,
         castles: [[0; File::COUNT]; Color::COUNT],
         en_passant: [0; File::COUNT],
+        halfmove_buckets: [0; HALFMOVE_BUCKETS],
     };
 
     // Random 256-bit key
@@ -82,6 +86,12 @@ pub static ZOBRIST: Zobrist = {
             f += 1;
         }
         c += 1;
+    }
+
+    let mut i = 0;
+    while i < HALFMOVE_BUCKETS {
+        zobrist.halfmove_buckets[i] = rng.next();
+        i += 1;
     }
 
     zobrist.black_to_move = rng.next();

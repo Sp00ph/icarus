@@ -12,7 +12,7 @@ use crate::{
     ep_file::EnPassantFile,
     r#move::{Move, MoveFlag},
     movegen::Abort,
-    zobrist::ZOBRIST,
+    zobrist::{HALFMOVE_BUCKETS, ZOBRIST},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -174,6 +174,16 @@ impl Board {
     #[inline]
     pub fn nonpawn_hash(&self, color: Color) -> u64 {
         self.nonpawn_hash[color]
+    }
+
+    #[inline]
+    pub fn halfmove_bucket(&self) -> usize {
+        (self.halfmove_clock.saturating_sub(8) as usize / 8).min(HALFMOVE_BUCKETS - 1)
+    }
+
+    #[inline]
+    pub fn hash_halfmove_bucketed(&self) -> u64 {
+        self.hash ^ ZOBRIST.halfmove_buckets[self.halfmove_bucket()]
     }
 
     #[inline]
