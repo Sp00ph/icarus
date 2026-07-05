@@ -174,6 +174,10 @@ fn propagate_l2(act_l1: &[i32; L2]) -> [i32; L3] {
             store(out.as_mut_ptr().add(i * LANES), clamped);
         }
 
+        for i in 0..L2 {
+            out[i] += act_l1[i] * Q;
+        }
+
         out
     }
 }
