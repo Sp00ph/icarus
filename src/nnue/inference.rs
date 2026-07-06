@@ -192,7 +192,6 @@ fn propagate_l3(act_l2: &[i32; L3]) -> i32 {
     }
 }
 
-#[inline(never)]
 pub fn forward(us: &[i16; L1], them: &[i16; L1]) -> i32 {
     // in [0, Q1]
     let act_ft = activate_ft(us, them);

@@ -2,11 +2,11 @@ use std::{env, fs, process::Command};
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=nets/icarus.nnue");
     println!("cargo:rerun-if-env-changed=EVALFILE");
-
     let out_path = env::var("OUT_DIR").unwrap() + "/icarus.nnue";
     let in_path = env::var("EVALFILE").unwrap_or_else(|_| "nets/icarus.nnue".to_string());
+    println!("cargo:rerun-if-changed={in_path}");
+
 
     if !fs::exists(&in_path).unwrap() {
         panic!(
