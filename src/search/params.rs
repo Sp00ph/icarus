@@ -31,7 +31,7 @@ tunable_params!(
     probcut_margin          : i16 = 375     (200..=750);
     probcut_depth_offset    : i32 = 2048    (1024..=4096);
 
-    lmr_base                : i32 = 512     (256..=1024);
+    lmr_base                : i32 = 0       (-512..=512);
     lmr_quiet_div           : i32 = 1536    (768..=3072);
     lmr_tactic_div          : i32 = 3584    (1792..=7168);
     lmr_nonpv               : i32 = 1024    (512..=2048);
