@@ -452,7 +452,7 @@ pub fn search<Node: NodeType>(
                 thread,
             );
         } else {
-            if depth < lmr_min_depth() || moves_seen < 2 + Node::ROOT as u8 {
+            if depth < lmr_min_depth() || moves_seen < 1 + Node::ROOT as u8 {
                 lmr = 0;
             } else {
                 lmr += lmr_nonpv() * !Node::PV as i32;
