@@ -432,7 +432,7 @@ pub fn search<Node: NodeType>(
         let new_depth = depth + extension - DEPTH_SCALE;
 
         let hist_lmr = if pos.board().is_quiet(mv) {
-            thread.history.score_quiet(pos, mv) / quiet_hist_lmr_div()
+            thread.history.score_quiet(pos, mv) * DEPTH_SCALE / quiet_hist_lmr_div()
         } else {
             0
         };
@@ -459,7 +459,7 @@ pub fn search<Node: NodeType>(
                 lmr -= lmr_ttpv() * tt_pv as i32;
                 lmr -= lmr_check() * pos.board().checkers().is_non_empty() as i32;
                 lmr += lmr_cutnode() * cutnode as i32;
-                lmr -= DEPTH_SCALE * hist_lmr;
+                lmr -= hist_lmr;
             }
 
             let lmr_depth = (new_depth - lmr).max(DEPTH_SCALE).min(new_depth);
