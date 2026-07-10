@@ -100,6 +100,9 @@ impl Engine {
         #[cfg(feature = "count-act")]
         println!("{:?}", crate::nnue::inference::ACT_COUNTS);
         #[cfg(feature = "count-nnz")]
-        println!("{:.2}%", NNZ_CNT.load(Ordering::Relaxed) as f64 / NNZ_DIV.load(Ordering::Relaxed) as f64 * 100.0)
+        println!(
+            "{:.2}%",
+            NNZ_CNT.load(Ordering::Relaxed) as f64 / NNZ_DIV.load(Ordering::Relaxed) as f64 * 100.0
+        )
     }
 }

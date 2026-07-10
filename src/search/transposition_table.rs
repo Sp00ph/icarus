@@ -1,9 +1,10 @@
 use std::{
-    mem::transmute,
+    mem::{MaybeUninit, transmute},
     sync::atomic::{AtomicU8, AtomicU64, Ordering::Relaxed},
 };
 
 use icarus_board::{board::Board, r#move::Move};
+use memmap2::{MmapMut, MmapOptions};
 
 use crate::score::Score;
 
@@ -127,16 +128,74 @@ impl Flags {
 }
 
 pub struct TTable {
-    entries: Box<[TTClusterMemory]>,
+    mmap: MmapMut,
+    len: usize,
     age: AtomicU8,
 }
 
 impl TTable {
-    pub fn new(mb: u64) -> TTable {
-        let size = (mb * 1024 * 1024 / size_of::<TTCluster>() as u64) as usize;
+    fn init_threaded(buffer: &mut [MaybeUninit<TTClusterMemory>], threads: usize) {
+        fn clear_chunk(chunk: &mut [MaybeUninit<TTClusterMemory>]) {
+            chunk.fill_with(|| MaybeUninit::new(TTClusterMemory::empty()));
+        }
+
+        // let each thread clear at least 256MiB (8 million clusters).
+        let chunk_size = (1 << 23).max(buffer.len().div_ceil(threads));
+        let mut chunks = buffer.chunks_mut(chunk_size);
+
+        std::thread::scope(|s| {
+            let first = chunks.next().unwrap();
+
+            chunks.for_each(|chunk| {
+                s.spawn(|| clear_chunk(chunk));
+            });
+
+            clear_chunk(first);
+        })
+    }
+
+    fn clear_threaded(buffer: &[TTClusterMemory], threads: usize) {
+        fn clear_chunk(chunk: &[TTClusterMemory]) {
+            chunk.iter().for_each(|e| e.clear());
+        }
+
+        // let each thread clear at least 256MiB (8 million clusters).
+        let chunk_size = (1 << 23).max(buffer.len().div_ceil(threads));
+        let mut chunks = buffer.chunks(chunk_size);
+
+        std::thread::scope(|s| {
+            let first = chunks.next().unwrap();
+
+            chunks.for_each(|chunk| {
+                s.spawn(|| clear_chunk(chunk));
+            });
+
+            clear_chunk(first);
+        })
+    }
+
+    pub fn new(mb: u64, threads: usize) -> TTable {
+        let len = (mb * 1024 * 1024 / size_of::<TTCluster>() as u64) as usize;
+        let mut mmap = MmapOptions::new()
+            .len(len * size_of::<TTClusterMemory>())
+            .map_anon()
+            .unwrap();
+        #[cfg(target_os = "linux")]
+        mmap.advise(memmap2::Advice::HugePage).unwrap();
+        assert!(mmap.as_ptr().cast::<TTClusterMemory>().is_aligned());
+
+        // SAFETY: We constructed the memory map to have sufficient length to hold the TT, and
+        // we sanity checked its alignment above.
+        unsafe {
+            Self::init_threaded(
+                std::slice::from_raw_parts_mut(mmap.as_mut_ptr().cast(), len),
+                threads,
+            );
+        }
 
         TTable {
-            entries: (0..size).map(|_| TTClusterMemory::empty()).collect(),
+            mmap,
+            len,
             age: AtomicU8::new(0),
         }
     }
@@ -161,11 +220,17 @@ impl TTable {
         }
     }
 
+    fn entries(&self) -> &[TTClusterMemory] {
+        // SAFETY: The size and alignment of the mmap are sufficient as we checked them in the constructor.
+        // After construction, no one is creating mutable references to the mmap, so we can create shared references here.
+        unsafe { std::slice::from_raw_parts(self.mmap.as_ptr().cast(), self.len) }
+    }
+
     pub fn fetch(&self, hash: u64, ply: u16) -> Option<TTEntry> {
         let idx = self.index(hash);
         let hash = Self::trunc_key(hash);
 
-        let cluster = self.entries[idx].load();
+        let cluster = self.entries()[idx].load();
         if let Some(idx) = cluster.key_idx(hash) {
             let mut entry = cluster.entries[idx];
             entry.score = Self::tt_to_score(entry.score, ply);
@@ -181,7 +246,7 @@ impl TTable {
             use std::arch::x86_64::{_MM_HINT_T0, _mm_prefetch};
             unsafe {
                 _mm_prefetch(
-                    self.entries.as_ptr().add(self.index(board.hash())).cast(),
+                    self.entries().as_ptr().add(self.index(board.hash())).cast(),
                     _MM_HINT_T0,
                 );
             }
@@ -205,7 +270,7 @@ impl TTable {
         let index = self.index(hash);
         let hash = Self::trunc_key(hash);
 
-        let mut cluster = self.entries[index].load();
+        let mut cluster = self.entries()[index].load();
         let mut keys = cluster.keys();
 
         let age = self.age.load(Relaxed);
@@ -253,12 +318,12 @@ impl TTable {
                 flags: Flags::new(age, pv, tt_flag),
             };
 
-            self.entries[index].store(cluster);
+            self.entries()[index].store(cluster);
         }
     }
 
-    pub fn clear(&self) {
-        self.entries.iter().for_each(|e| e.clear());
+    pub fn clear(&self, threads: usize) {
+        Self::clear_threaded(self.entries(), threads);
         self.age.store(0, Relaxed)
     }
 
@@ -269,7 +334,7 @@ impl TTable {
     }
 
     pub fn hashfull(&self) -> usize {
-        self.entries[..2000]
+        self.entries()[..2000]
             .iter()
             .flat_map(|e| e.load().entries)
             .filter(|e| e.flags.tt_flag() != TTFlag::None)
@@ -278,7 +343,7 @@ impl TTable {
     }
 
     fn index(&self, hash: u64) -> usize {
-        ((hash as u128 * self.entries.len() as u128) >> 64) as usize
+        ((hash as u128 * self.entries().len() as u128) >> 64) as usize
     }
 
     fn trunc_key(key: u64) -> u16 {

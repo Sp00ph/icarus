@@ -525,14 +525,8 @@ impl Board {
             let orth = self.orth_sliders(!self.stm);
             let diag = self.diag_sliders(!self.stm);
 
-            for orth in rook_rays(our_king) & orth {
-                if (blockers & between(our_king, orth)).is_empty() {
-                    continue 'attackers;
-                }
-            }
-
-            for diag in bishop_rays(our_king) & diag {
-                if (blockers & between(our_king, diag)).is_empty() {
+            for slider in (rook_rays(our_king) & orth) | (bishop_rays(our_king) & diag) {
+                if (blockers & between(our_king, slider)).is_empty() {
                     continue 'attackers;
                 }
             }

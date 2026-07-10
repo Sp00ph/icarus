@@ -86,10 +86,10 @@ impl Board {
         };
 
         match flag {
-            MoveFlag::Promotion => {
-                if piece != Piece::Pawn || to.rank() != Rank::R8.relative_to(self.stm) {
-                    return false;
-                }
+            MoveFlag::Promotion
+                if piece != Piece::Pawn || to.rank() != Rank::R8.relative_to(self.stm) =>
+            {
+                return false;
             }
             MoveFlag::Castle => return false,
             // en passant is handled below
