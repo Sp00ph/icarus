@@ -6,5 +6,8 @@
 /icarus
 /icarus.exe
 
+# Coactivation counts for simulated annealing
+/coacts.json
+
 .idea/**
 *.iml

@@ -102,10 +102,27 @@ impl Engine {
         println!("{nodes} nodes {nps} nps");
         #[cfg(feature = "count-act")]
         println!("{:?}", crate::nnue::inference::ACT_COUNTS);
+        #[cfg(feature = "count-coact")]
+        write_coacts();
         #[cfg(feature = "count-nnz")]
         println!(
             "{:.2}%",
             NNZ_CNT.load(Ordering::Relaxed) as f64 / NNZ_DIV.load(Ordering::Relaxed) as f64 * 100.0
         )
     }
+}
+
+#[cfg(feature = "count-coact")]
+fn write_coacts() {
+    use std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
+    let mut writer = BufWriter::new(File::create("coacts.json").unwrap());
+    writeln!(writer, "[").unwrap();
+    let lines: Vec<_> = crate::nnue::inference::COACT_COUNTS
+        .iter()
+        .map(|arr| format!("    {arr:?}"))
+        .collect();
+    writeln!(writer, "{}\n]", lines.join(",\n")).unwrap();
 }
