@@ -7,6 +7,7 @@ use std::{
         },
     },
     thread::{self, JoinHandle},
+    time::Duration,
 };
 
 use arrayvec::ArrayVec;
@@ -18,9 +19,10 @@ use crate::{
     score::Score,
     search::{
         history::History,
-        search::{Root, search},
+        params::{asp_initial_window, asp_min_depth, asp_widen_factor},
+        search::{DEPTH_SCALE, Root, search},
         time_manager::TimeManager,
-        transposition_table::{DEFAULT_TT_SIZE, TTable},
+        transposition_table::{DEFAULT_TT_SIZE, TTFlag, TTable},
     },
     uci::SearchLimit,
     util::{
@@ -49,6 +51,7 @@ pub struct ThreadCtx {
     pub id: usize,
     pub global: Arc<GlobalCtx>,
     pub chess960: bool,
+    pub mat_scaling: bool,
     pub abort_now: bool,
 
     pub nodes: BufferedCounter,
@@ -61,6 +64,8 @@ pub struct ThreadCtx {
 
     // Used for NMP verification search
     pub min_nmp_ply: u16,
+    // Are we currently in an IID search?
+    pub in_iid: bool,
 
     // boxed because of stack size concerns
     pub history: Box<History>,
@@ -69,12 +74,13 @@ pub struct ThreadCtx {
 }
 
 impl ThreadCtx {
-    pub fn new(global: Arc<GlobalCtx>, id: usize, chess960: bool) -> Self {
+    pub fn new(global: Arc<GlobalCtx>, id: usize, chess960: bool, mat_scaling: bool) -> Self {
         let nodes = BufferedCounter::new(global.nodes.clone());
         ThreadCtx {
             id,
             global,
             chess960,
+            mat_scaling,
             abort_now: false,
             nodes,
             root_moves: vec![],
@@ -87,6 +93,7 @@ impl ThreadCtx {
             history: History::new(),
             nnue: Nnue::new(&Board::start_pos()),
             min_nmp_ply: 0,
+            in_iid: false,
         }
     }
 
@@ -111,6 +118,7 @@ pub struct SearchStackEntry {
     pub pv: PrincipalVariation,
     pub static_eval: Score,
     pub singular: Option<Move>,
+    pub reduction: i32,
 }
 
 impl Default for SearchStackEntry {
@@ -119,6 +127,7 @@ impl Default for SearchStackEntry {
             pv: Default::default(),
             static_eval: -Score::INFINITE,
             singular: None,
+            reduction: 0,
         }
     }
 }
@@ -128,7 +137,7 @@ pub struct SearchParams {
     pub pos: Position,
     pub root_moves: Option<Vec<Move>>,
     pub chess960: bool,
-    pub print_info: bool,
+    pub print_info: Print,
 }
 
 #[derive(Clone)]
@@ -139,6 +148,13 @@ enum ThreadCmd {
     SetGlobal(Arc<GlobalCtx>),
     NewGame,
     Quit,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum Print {
+    Full,
+    Minimal,
+    None,
 }
 
 pub struct Searcher {
@@ -153,7 +169,7 @@ impl Default for Searcher {
             time_manager: TimeManager::default(),
             nodes: Arc::new(AtomicU64::new(0)),
             num_searching: AtomicU32::new(0),
-            ttable: TTable::new(DEFAULT_TT_SIZE),
+            ttable: TTable::new(DEFAULT_TT_SIZE, 1),
         });
         let (mut tx, mut rx) = channel(1);
         let search_thread = thread::spawn({
@@ -190,7 +206,7 @@ impl Searcher {
         use_soft_nodes: bool,
         chess960: bool,
         move_overhead: u64,
-        print_info: bool,
+        print_info: Print,
     ) {
         assert!(
             !self.is_running(),
@@ -226,7 +242,7 @@ impl Searcher {
 
     pub fn newgame(&mut self) {
         assert!(!self.is_running(), "Called `newgame()` while searching");
-        self.global_ctx.ttable.clear();
+        self.global_ctx.ttable.clear(self.search_threads.len());
         self.command_sender.send(ThreadCmd::NewGame);
     }
 
@@ -261,7 +277,7 @@ impl Searcher {
             time_manager: Default::default(),
             nodes: Default::default(),
             num_searching: Default::default(),
-            ttable: TTable::new(mb),
+            ttable: TTable::new(mb, self.search_threads.len()),
         });
         self.command_sender
             .send(ThreadCmd::SetGlobal(self.global_ctx.clone()));
@@ -301,7 +317,7 @@ impl Searcher {
 }
 
 fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: usize) {
-    let mut thread_ctx = ThreadCtx::new(global, id, false);
+    let mut thread_ctx = ThreadCtx::new(global, id, false, true);
 
     loop {
         match rx.recv(|cmd| cmd.clone()) {
@@ -321,7 +337,7 @@ fn worker_thread_loop(mut rx: Receiver<ThreadCmd>, global: Arc<GlobalCtx>, id: u
     }
 }
 
-pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score {
+pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: Print) -> Score {
     let mut depth = 1;
     let mut best_score = -Score::INFINITE;
     let mut prev_move = None;
@@ -332,41 +348,60 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
     'id: loop {
         thread.sel_depth = 0;
 
-        let asp_initial_window = 25;
-        let asp_widen_factor = 64;
-        let asp_min_depth = 5;
-        let mut delta = asp_initial_window;
+        let mut delta = asp_initial_window();
         let mut alpha = best_score.saturating_add(-delta);
         let mut beta = best_score.saturating_add(delta);
 
-        if depth < asp_min_depth {
+        if depth < asp_min_depth() {
             (alpha, beta) = (-Score::INFINITE, Score::INFINITE);
         }
 
         'asp_window: loop {
-            if best_score.is_mate() {
-                alpha = alpha.max(best_score - 1);
-                beta = beta.max(alpha + 1);
-            }
-
-            let new_score = search::<Root>(&mut pos, depth as i16, 0, alpha, beta, false, thread);
+            let new_score = search::<Root>(
+                &mut pos,
+                (depth as i32) * DEPTH_SCALE,
+                0,
+                alpha,
+                beta,
+                false,
+                thread,
+            );
             thread.nodes.flush();
 
             if depth > 1 && thread.abort_now {
                 break 'id;
             }
 
+            let info_score = new_score.clamp(alpha, beta);
+            let bound;
+
             if new_score <= alpha {
                 beta = Score(alpha.0.midpoint(beta.0));
                 alpha = new_score.saturating_add(-delta);
+                bound = TTFlag::Upper;
             } else if new_score >= beta {
+                bound = TTFlag::Lower;
                 beta = new_score.saturating_add(delta);
             } else {
                 best_score = new_score;
                 break 'asp_window;
             }
 
-            delta = delta.saturating_add(((delta as i32) * asp_widen_factor / 64) as i16);
+            if print == Print::Full
+                && thread.id == 0
+                && thread.global.time_manager.elapsed() > Duration::from_secs(2)
+            {
+                print_info(
+                    info_score,
+                    bound,
+                    depth,
+                    thread,
+                    &pos,
+                    &thread.search_stack[0].pv,
+                );
+            }
+
+            delta = delta.saturating_add(((delta as i32) * asp_widen_factor() / 128) as i16);
         }
 
         if thread.id == 0 {
@@ -406,8 +441,15 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
             }
             break 'id;
         }
-        if print && thread.id == 0 {
-            print_info(best_score, depth, thread, &pos);
+        if print == Print::Full && thread.id == 0 {
+            print_info(
+                best_score,
+                TTFlag::Exact,
+                depth,
+                thread,
+                &pos,
+                &thread.root_pv,
+            );
         }
 
         depth += 1;
@@ -449,8 +491,15 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
         .or(thread.root_moves.first())
         .unwrap();
 
-    if print && thread.id == 0 {
-        print_info(best_score, depth, thread, &pos);
+    if print != Print::None && thread.id == 0 {
+        print_info(
+            best_score,
+            TTFlag::Exact,
+            depth,
+            thread,
+            &pos,
+            &thread.root_pv,
+        );
         println!("bestmove {}", best_move.display(thread.chess960));
     }
 
@@ -463,7 +512,14 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: bool) -> Score 
     best_score
 }
 
-fn print_info(score: Score, depth: u16, thread: &ThreadCtx, pos: &Position) {
+fn print_info(
+    score: Score,
+    bound: TTFlag,
+    depth: u16,
+    thread: &ThreadCtx,
+    pos: &Position,
+    pv: &[Move],
+) {
     let nodes = thread.nodes.global();
     let time_us = thread.global.time_manager.elapsed().as_micros();
     let nps = ((nodes as f64) / (time_us.max(1) as f64) * 1e6) as u64;
@@ -472,7 +528,7 @@ fn print_info(score: Score, depth: u16, thread: &ThreadCtx, pos: &Position) {
     let pv = {
         use std::fmt::Write;
         let mut s = String::new();
-        for mv in &thread.root_pv {
+        for mv in pv {
             write!(s, "{} ", mv.display(thread.chess960)).unwrap();
         }
         s.pop();
@@ -482,9 +538,14 @@ fn print_info(score: Score, depth: u16, thread: &ThreadCtx, pos: &Position) {
     let (w, l) = wdl::wdl_model(score, material);
     let d = 1000 - w - l;
     let score = wdl::normalize(score, material);
+    let bound = match bound {
+        TTFlag::Lower => " lowerbound",
+        TTFlag::Upper => " upperbound",
+        _ => "",
+    };
 
     println!(
-        "info depth {} seldepth {} score {} wdl {} {} {} time {} nodes {} nps {} hashfull {} pv {}",
-        depth, thread.sel_depth, score, w, d, l, time_ms, nodes, nps, hashfull, pv
+        "info depth {} seldepth {} score {}{} wdl {} {} {} time {} nodes {} nps {} hashfull {} pv {}",
+        depth, thread.sel_depth, score, bound, w, d, l, time_ms, nodes, nps, hashfull, pv
     )
 }

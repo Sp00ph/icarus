@@ -12,7 +12,7 @@ use crate::{
     position::Position,
     search::{
         move_picker::MAX_MOVES,
-        searcher::{GlobalCtx, SearchParams, ThreadCtx},
+        searcher::{GlobalCtx, Print, SearchParams, ThreadCtx},
         transposition_table::{DEFAULT_TT_SIZE, TTable},
     },
     uci::SearchLimit,
@@ -71,7 +71,7 @@ pub fn try_generate_pos(
         pos,
         root_moves: None,
         chess960: dfrc,
-        print_info: false,
+        print_info: Print::None,
     });
 
     let limit = 1000;
@@ -89,9 +89,9 @@ pub fn genfens(n: usize, seed: u64, dfrc: bool, random_moves: usize) {
                 time_manager: Default::default(),
                 nodes: Default::default(),
                 num_searching: Default::default(),
-                ttable: TTable::new(DEFAULT_TT_SIZE),
+                ttable: TTable::new(DEFAULT_TT_SIZE, 1),
             });
-            ThreadCtx::new(global, 0, dfrc)
+            ThreadCtx::new(global, 0, dfrc, false)
         }
     };
 

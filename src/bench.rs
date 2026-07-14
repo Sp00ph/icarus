@@ -8,9 +8,15 @@ use icarus_board::board::Board;
 use crate::{
     engine::Engine,
     position::Position,
-    search::{searcher::Searcher, time_manager::DEFAULT_MOVE_OVERHEAD},
+    search::{
+        searcher::{Print, Searcher},
+        time_manager::DEFAULT_MOVE_OVERHEAD,
+    },
     uci::SearchLimit,
 };
+
+#[cfg(feature = "count-nnz")]
+use crate::nnue::inference::{NNZ_CNT, NNZ_DIV};
 
 pub static FENS: [&str; 50] = [
     "r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq - 0 14",
@@ -84,7 +90,7 @@ impl Engine {
                 false,
                 false,
                 DEFAULT_MOVE_OVERHEAD,
-                false,
+                Print::None,
             );
             searcher.wait();
             duration += start.elapsed();
@@ -93,6 +99,30 @@ impl Engine {
 
         let nps = ((nodes as f64) / (duration.as_micros().max(1) as f64) * 1e6) as u64;
         println!("info string {:.2?}", duration);
-        println!("{nodes} nodes {nps} nps")
+        println!("{nodes} nodes {nps} nps");
+        #[cfg(feature = "count-act")]
+        println!("{:?}", crate::nnue::inference::ACT_COUNTS);
+        #[cfg(feature = "count-coact")]
+        write_coacts();
+        #[cfg(feature = "count-nnz")]
+        println!(
+            "{:.2}%",
+            NNZ_CNT.load(Ordering::Relaxed) as f64 / NNZ_DIV.load(Ordering::Relaxed) as f64 * 100.0
+        )
     }
+}
+
+#[cfg(feature = "count-coact")]
+fn write_coacts() {
+    use std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
+    let mut writer = BufWriter::new(File::create("coacts.json").unwrap());
+    writeln!(writer, "[").unwrap();
+    let lines: Vec<_> = crate::nnue::inference::COACT_COUNTS
+        .iter()
+        .map(|arr| format!("    {arr:?}"))
+        .collect();
+    writeln!(writer, "{}\n]", lines.join(",\n")).unwrap();
 }

@@ -6,18 +6,21 @@ use std::{
 use icarus_board::{board::Board, r#move::Move, movegen::Abort, perft::perft};
 use rustyline::{Config, Editor, error::ReadlineError, history::MemHistory};
 
+#[cfg(feature = "tune")]
+use crate::search::params::{list_params, print_params_ob, valid_param_name};
 use crate::{
     bench::DEFAULT_BENCH_DEPTH,
     datagen::genfens,
     nnue::network::Nnue,
     position::Position,
     search::{
-        searcher::{MAX_THREADS, Searcher},
+        searcher::{MAX_THREADS, Print, Searcher},
         time_manager::DEFAULT_MOVE_OVERHEAD,
         transposition_table::{DEFAULT_TT_SIZE, MAX_TT_SIZE},
     },
     uci::{SearchLimit, UciCommand},
     util::atomic_instant::EPOCH,
+    wdl,
 };
 
 pub struct Engine {
@@ -25,6 +28,7 @@ pub struct Engine {
     use_soft_nodes: bool,
     chess960: bool,
     move_overhead: u64,
+    minimal: bool,
     searcher: Searcher,
 }
 
@@ -35,6 +39,7 @@ impl Engine {
             use_soft_nodes: false,
             chess960: false,
             move_overhead: DEFAULT_MOVE_OVERHEAD,
+            minimal: false,
             searcher: Searcher::default(),
         }
     }
@@ -103,14 +108,14 @@ impl Engine {
     fn handle_cmd(&mut self, command: UciCommand) -> Abort {
         match command {
             UciCommand::Uci => self.uci(),
-            UciCommand::NewGame => self.searcher.newgame(),
+            UciCommand::NewGame => self.newgame(),
             UciCommand::IsReady => self.isready(),
             UciCommand::SetOption { name, value } => self.setoption(name, value),
             UciCommand::Position {
                 board,
                 moves,
                 enable_960,
-            } => self.position(board, moves, enable_960),
+            } => self.position(*board, moves, enable_960),
             UciCommand::Go(search_limits) => self.go(search_limits),
             UciCommand::Eval => self.eval(),
             UciCommand::Display => self.display(),
@@ -129,14 +134,17 @@ impl Engine {
                 return Abort::Yes;
             }
             UciCommand::Wait => self.wait(true),
+            #[cfg(feature = "tune")]
+            UciCommand::Params => print_params_ob(),
         }
 
         Abort::No
     }
 
     fn uci(&self) {
-        let version = env!("CARGO_PKG_VERSION");
-        println!("id name Icarus {version}-dev");
+        let version = env!("ICARUS_VERSION");
+
+        println!("id name Icarus {version}");
         println!("id author Sp00ph");
         println!("option name UCI_Chess960 type check default false");
         println!("option name UseSoftNodes type check default false");
@@ -147,6 +155,9 @@ impl Engine {
         );
         println!("option name Hash type spin default {DEFAULT_TT_SIZE} min 1 max {MAX_TT_SIZE}");
         println!("option name Threads type spin default 1 min 1 max {MAX_THREADS}");
+        println!("option name Minimal type check default false");
+        #[cfg(feature = "tune")]
+        list_params();
         println!("uciok");
     }
 
@@ -154,9 +165,15 @@ impl Engine {
         println!("readyok");
     }
 
+    fn newgame(&mut self) {
+        let t = Instant::now();
+        self.searcher.newgame();
+        println!("info string Reset engine state in {:.2?}", t.elapsed());
+    }
+
     fn setoption(&mut self, name: String, value: String) {
-        match name.as_str() {
-            "UCI_Chess960" | "960" => {
+        match name.to_lowercase().as_str() {
+            "uci_chess960" | "960" => {
                 let Ok(val) = value.parse::<bool>() else {
                     println!("info string Unknown value {value}");
                     return;
@@ -164,7 +181,7 @@ impl Engine {
                 self.chess960 = val;
                 println!("info string Set Chess960 to {val}");
             }
-            "UseSoftNodes" => {
+            "usesoftnodes" => {
                 let Ok(val) = value.parse::<bool>() else {
                     println!("info string Unknown value {value}");
                     return;
@@ -172,7 +189,7 @@ impl Engine {
                 self.use_soft_nodes = val;
                 println!("info string Set UseSoftNodes to {val}");
             }
-            "MoveOverhead" => {
+            "moveoverhead" => {
                 let Ok(val) = value.parse::<u64>() else {
                     println!("info string Unknown value {value}");
                     return;
@@ -180,7 +197,7 @@ impl Engine {
                 self.move_overhead = val;
                 println!("info string Set move overhead to {val}");
             }
-            "Hash" => {
+            "hash" => {
                 if self.searcher.is_running() {
                     println!("info string Can't update Hash while searching");
                     return;
@@ -194,10 +211,11 @@ impl Engine {
                     println!("info string Invalid Hash size!");
                     return;
                 }
+                let t = Instant::now();
                 self.searcher.resize_ttable(val);
-                println!("info string Set TT size to {val}MiB");
+                println!("info string Initialized {val}MiB TT in {:.2?}", t.elapsed())
             }
-            "Threads" => {
+            "threads" => {
                 if self.searcher.is_running() {
                     println!("info string Can't update Threads while searching");
                     return;
@@ -214,6 +232,25 @@ impl Engine {
                 self.searcher.change_threads(val);
                 println!("info string Started {val} threads");
             }
+            "minimal" => {
+                let Ok(val) = value.parse::<bool>() else {
+                    println!("info string Unknown value {value}");
+                    return;
+                };
+                self.minimal = val;
+                println!("info string Set Minimal to {val}");
+            }
+            #[cfg(feature = "tune")]
+            name if valid_param_name(name) => {
+                use crate::search::params::set_param;
+
+                if self.searcher.is_running() {
+                    println!("info string Can't update tunable while searching");
+                    return;
+                }
+
+                set_param(name, &value);
+            }
             _ => println!("info string Unsupported option {name}"),
         }
     }
@@ -228,6 +265,7 @@ impl Engine {
         for mv in moves {
             self.position.make_move(mv, None);
         }
+        self.position.prune_preroot_hashes();
     }
 
     fn display(&self) {
@@ -295,7 +333,11 @@ impl Engine {
             self.use_soft_nodes,
             self.chess960,
             self.move_overhead,
-            true,
+            if self.minimal {
+                Print::Minimal
+            } else {
+                Print::Full
+            },
         );
     }
 
@@ -331,8 +373,13 @@ impl Engine {
 
     fn eval(&self) {
         let mut nnue = Nnue::new(self.position.board());
-        let score = self.position.eval(&mut nnue);
-        println!("Static eval: {score:#}");
+        let score = self.position.eval(&mut nnue, false);
+        let scaled_score = self.position.eval(&mut nnue, true);
+
+        let material = self.position.board().classical_material();
+        let normalized = wdl::normalize(scaled_score, material);
+        println!("Raw eval:               {score:#}");
+        println!("Normalized scaled eval: {normalized:#}")
     }
 }
 

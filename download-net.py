@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 
+import os
 import urllib.request
 import hashlib
 
 
 def main():
+    if os.getenv("EVALFILE"):
+        print("EVALFILE set, skipping download.")
+        return
     name, hash = open("network.txt").read().strip().split()
     path = "nets/icarus.nnue"
     try:
@@ -14,7 +18,7 @@ def main():
     except OSError:
         pass
 
-    print(f"Downloading net {name} to {path}")
+    print(f"Downloading net {name} to {path}...")
     net = urllib.request.urlopen(
         f"https://github.com/Sp00ph/icarus-nets/releases/download/{name}/{name}.nnue"
     ).read()

@@ -1,25 +1,51 @@
 use icarus_board::{board::Board, r#move::Move};
 use icarus_common::piece::Piece;
 
-use crate::search::history::{MAX_HIST_VALUE, apply_gravity};
+use crate::search::{
+    history::MAX_HIST_VALUE,
+    params::{
+        cont1_bonus_base, cont1_bonus_max, cont1_bonus_scale, cont1_malus_base, cont1_malus_max,
+        cont1_malus_scale, cont2_bonus_base, cont2_bonus_max, cont2_bonus_scale, cont2_malus_base,
+        cont2_malus_max, cont2_malus_scale, cont4_bonus_base, cont4_bonus_max, cont4_bonus_scale,
+        cont4_malus_base, cont4_malus_max, cont4_malus_scale,
+    },
+};
 
 pub struct ContHist {
     /// [stm][prev piece][prev dst][piece][dst]
     data: [[[[[i16; 64]; 6]; 64]; 6]; 2],
 }
 
+fn apply_gravity<const MAX_BONUS: i32, const MAX_VALUE: i32>(
+    entry: &mut i16,
+    total: i32,
+    amount: i32,
+) {
+    let amount = amount.clamp(-MAX_BONUS, MAX_BONUS);
+    let decay = (total * amount.abs() / MAX_VALUE) as i16;
+
+    // FIXME: Figure out why the hell fixing overflow here loses elo.
+    *entry = entry.wrapping_add((amount as i16).wrapping_sub(decay));
+}
+
 impl ContHist {
-    fn bonus(depth: i16) -> i32 {
-        let bonus_base = 128;
-        let bonus_scale = 128;
-        let bonus_max = 2048;
+    fn bonus<const PLY: usize>(depth: i16) -> i32 {
+        let (bonus_base, bonus_scale, bonus_max) = match PLY {
+            1 => (cont1_bonus_base(), cont1_bonus_scale(), cont1_bonus_max()),
+            2 => (cont2_bonus_base(), cont2_bonus_scale(), cont2_bonus_max()),
+            4 => (cont4_bonus_base(), cont4_bonus_scale(), cont4_bonus_max()),
+            _ => unreachable!(),
+        };
         (bonus_base + (depth as i32) * bonus_scale).min(bonus_max)
     }
 
-    fn malus(depth: i16) -> i32 {
-        let malus_base = 128;
-        let malus_scale = 128;
-        let malus_max = 2048;
+    fn malus<const PLY: usize>(depth: i16) -> i32 {
+        let (malus_base, malus_scale, malus_max) = match PLY {
+            1 => (cont1_malus_base(), cont1_malus_scale(), cont1_malus_max()),
+            2 => (cont2_malus_base(), cont2_malus_scale(), cont2_malus_max()),
+            4 => (cont4_malus_base(), cont4_malus_scale(), cont4_malus_max()),
+            _ => unreachable!(),
+        };
         (malus_base + (depth as i32) * malus_scale).min(malus_max)
     }
 
@@ -44,27 +70,37 @@ impl ContHist {
         })
     }
 
-    pub fn apply_bonus(
+    pub fn apply_bonus<const PLY: usize>(
         &mut self,
         board: &Board,
         mv: Move,
         prev: Option<(Piece, Move)>,
+        total: i32,
         depth: i16,
     ) {
         if let Some(entry) = self.get_mut(board, mv, prev) {
-            apply_gravity::<MAX_HIST_VALUE, MAX_HIST_VALUE>(entry, Self::bonus(depth));
+            apply_gravity::<MAX_HIST_VALUE, MAX_HIST_VALUE>(
+                entry,
+                total,
+                Self::bonus::<PLY>(depth),
+            );
         }
     }
 
-    pub fn apply_malus(
+    pub fn apply_malus<const PLY: usize>(
         &mut self,
         board: &Board,
         mv: Move,
         prev: Option<(Piece, Move)>,
+        total: i32,
         depth: i16,
     ) {
         if let Some(entry) = self.get_mut(board, mv, prev) {
-            apply_gravity::<MAX_HIST_VALUE, MAX_HIST_VALUE>(entry, -Self::malus(depth));
+            apply_gravity::<MAX_HIST_VALUE, MAX_HIST_VALUE>(
+                entry,
+                total,
+                -Self::malus::<PLY>(depth),
+            );
         }
     }
 }

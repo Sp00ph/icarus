@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use icarus_board::{
     attack_generators::{bishop_moves, rook_moves},
     board::{Board, TerminalState},
@@ -9,13 +11,22 @@ use icarus_common::{
     square::Square,
 };
 
-use crate::{nnue::network::Nnue, score::Score, weights::see_val};
+use crate::{
+    nnue::network::Nnue,
+    score::Score,
+    search::params::{mat_scale, mat_scaling_base, see_val},
+};
 
 #[derive(Clone)]
 pub struct Position {
     board: Board,
     /// Previously played boards. `history[0]` is the starting position.
     history: Vec<Board>,
+    /// Zobrist hashes of the previous positions, used for repetition detection.
+    /// We store these separately to the history, because pre-root hashes are pruned,
+    /// by only keeping the ones that occurred twice already. This way, we don't immediately
+    /// return draw scores on positions that occurred before root.
+    hashes: Vec<u64>,
     moves: Vec<Option<(Piece, Move)>>,
 }
 
@@ -24,6 +35,7 @@ impl Position {
         Self {
             board,
             history: vec![],
+            hashes: vec![],
             moves: vec![],
         }
     }
@@ -34,12 +46,14 @@ impl Position {
             nnue.make_move(&self.board, mv);
         }
         self.history.push(self.board);
+        self.hashes.push(self.board.hash());
         self.board.make_move(mv);
         self.moves.push(Some((piece, mv)));
     }
 
     pub fn make_null_move(&mut self) {
         self.history.push(self.board);
+        self.hashes.push(self.board.hash());
         self.board.make_null_move();
         self.moves.push(None);
     }
@@ -50,17 +64,34 @@ impl Position {
         }
         self.board = self.history.pop().unwrap();
         self.moves.pop();
+        self.hashes.pop();
     }
 
     pub fn unmake_null_move(&mut self) {
         self.board = self.history.pop().unwrap();
         self.moves.pop();
+        self.hashes.pop();
     }
 
-    pub fn eval(&self, nnue: &mut Nnue) -> Score {
+    pub fn prune_preroot_hashes(&mut self) {
+        let mut seen = HashSet::new();
+        self.hashes.retain(|&h| !seen.insert(h));
+    }
+
+    pub fn eval(&self, nnue: &mut Nnue, mat_scaling: bool) -> Score {
         nnue.update(&self.board);
         let eval = nnue.eval(self.board.stm());
-        Score::clamp_nomate(eval.clamp(i16::MIN as i32, i16::MAX as i32) as i16)
+
+        let scale = if mat_scaling {
+            mat_scaling_base()
+                + Piece::all()
+                    .map(|pt| self.board.pieces(pt).popcnt() as i32 * mat_scale(pt))
+                    .sum::<i32>()
+        } else {
+            32768
+        };
+
+        Score::clamp_nomate((eval * scale / 32768).clamp(i16::MIN as i32, i16::MAX as i32) as i16)
     }
 
     pub fn prev_move(&self, ply: usize) -> Option<(Piece, Move)> {
@@ -75,21 +106,18 @@ impl Position {
     }
 
     pub fn repetition(&self) -> bool {
-        // It's important for codegen quality here that we skip(3).take(max(hm - 3, 0)) instead of take(hm).skip(3)
-        self.history
+        self.hashes
             .iter()
             .rev()
-            .skip(3)
-            .take((self.board.halfmove_clock() as usize).saturating_sub(3))
-            .step_by(2)
-            .any(|b| b.hash() == self.board.hash())
+            .take(self.board.halfmove_clock() as usize)
+            .any(|&b| b == self.board.hash())
     }
 
     pub fn is_draw(&self) -> bool {
         self.board.terminal_state() == Some(TerminalState::Draw) || self.repetition()
     }
 
-    pub fn cmp_see(&self, mv: Move, threshold: i16) -> bool {
+    pub fn cmp_see(&self, mv: Move, threshold: i32) -> bool {
         // Heavily inspired by <https://github.com/AndyGrant/Ethereal/blob/0e47e9b67f345c75eb965d9fb3e2493b6a11d09a/src/search.c>
 
         let board = &self.board;

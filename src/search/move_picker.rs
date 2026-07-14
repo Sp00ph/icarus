@@ -2,10 +2,10 @@ use arrayvec::ArrayVec;
 use icarus_board::{r#move::Move, movegen::Abort};
 use icarus_common::piece::Piece;
 
-use crate::{position::Position, search::searcher::ThreadCtx, weights::see_val};
+use crate::{position::Position, search::params::see_val, search::searcher::ThreadCtx};
 
 #[derive(Clone, Copy, Debug)]
-pub struct ScoredMove(pub Move, pub i16);
+pub struct ScoredMove(pub Move, pub i32);
 
 pub const MAX_MOVES: usize = 218;
 
@@ -28,11 +28,11 @@ pub struct MovePicker {
     stage: Stage,
     skip_quiets: bool,
     tt_move: Option<Move>,
-    see_threshold: i16,
+    see_threshold: i32,
 }
 
 impl MovePicker {
-    pub fn new(tt_move: Option<Move>, skip_quiets: bool, see_threshold: i16) -> Self {
+    pub fn new(tt_move: Option<Move>, skip_quiets: bool, see_threshold: i32) -> Self {
         Self {
             moves: MoveList::new(),
             bad_noisies: 0,
@@ -66,9 +66,9 @@ impl MovePicker {
             .iter()
             .enumerate()
             .skip(self.index)
-            .map(|(i, mv)| (i as i32) | (mv.1 as i32) << 16)
-            .fold(i32::MIN, std::cmp::max);
-        let idx = packed as usize & 0xffff;
+            .map(|(i, mv)| (i as i64) | (mv.1 as i64) << 32)
+            .fold(i64::MIN, std::cmp::max);
+        let idx = packed as usize & 0xffffffff;
         (idx, self.moves[idx].0)
     }
 
@@ -96,7 +96,7 @@ impl MovePicker {
             });
             for mv in &mut self.moves {
                 let victim = mv.0.captures(board).map_or(0, see_val);
-                mv.1 = thread.history.score_tactic(board, mv.0) / 32 + victim * 8;
+                mv.1 = thread.history.score_tactic(board, mv.0) / 8 + victim * 8;
                 if let Some(promo) = mv.0.promotes_to() {
                     mv.1 += (see_val(promo) - see_val(Piece::Pawn)) * 8;
                 }
@@ -130,7 +130,13 @@ impl MovePicker {
                         moves
                             .into_iter()
                             .filter(|mv| self.tt_move != Some(*mv))
-                            .map(|mv| ScoredMove(mv, thread.history.score_quiet(pos, mv))),
+                            .map(|mv| {
+                                ScoredMove(
+                                    mv,
+                                    thread.history.score_quiet(pos, mv)
+                                        + 8000 * pos.board().gives_direct_check(mv) as i32,
+                                )
+                            }),
                     );
                     Abort::No
                 });

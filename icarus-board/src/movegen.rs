@@ -15,6 +15,7 @@ use crate::{
     castling::CastlingDirection,
     ep_file::EnPassantFile,
     r#move::{Move, MoveFlag, PieceMoves},
+    setwise_attacks::knight_and_slider_attacks_setwise,
     zobrist::ZOBRIST,
 };
 
@@ -340,6 +341,7 @@ impl Board {
         Abort::No
     }
 
+    #[inline]
     fn gen_moves_impl<const IN_CHECK: bool, const WHITE: bool, V: FnMut(PieceMoves) -> Abort>(
         &self,
         visitor: &mut V,
@@ -385,6 +387,7 @@ impl Board {
         self.gen_all_moves_to_mapped(std::convert::identity)
     }
 
+    #[inline]
     fn gen_noisy_moves_impl<
         const IN_CHECK: bool,
         const WHITE: bool,
@@ -406,6 +409,7 @@ impl Board {
         Abort::No
     }
 
+    #[inline]
     fn gen_quiet_moves_impl<
         const IN_CHECK: bool,
         const WHITE: bool,
@@ -447,7 +451,7 @@ impl Board {
         }
     }
 
-    /// Recalculates the `checkers`, `pinned`, `xray`, and `attacked` bitboards.
+    /// Recalculates the `checkers`, `pinned`, `attacked`, and `check_zones` bitboards.
     /// Should be called after making a move, and after toggling `self.stm`.
     #[inline]
     pub(crate) fn calc_threats(&mut self) {
@@ -457,53 +461,40 @@ impl Board {
         let their_pawns = self.colored_pieces(Piece::Pawn, !self.stm);
         let their_orth = self.orth_sliders(!self.stm);
         let their_diag = self.diag_sliders(!self.stm);
+        let their_knights = self.colored_pieces(Piece::Knight, !self.stm);
         self.checkers = Bitboard::EMPTY;
         self.pinned = Bitboard::EMPTY;
         self.attacked =
             their_pawns.shift::<DownLeft>(push_dir) | their_pawns.shift::<DownRight>(push_dir);
         self.attacked |= king_moves(self.king(!self.stm));
+        self.attacked |= knight_and_slider_attacks_setwise(
+            their_knights,
+            their_orth,
+            their_diag,
+            blockers ^ our_king,
+        );
 
-        for knight in self.colored_pieces(Piece::Knight, !self.stm) {
-            let moves = knight_moves(knight);
-            if moves.contains(our_king) {
-                self.checkers |= knight;
-            }
-            self.attacked |= moves;
-        }
-
-        for orth in their_orth {
-            let moves = rook_moves(orth, blockers ^ our_king);
-            if moves.contains(our_king) {
-                self.checkers |= orth;
-            }
-            self.attacked |= moves;
-        }
-
-        for diag in their_diag {
-            let moves = bishop_moves(diag, blockers ^ our_king);
-            if moves.contains(our_king) {
-                self.checkers |= diag;
-            }
-            self.attacked |= moves;
-        }
-
+        self.checkers |= knight_moves(our_king) & their_knights;
         self.checkers |= pawn_attacks(our_king, self.stm) & their_pawns;
 
         // We're done calculating `self.attacked` and `self.checkers`.
         // Now we do `self.pinned`.
-        for orth in rook_rays(our_king) & their_orth {
-            let between = between(orth, our_king) & blockers;
-            if between.popcnt() == 1 {
-                self.pinned |= between;
+        for slider in (rook_rays(our_king) & their_orth) | (bishop_rays(our_king) & their_diag) {
+            let between = between(slider, our_king) & blockers;
+            match between.popcnt() {
+                0 => self.checkers |= slider,
+                1 => self.pinned |= between,
+                _ => {}
             }
         }
 
-        for diag in bishop_rays(our_king) & their_diag {
-            let between = between(diag, our_king) & blockers;
-            if between.popcnt() == 1 {
-                self.pinned |= between;
-            }
-        }
+        let their_king = self.king(!self.stm);
+        self.check_zones = [
+            pawn_attacks(their_king, !self.stm),
+            knight_moves(their_king),
+            bishop_moves(their_king, blockers),
+            rook_moves(their_king, blockers),
+        ];
     }
 
     /// Calcuates en-passant threats onto a nstm pawn that just double pushed on `file`.
@@ -534,14 +525,8 @@ impl Board {
             let orth = self.orth_sliders(!self.stm);
             let diag = self.diag_sliders(!self.stm);
 
-            for orth in rook_rays(our_king) & orth {
-                if (blockers & between(our_king, orth)).is_empty() {
-                    continue 'attackers;
-                }
-            }
-
-            for diag in bishop_rays(our_king) & diag {
-                if (blockers & between(our_king, diag)).is_empty() {
+            for slider in (rook_rays(our_king) & orth) | (bishop_rays(our_king) & diag) {
+                if (blockers & between(our_king, slider)).is_empty() {
                     continue 'attackers;
                 }
             }
@@ -561,6 +546,7 @@ impl Board {
 
     /// Makes the given move on the board. Does *not* check whether the move is legal. An illegal
     /// move may break the board, silently or loudly.
+    #[inline]
     pub fn make_move(&mut self, mov: Move) {
         let (from, to, flag, promotion) = (
             mov.from(),
@@ -685,6 +671,7 @@ impl Board {
         self.calc_threats();
     }
 
+    #[inline]
     pub fn make_null_move(&mut self) {
         debug_assert!(self.checkers.is_empty());
 

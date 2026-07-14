@@ -10,8 +10,15 @@ use icarus_common::piece::Color;
 use crate::{
     position::Position,
     score::Score,
-    search::history::{
-        cont::ContHist, contcorr::ContCorrHist, corr::CorrHist, main::MainHist, tactic::TacticHist,
+    search::{
+        history::{
+            cont::ContHist, contcorr::ContCorrHist, corr::CorrHist, main::MainHist,
+            tactic::TacticHist,
+        },
+        params::{
+            corr_black_factor, corr_cont1_factor, corr_cont2_factor, corr_major_factor,
+            corr_minor_factor, corr_pawn_factor, corr_white_factor,
+        },
     },
 };
 
@@ -23,8 +30,8 @@ const CORR_SIZE: usize = 16384;
 pub struct History {
     main: MainHist,
     tactic: TacticHist,
-    cont_oneply: ContHist,
-    cont_twoply: ContHist,
+    cont_odd: ContHist,
+    cont_even: ContHist,
 
     pawn_corr: CorrHist,
     minor_corr: CorrHist,
@@ -51,18 +58,18 @@ impl History {
         unsafe { std::ptr::write_bytes(self, 0, 1) }
     }
 
-    pub fn score_quiet(&self, pos: &Position, mv: Move) -> i16 {
-        let board = pos.board();
-        let oneply = pos.prev_move(1);
-        let twoply = pos.prev_move(2);
-        self.main
-            .get(pos.board(), mv)
-            .saturating_add(self.cont_oneply.get(board, mv, oneply))
-            .saturating_add(self.cont_twoply.get(board, mv, twoply))
+    fn cont(&self, pos: &Position, mv: Move) -> i32 {
+        self.cont_odd.get(pos.board(), mv, pos.prev_move(1)) as i32
+            + self.cont_even.get(pos.board(), mv, pos.prev_move(2)) as i32
+            + self.cont_even.get(pos.board(), mv, pos.prev_move(4)) as i32
     }
 
-    pub fn score_tactic(&self, board: &Board, mv: Move) -> i16 {
-        self.tactic.get(board, mv)
+    pub fn score_quiet(&self, pos: &Position, mv: Move) -> i32 {
+        self.main.get(pos.board(), mv) as i32 + self.cont(pos, mv)
+    }
+
+    pub fn score_tactic(&self, board: &Board, mv: Move) -> i32 {
+        self.tactic.get(board, mv) as i32
     }
 
     pub fn corr(&self, pos: &Position) -> i16 {
@@ -70,29 +77,21 @@ impl History {
         let stm = board.stm();
         let (twoply, oneply, cur) = (pos.prev_move(3), pos.prev_move(2), pos.prev_move(1));
 
-        let pawn_factor = 64;
-        let minor_factor = 64;
-        let major_factor = 64;
-        let white_factor = 64;
-        let black_factor = 64;
-        let cont1_factor = 64;
-        let cont2_factor = 64;
-
         let mut corr = 0;
-        corr += (self.pawn_corr.get(stm, board.pawn_hash()) as i32) * pawn_factor;
-        corr += (self.minor_corr.get(stm, board.minor_hash()) as i32) * minor_factor;
-        corr += (self.major_corr.get(stm, board.major_hash()) as i32) * major_factor;
+        corr += (self.pawn_corr.get(stm, board.pawn_hash()) as i32) * corr_pawn_factor();
+        corr += (self.minor_corr.get(stm, board.minor_hash()) as i32) * corr_minor_factor();
+        corr += (self.major_corr.get(stm, board.major_hash()) as i32) * corr_major_factor();
         corr += (self
             .white_nonpawn_corr
             .get(stm, board.nonpawn_hash(Color::White)) as i32)
-            * white_factor;
+            * corr_white_factor();
         corr += (self
             .black_nonpawn_corr
             .get(stm, board.nonpawn_hash(Color::Black)) as i32)
-            * black_factor;
+            * corr_black_factor();
 
-        corr += self.contcorr_oneply.get(stm, cur, oneply) as i32 * cont1_factor;
-        corr += self.contcorr_twoply.get(stm, cur, twoply) as i32 * cont2_factor;
+        corr += self.contcorr_oneply.get(stm, cur, oneply) as i32 * corr_cont1_factor();
+        corr += self.contcorr_twoply.get(stm, cur, twoply) as i32 * corr_cont2_factor();
 
         (corr / MAX_CORR_VALUE) as i16
     }
@@ -108,18 +107,28 @@ impl History {
         let board = pos.board();
         let oneply = pos.prev_move(1);
         let twoply = pos.prev_move(2);
+        let fourply = pos.prev_move(4);
+        let cont_score = self.cont(pos, mv);
 
         if board.is_tactic(mv) {
             self.tactic.apply_bonus(board, mv, depth);
         } else {
             self.main.apply_bonus(board, mv, depth);
-            self.cont_oneply.apply_bonus(board, mv, oneply, depth);
-            self.cont_twoply.apply_bonus(board, mv, twoply, depth);
+            self.cont_odd
+                .apply_bonus::<1>(board, mv, oneply, cont_score, depth);
+            self.cont_even
+                .apply_bonus::<2>(board, mv, twoply, cont_score, depth);
+            self.cont_even
+                .apply_bonus::<4>(board, mv, fourply, cont_score, depth);
 
             for &quiet in quiets {
                 self.main.apply_malus(board, quiet, depth);
-                self.cont_oneply.apply_malus(board, quiet, oneply, depth);
-                self.cont_twoply.apply_malus(board, quiet, twoply, depth);
+                self.cont_odd
+                    .apply_malus::<1>(board, quiet, oneply, cont_score, depth);
+                self.cont_even
+                    .apply_malus::<2>(board, quiet, twoply, cont_score, depth);
+                self.cont_even
+                    .apply_malus::<4>(board, quiet, fourply, cont_score, depth);
             }
         }
 

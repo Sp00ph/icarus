@@ -6,13 +6,15 @@ use crate::{
     position::Position,
     score::Score,
     search::{
-        lmr::get_lmr,
         move_picker::{MovePicker, Stage},
+        params::*,
         searcher::ThreadCtx,
         transposition_table::TTFlag,
     },
     util::MAX_PLY,
 };
+
+pub const DEPTH_SCALE: i32 = 1024;
 
 pub trait NodeType {
     const ROOT: bool;
@@ -55,7 +57,7 @@ fn update_pv(thread: &mut ThreadCtx, ply: u16, mv: Move) {
 
 pub fn search<Node: NodeType>(
     pos: &mut Position,
-    depth: i16,
+    mut depth: i32,
     ply: u16,
     mut alpha: Score,
     mut beta: Score,
@@ -99,6 +101,10 @@ pub fn search<Node: NodeType>(
         return Score::ZERO;
     }
 
+    if ply >= MAX_PLY {
+        return pos.eval(&mut thread.nnue, thread.mat_scaling);
+    }
+
     if depth <= 0 {
         return qsearch::<Node>(pos, ply, alpha, beta, thread);
     }
@@ -108,7 +114,7 @@ pub fn search<Node: NodeType>(
     }
 
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
-    let tt_move = tt_entry.and_then(|e| e.mv);
+    let mut tt_move = tt_entry.and_then(|e| e.mv);
     let tt_pv = Node::PV || tt_entry.is_some_and(|e| e.flags.pv());
     let singular = thread.search_stack[ply as usize].singular;
     let singular_search = singular.is_some();
@@ -117,7 +123,7 @@ pub fn search<Node: NodeType>(
     if !Node::PV
         && !singular_search
         && let Some(e) = tt_entry
-        && e.depth as i16 >= depth
+        && e.depth as i32 * DEPTH_SCALE >= depth
     {
         let score = e.score;
         match e.flags.tt_flag() {
@@ -137,12 +143,40 @@ pub fn search<Node: NodeType>(
     } else {
         let raw_eval = tt_entry
             .map(|e| e.eval)
-            .unwrap_or_else(|| pos.eval(&mut thread.nnue));
+            .unwrap_or_else(|| pos.eval(&mut thread.nnue, thread.mat_scaling));
         let static_eval = Score::clamp_nomate(raw_eval.0.saturating_add(thread.history.corr(pos)));
         (raw_eval, static_eval)
     };
 
+    let mut score_estimate = static_eval;
+    if !in_check
+        && !singular_search
+        && let Some(tte) = tt_entry
+        && match tte.flags.tt_flag() {
+            TTFlag::None => false,
+            TTFlag::Exact => true,
+            TTFlag::Lower => tte.score > static_eval,
+            TTFlag::Upper => tte.score < static_eval,
+        }
+    {
+        score_estimate = tte.score;
+    }
+
     thread.search_stack[ply as usize].static_eval = static_eval;
+
+    if !singular_search && !in_check && tt_entry.is_none() {
+        thread.global.ttable.store(
+            pos.board().hash(),
+            0,
+            ply,
+            raw_eval,
+            Score::NONE,
+            None,
+            TTFlag::None,
+            Node::PV,
+        );
+    }
+
     let improving = if in_check {
         false
     } else if ply >= 2 && thread.search_stack[ply as usize - 2].static_eval != Score::NONE {
@@ -153,31 +187,45 @@ pub fn search<Node: NodeType>(
         true
     };
 
+    // Hindsight ext
+    if !Node::ROOT
+        && !in_check
+        && !singular_search
+        && thread.search_stack[ply as usize - 1].reduction >= hindsight_ext_min_red()
+        && thread.search_stack[ply as usize - 1].static_eval != Score::NONE
+        && static_eval < -thread.search_stack[ply as usize - 1].static_eval
+    {
+        depth += hindsight_ext_ext();
+    }
+
     if !Node::PV && !in_check && !singular_search {
         // RFP
-        let improving_depth = (depth - improving as i16).max(0);
-        let rfp_depth = 6;
-        let rfp_margin = 50;
-        let rfp_quad_margin = 6;
-        if depth < rfp_depth
-            && !beta.is_win()
-            && static_eval - rfp_margin * improving_depth - rfp_quad_margin * improving_depth.pow(2)
+        let improving_depth = (depth / DEPTH_SCALE - improving as i32).max(0) as i16;
+        if depth < rfp_depth()
+            && score_estimate
+                - rfp_margin() * improving_depth
+                - rfp_quad_margin() * improving_depth.pow(2) / 128
                 >= beta
         {
-            return Score(static_eval.0.midpoint(beta.0));
+            if !score_estimate.is_win() && !beta.is_win() {
+                return Score(score_estimate.0.midpoint(beta.0));
+            } else {
+                return score_estimate;
+            }
         }
 
         // NMP
-        let nmp_depth = 3;
-        if depth >= nmp_depth
+        if depth >= nmp_depth()
+            && cutnode
             && ply >= thread.min_nmp_ply
             && static_eval >= beta
             && pos.prev_move(1).is_some()
+            && tt_entry.is_none_or(|e| e.flags.tt_flag() != TTFlag::Upper)
         {
             pos.make_null_move();
             thread.global.ttable.prefetch(pos.board());
 
-            let nmp_reduction = 3 + depth / 3;
+            let nmp_reduction = nmp_red_base() + depth * 128 / nmp_red_scale_div();
             let score = -search::<NonPV>(
                 pos,
                 depth - nmp_reduction,
@@ -194,7 +242,7 @@ pub fn search<Node: NodeType>(
             }
 
             if score >= beta {
-                if depth <= 14 || thread.min_nmp_ply > 0 {
+                if depth <= nmp_verif_min_depth() || thread.min_nmp_ply > 0 {
                     if score.is_win() {
                         return beta;
                     } else {
@@ -202,9 +250,17 @@ pub fn search<Node: NodeType>(
                     }
                 }
 
-                thread.min_nmp_ply = ply + (depth - nmp_reduction).max(0) as u16 * 3 / 4;
-                let verif_score =
-                    search::<NonPV>(pos, depth - nmp_reduction, ply, beta - 1, beta, true, thread);
+                thread.min_nmp_ply =
+                    ply + ((depth - nmp_reduction).max(0) / DEPTH_SCALE) as u16 * 3 / 4;
+                let verif_score = search::<NonPV>(
+                    pos,
+                    depth - nmp_reduction,
+                    ply,
+                    beta - 1,
+                    beta,
+                    true,
+                    thread,
+                );
                 thread.min_nmp_ply = 0;
 
                 if verif_score >= beta {
@@ -214,7 +270,52 @@ pub fn search<Node: NodeType>(
         }
     }
 
-    let mut move_picker = MovePicker::new(tt_move, false, 0);
+    let probcut_beta = beta.saturating_add(probcut_margin());
+    if !Node::PV
+        && !singular_search
+        && !in_check
+        && let Some(tte) = tt_entry
+        && tte.score != Score::NONE
+        && !tte.score.is_mate()
+        && !beta.is_mate()
+        && matches!(tte.flags.tt_flag(), TTFlag::Lower | TTFlag::Exact)
+        && tte.score >= probcut_beta
+        && (tte.depth as i32) * DEPTH_SCALE >= depth - probcut_depth_offset()
+    {
+        return tte.score;
+    }
+
+    // Internal Iterative Deepening (IID)
+    if !Node::ROOT
+        && Node::PV
+        && depth >= 8192
+        && !in_check
+        && !singular_search
+        && tt_move.is_none()
+    {
+        let prev_in_iid = thread.in_iid;
+
+        thread.in_iid = true;
+        search::<PV>(
+            pos,
+            (iid_depth_scale() * depth) / 1024 - iid_depth_offset(),
+            ply,
+            alpha,
+            beta,
+            cutnode,
+            thread,
+        );
+        thread.in_iid = prev_in_iid;
+
+        if let Some(entry) = thread.global.ttable.fetch(pos.board().hash(), ply) {
+            tt_move = entry.mv;
+            if thread.in_iid && depth <= (entry.depth as i32) * DEPTH_SCALE {
+                return entry.score;
+            }
+        }
+    }
+
+    let mut move_picker = MovePicker::new(tt_move, false, movepick_see_threshold());
     let mut best_score = -Score::INFINITE;
     let mut moves_seen = 0;
     let mut best_move = None;
@@ -225,23 +326,23 @@ pub fn search<Node: NodeType>(
     let mut tactics = SmallVec::<[Move; 64]>::new();
 
     while let Some(mv) = move_picker.next(pos, thread) {
-        if singular.is_some_and(|s| mv == s) {
+        if singular == Some(mv) {
+            continue;
+        }
+        if Node::ROOT && !thread.root_moves.contains(&mv) {
             continue;
         }
 
         let is_tactic = pos.board().is_tactic(mv);
-        let mut lmr = get_lmr(is_tactic, depth as u8, moves_seen);
+        let mut lmr = get_lmr(is_tactic, (depth / DEPTH_SCALE) as u8, moves_seen);
         let mut extension = 0;
         let mut score;
 
         if !Node::ROOT && !best_score.is_loss() {
             if is_tactic {
                 // Tactic SEE Pruning
-                let tactic_base = 0;
-                let tactic_scale = -60;
-                let see_margin = tactic_base + tactic_scale * depth;
-                if !Node::PV
-                    && depth <= 10
+                let see_margin = tactic_see_base() + (tactic_see_scale() * depth / DEPTH_SCALE);
+                if depth <= see_max_depth()
                     && move_picker.stage() > Stage::YieldGoodNoisy
                     && !pos.cmp_see(mv, see_margin)
                 {
@@ -252,42 +353,36 @@ pub fn search<Node: NodeType>(
 
                 if !move_picker.no_more_quiets() {
                     // LMP
-                    let lmp_margin =
-                        (4096 + 1024 * (lmr_depth as u32).pow(2)) >> u32::from(!improving);
+                    let lmp_margin = (lmp_base()
+                        + lmp_scale() * ((lmr_depth / DEPTH_SCALE) as u32).pow(2))
+                        >> u32::from(!improving);
 
                     if moves_seen as u32 * 1024 >= lmp_margin {
                         move_picker.skip_quiets();
                     }
 
                     // FP
-                    let fp_depth = 8;
-                    let fp_base = 100;
-                    let fp_scale = 80;
-
-                    let fp_margin = fp_base + fp_scale * lmr_depth;
-                    if !Node::PV
-                        && lmr_depth <= fp_depth
+                    let fp_margin = fp_base() + (fp_scale() * lmr_depth / DEPTH_SCALE) as i16;
+                    if lmr_depth <= fp_depth()
                         && !in_check
                         && static_eval + fp_margin <= alpha
+                        && !pos.board().gives_direct_check(mv)
                     {
                         move_picker.skip_quiets();
                     }
 
                     // History pruning
                     let hist = thread.history.score_quiet(pos, mv);
-                    let hist_scale = 2000;
-                    let hist_margin = -hist_scale * lmr_depth as i32;
-                    if depth <= 5 && (hist as i32) < hist_margin {
+                    let hist_margin = -hist_prune_scale() * lmr_depth / DEPTH_SCALE;
+                    if depth <= hist_prune_depth() && hist < hist_margin {
                         move_picker.skip_quiets();
                         continue;
                     }
                 }
 
                 // Quiet SEE Pruning
-                let quiet_base = 0;
-                let quiet_scale = -100;
-                let see_margin = quiet_base + quiet_scale * lmr_depth;
-                if !Node::PV && lmr_depth <= 10 && !pos.cmp_see(mv, see_margin) {
+                let see_margin = quiet_see_base() + (quiet_see_scale() * lmr_depth / DEPTH_SCALE);
+                if lmr_depth <= see_max_depth() && !pos.cmp_see(mv, see_margin) {
                     continue;
                 }
             }
@@ -295,56 +390,94 @@ pub fn search<Node: NodeType>(
 
         if !Node::ROOT
             && !singular_search
-            && depth >= 8
             && let Some(tte) = tt_entry
+            && depth >= se_min_depth() + se_min_depth_ttpv() * tte.flags.pv() as i32
             && tte.mv.is_some_and(|tt_mv| tt_mv == mv)
-            && tte.depth as i16 >= depth - 3
+            && tte.depth as i32 * DEPTH_SCALE >= (depth - se_tt_depth_offset())
             && tte.flags.tt_flag() != TTFlag::Upper
         {
-            let s_beta = (tte.score - depth * 32 / 16).max(-Score::MAX_MATE + 1);
-            let s_depth = (depth - 1) / 2;
+            let s_beta = tte
+                .score
+                .saturating_add((-depth * se_beta_scale() / (DEPTH_SCALE * 128)) as i16)
+                .max(-Score::MAX_MATE + 1);
+            let s_depth = (depth - se_depth_offset()) * se_depth_scale() / 128;
 
             thread.search_stack[ply as usize].singular = Some(mv);
             let score = search::<NonPV>(pos, s_depth, ply, s_beta - 1, s_beta, cutnode, thread);
             thread.search_stack[ply as usize].singular = None;
 
             if score < s_beta {
-                extension = 1;
+                extension = se_single_ext();
                 // double extension
-                let dext_margin = 20;
-                extension += i16::from(!Node::PV && score + dext_margin < beta);
-            } else if s_beta >= beta {
-                return s_beta;
+                extension +=
+                    se_double_ext() * i32::from(!Node::PV && score + se_dext_margin() < beta);
+            } else if score >= beta {
+                return if score.is_mate() {
+                    score
+                } else {
+                    Score(score.0.midpoint(beta.0))
+                };
             } else if tte.score >= beta {
+                extension = se_triple_negext();
+            } else if cutnode {
+                // double negext
+                extension = se_double_negext();
+            } else if tte.score <= alpha {
                 // negext
-                extension = -1;
+                extension = se_single_negext();
             }
         }
 
         let initial_nodes = thread.nodes.local();
-        let new_depth = depth + extension - 1;
+        let new_depth = depth + extension - DEPTH_SCALE;
+
+        let hist_lmr = if pos.board().is_quiet(mv) {
+            thread.history.score_quiet(pos, mv) / quiet_hist_lmr_div()
+        } else {
+            0
+        };
+
         pos.make_move(mv, Some(&mut thread.nnue));
         thread.global.ttable.prefetch(pos.board());
 
         // PVS
         if moves_seen == 0 {
-            score = -search::<Node::Next>(pos, new_depth, ply + 1, -beta, -alpha, !Node::PV && !cutnode, thread);
+            score = -search::<Node::Next>(
+                pos,
+                new_depth,
+                ply + 1,
+                -beta,
+                -alpha,
+                !Node::PV && !cutnode,
+                thread,
+            );
         } else {
-            if depth < 2 {
+            if depth < lmr_min_depth() {
                 lmr = 0;
             } else {
-                lmr += !Node::PV as i16;
-                lmr -= tt_pv as i16;
-                lmr -= pos.board().checkers().is_non_empty() as i16;
-                lmr += cutnode as i16;
+                lmr += lmr_nonpv() * !Node::PV as i32;
+                lmr -= lmr_ttpv() * tt_pv as i32;
+                lmr -= lmr_check() * pos.board().checkers().is_non_empty() as i32;
+                lmr += lmr_cutnode() * cutnode as i32;
+                lmr -= DEPTH_SCALE * hist_lmr;
             }
 
-            let lmr_depth = (new_depth - lmr).max(1).min(new_depth);
+            let lmr_depth = (new_depth - lmr).max(DEPTH_SCALE).min(new_depth);
 
+            thread.search_stack[ply as usize].reduction = lmr;
             score = -search::<NonPV>(pos, lmr_depth, ply + 1, -alpha - 1, -alpha, true, thread);
+            thread.search_stack[ply as usize].reduction = 0;
 
             if lmr > 0 && score > alpha {
-                score = -search::<NonPV>(pos, new_depth, ply + 1, -alpha - 1, -alpha, !cutnode, thread)
+                score = -search::<NonPV>(
+                    pos,
+                    new_depth,
+                    ply + 1,
+                    -alpha - 1,
+                    -alpha,
+                    !cutnode,
+                    thread,
+                )
             }
             if Node::PV && score > alpha {
                 score = -search::<PV>(pos, new_depth, ply + 1, -beta, -alpha, false, thread);
@@ -382,7 +515,9 @@ pub fn search<Node: NodeType>(
 
         if score >= beta {
             flag = TTFlag::Lower;
-            thread.history.update(pos, mv, &quiets, &tactics, depth);
+            thread
+                .history
+                .update(pos, mv, &quiets, &tactics, (depth / DEPTH_SCALE) as i16);
             break;
         }
 
@@ -398,7 +533,7 @@ pub fn search<Node: NodeType>(
     if !singular_search {
         thread.global.ttable.store(
             pos.board().hash(),
-            depth as u8,
+            (depth / DEPTH_SCALE) as u8,
             ply,
             raw_eval,
             best_score,
@@ -419,7 +554,7 @@ pub fn search<Node: NodeType>(
     {
         thread
             .history
-            .update_corr(pos, depth, best_score, static_eval);
+            .update_corr(pos, (depth / DEPTH_SCALE) as i16, best_score, static_eval);
     }
 
     best_score
@@ -436,8 +571,9 @@ pub fn qsearch<Node: NodeType>(
         thread.abort_now = true;
         return Score::ZERO;
     }
-
+    thread.nodes.inc();
     thread.sel_depth = thread.sel_depth.max(ply);
+
     if Node::PV {
         thread.search_stack[ply as usize].pv.clear();
     }
@@ -454,29 +590,45 @@ pub fn qsearch<Node: NodeType>(
     }
 
     if ply >= MAX_PLY {
-        return pos.eval(&mut thread.nnue);
+        return pos.eval(&mut thread.nnue, thread.mat_scaling);
     }
-
-    thread.sel_depth = thread.sel_depth.max(ply);
-    thread.nodes.inc();
 
     let in_check = pos.board().checkers().is_non_empty();
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
+    let tt_pv = Node::PV || tt_entry.is_some_and(|e| e.flags.pv());
 
+    let mut raw_eval = Score::NONE;
     let mut static_eval = Score::new_mated(ply);
 
     if !in_check {
-        let raw_eval = tt_entry
+        raw_eval = tt_entry
             .map(|e| e.eval)
-            .unwrap_or_else(|| pos.eval(&mut thread.nnue));
-        static_eval = raw_eval + thread.history.corr(pos);
+            .unwrap_or_else(|| pos.eval(&mut thread.nnue, thread.mat_scaling));
+        static_eval = Score::clamp_nomate(raw_eval.0.saturating_add(thread.history.corr(pos)));
 
         if static_eval >= beta {
-            return static_eval;
+            if static_eval.max(beta).is_win() {
+                return static_eval;
+            } else {
+                return Score(static_eval.0.midpoint(beta.0));
+            }
         }
 
         if static_eval >= alpha {
             alpha = static_eval;
+        }
+
+        if tt_entry.is_none() {
+            thread.global.ttable.store(
+                pos.board().hash(),
+                0,
+                ply,
+                raw_eval,
+                Score::NONE,
+                None,
+                TTFlag::None,
+                Node::PV,
+            );
         }
     }
 
@@ -494,13 +646,16 @@ pub fn qsearch<Node: NodeType>(
     }
 
     let mut best_score = static_eval;
+    let mut best_move = None;
+    let mut flag = TTFlag::Upper;
     let mut moves_seen = 0;
-    let mut move_picker = MovePicker::new(None, !in_check, 0);
+    let mut move_picker = MovePicker::new(None, !in_check, qs_see_threshold());
+    let futility = static_eval.saturating_add(qsfp_margin());
 
     while let Some(mv) = move_picker.next(pos, thread) {
         if !best_score.is_loss() {
             // LMP
-            if !in_check && moves_seen > 2 {
+            if !in_check && moves_seen > qs_lmp_limit() {
                 break;
             }
             // SEE Pruning
@@ -510,6 +665,11 @@ pub fn qsearch<Node: NodeType>(
             // Skip quiets if non-mated evasion was found
             move_picker.skip_quiets();
             if pos.board().is_quiet(mv) {
+                continue;
+            }
+            // FP
+            if !in_check && futility <= alpha && !pos.cmp_see(mv, 1) {
+                best_score = best_score.max(futility);
                 continue;
             }
         }
@@ -533,7 +693,9 @@ pub fn qsearch<Node: NodeType>(
         }
 
         if score > alpha {
+            best_move = Some(mv);
             alpha = score;
+            flag = TTFlag::Exact;
 
             if Node::PV {
                 update_pv(thread, ply, mv);
@@ -541,9 +703,21 @@ pub fn qsearch<Node: NodeType>(
         }
 
         if score >= beta {
+            flag = TTFlag::Lower;
             break;
         }
     }
+
+    thread.global.ttable.store(
+        pos.board().hash(),
+        0,
+        ply,
+        raw_eval,
+        best_score,
+        best_move,
+        flag,
+        tt_pv,
+    );
 
     best_score.max(alpha)
 }

@@ -1,6 +1,12 @@
 use icarus_board::{board::Board, r#move::Move};
 
-use crate::search::history::{MAX_HIST_VALUE, apply_gravity};
+use crate::search::{
+    history::{MAX_HIST_VALUE, apply_gravity},
+    params::{
+        main_bonus_base, main_bonus_max, main_bonus_scale, main_malus_base, main_malus_max,
+        main_malus_scale,
+    },
+};
 
 pub struct MainHist {
     /// [stm][from][from attacked][to][to attacked]
@@ -9,17 +15,11 @@ pub struct MainHist {
 
 impl MainHist {
     fn bonus(depth: i16) -> i32 {
-        let bonus_base = 128;
-        let bonus_scale = 128;
-        let bonus_max = 2048;
-        (bonus_base + (depth as i32) * bonus_scale).min(bonus_max)
+        (main_bonus_base() + (depth as i32) * main_bonus_scale()).min(main_bonus_max())
     }
 
     fn malus(depth: i16) -> i32 {
-        let malus_base = 128;
-        let malus_scale = 128;
-        let malus_max = 2048;
-        (malus_base + (depth as i32) * malus_scale).min(malus_max)
+        (main_malus_base() + (depth as i32) * main_malus_scale()).min(main_malus_max())
     }
 
     pub fn get(&self, board: &Board, mv: Move) -> i16 {
