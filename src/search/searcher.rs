@@ -346,7 +346,7 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: Print) -> Score
     'id: loop {
         thread.sel_depth = 0;
 
-        let mut delta = asp_initial_window();
+        let mut delta = asp_initial_window() - move_stability.min(7) as i16;
         let mut alpha = best_score.saturating_add(-delta);
         let mut beta = best_score.saturating_add(delta);
 
