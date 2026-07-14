@@ -163,6 +163,7 @@ pub fn search<Node: NodeType>(
     }
 
     thread.search_stack[ply as usize].static_eval = static_eval;
+    thread.search_stack[ply as usize + 2].cutoffs = 0;
 
     if !singular_search && !in_check && tt_entry.is_none() {
         thread.global.ttable.store(
@@ -460,6 +461,7 @@ pub fn search<Node: NodeType>(
                 lmr -= lmr_check() * pos.board().checkers().is_non_empty() as i32;
                 lmr += lmr_cutnode() * cutnode as i32;
                 lmr -= DEPTH_SCALE * hist_lmr;
+                lmr += 1024 * (thread.search_stack[ply as usize + 1].cutoffs > 3) as i32;
             }
 
             let lmr_depth = (new_depth - lmr).max(DEPTH_SCALE).min(new_depth);
@@ -514,6 +516,7 @@ pub fn search<Node: NodeType>(
         }
 
         if score >= beta {
+            thread.search_stack[ply as usize].cutoffs += 1;
             flag = TTFlag::Lower;
             thread
                 .history
