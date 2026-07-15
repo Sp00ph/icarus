@@ -334,6 +334,7 @@ pub fn search<Node: NodeType>(
         }
 
         let is_tactic = pos.board().is_tactic(mv);
+        let captured = mv.captures(pos.board());
         let mut lmr = get_lmr(is_tactic, (depth / DEPTH_SCALE) as u8, moves_seen);
         let mut extension = 0;
         let mut score;
@@ -459,6 +460,7 @@ pub fn search<Node: NodeType>(
                 lmr -= lmr_ttpv() * tt_pv as i32;
                 lmr -= lmr_check() * pos.board().checkers().is_non_empty() as i32;
                 lmr += lmr_cutnode() * cutnode as i32;
+                lmr -= 1024 * captured.is_some() as i32;
                 lmr -= DEPTH_SCALE * hist_lmr;
             }
 
