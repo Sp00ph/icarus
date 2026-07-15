@@ -15,6 +15,8 @@ tunable_params!(
     lmp_scale               : u32 = 1024    (512..=2048);
     fp_base                 : i16 = 100     (50..=200);
     fp_scale                : i32 = 80      (40..=160);
+    iid_depth_scale         : i32 = 768     (1536..=6144);
+    iid_depth_offset        : i32 = 1792    (768..=3584);
     qsfp_margin             : i16 = 150     (80..=300);
     hist_prune_scale        : i32 = 2000    (1000..=4000);
     se_tt_depth_offset      : i32 = 3072    (1024..=6144);
@@ -121,7 +123,8 @@ nontunable!(
     see_max_depth           : i32 = 10240   (5120..=15360);
     fp_depth                : i32 = 8192    (4096..=16384);
     hist_prune_depth        : i32 = 5120    (2048..=10240);
-    se_min_depth            : i32 = 8192    (6144..=10240);
+    se_min_depth            : i32 = 7168    (6144..=10240);
+    se_min_depth_ttpv       : i32 = 1024    (512..=2048);
     se_depth_offset         : i32 = 1024    (0..=3072);
     se_depth_scale          : i32 = 64      (32..=128);
     ldse_max_depth          : i32 = 7168    (3184..=14336);

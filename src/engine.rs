@@ -108,7 +108,7 @@ impl Engine {
     fn handle_cmd(&mut self, command: UciCommand) -> Abort {
         match command {
             UciCommand::Uci => self.uci(),
-            UciCommand::NewGame => self.searcher.newgame(),
+            UciCommand::NewGame => self.newgame(),
             UciCommand::IsReady => self.isready(),
             UciCommand::SetOption { name, value } => self.setoption(name, value),
             UciCommand::Position {
@@ -142,8 +142,9 @@ impl Engine {
     }
 
     fn uci(&self) {
-        let version = env!("CARGO_PKG_VERSION");
-        println!("id name Icarus {version}-dev");
+        let version = env!("ICARUS_VERSION");
+
+        println!("id name Icarus {version}");
         println!("id author Sp00ph");
         println!("option name UCI_Chess960 type check default false");
         println!("option name UseSoftNodes type check default false");
@@ -162,6 +163,12 @@ impl Engine {
 
     fn isready(&self) {
         println!("readyok");
+    }
+
+    fn newgame(&mut self) {
+        let t = Instant::now();
+        self.searcher.newgame();
+        println!("info string Reset engine state in {:.2?}", t.elapsed());
     }
 
     fn setoption(&mut self, name: String, value: String) {
@@ -204,8 +211,9 @@ impl Engine {
                     println!("info string Invalid Hash size!");
                     return;
                 }
+                let t = Instant::now();
                 self.searcher.resize_ttable(val);
-                println!("info string Set TT size to {val}MiB");
+                println!("info string Initialized {val}MiB TT in {:.2?}", t.elapsed())
             }
             "threads" => {
                 if self.searcher.is_running() {

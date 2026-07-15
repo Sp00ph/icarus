@@ -12,10 +12,13 @@ const _Q1: i16 = 128;
 const Q: i32 = 64;
 const SCALE: i32 = 400;
 
-#[cfg(any(feature = "count-act", feature = "count-nnz"))]
+#[cfg(any(feature = "count-act", feature = "count-nnz", feature = "count-coact"))]
 use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 #[cfg(feature = "count-act")]
 pub static ACT_COUNTS: [AtomicUsize; L1 / 2] = [const { AtomicUsize::new(0) }; L1 / 2];
+#[cfg(feature = "count-coact")]
+pub static COACT_COUNTS: [[AtomicUsize; L1 / 2]; L1 / 2] =
+    [const { [const { AtomicUsize::new(0) }; L1 / 2] }; L1 / 2];
 
 #[cfg(feature = "count-nnz")]
 pub static NNZ_CNT: AtomicUsize = AtomicUsize::new(0);
@@ -192,16 +195,21 @@ fn propagate_l3(act_l2: &[i32; L3]) -> i32 {
     }
 }
 
-#[inline(never)]
 pub fn forward(us: &[i16; L1], them: &[i16; L1]) -> i32 {
     // in [0, Q1]
     let act_ft = activate_ft(us, them);
+    
+    #[cfg(any(feature="count-act", feature = "count-coact"))]
+    {
+        let idxs: arrayvec::ArrayVec<usize, L1> = (0..L1).filter(|&i| act_ft[i] != 0).collect();
+        for &i in &idxs {
+            #[cfg(feature = "count-act")]
+            ACT_COUNTS[i % (L1 / 2)].fetch_add(1, Relaxed);
 
-    #[cfg(feature = "count-act")]
-    for i in 0..L1 / 2 {
-        let add = usize::from(act_ft[i] != 0) + usize::from(act_ft[i + L1 / 2] != 0);
-        if add != 0 {
-            ACT_COUNTS[i].fetch_add(add, Relaxed);
+            #[cfg(feature = "count-coact")]
+            for &j in &idxs {
+                COACT_COUNTS[i % (L1 / 2)][j % (L1 / 2)].fetch_add(1, Relaxed);
+            }
         }
     }
 

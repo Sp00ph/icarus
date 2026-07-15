@@ -195,7 +195,7 @@ fn worker_loop(ctx: &DatagenCtx, tx: Sender<Vec<u8>>) {
                 time_manager: Default::default(),
                 nodes: Default::default(),
                 num_searching: Default::default(),
-                ttable: TTable::new(DEFAULT_TT_SIZE),
+                ttable: TTable::new(DEFAULT_TT_SIZE, 1),
             });
             ThreadCtx::new(global, 0, ctx.dfrc, false)
         }

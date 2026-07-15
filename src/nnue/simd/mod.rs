@@ -7,6 +7,10 @@ cfg_select! {
         mod avx2;
         pub use avx2::*;
     }
+    target_feature = "sse2" => {
+        mod sse2;
+        pub use sse2::*;
+    }
     target_feature = "neon" => {
         mod neon;
         pub use neon::*;
