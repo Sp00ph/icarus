@@ -16,7 +16,7 @@ fn main() {
 
     fs::copy(in_path, out_path).unwrap();
     let version = env::var("CARGO_PKG_VERSION").unwrap();
-    let version = &version[..version.match_indices('.').nth(1).unwrap().0];
+    let version = version.strip_suffix(".0").unwrap_or(&version);
     let dev_suffix = if env::var("ICARUS_RELEASE").is_ok_and(|s| s == "1") {
         String::new()
     } else {
