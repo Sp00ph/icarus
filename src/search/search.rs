@@ -534,6 +534,9 @@ pub fn qsearch<Node: NodeType>(
     thread: &mut ThreadCtx,
 ) -> Score {
     if thread.abort_now || thread.global.time_manager.stop_search(thread) {
+        if thread.id == 0 {
+            thread.global.time_manager.set_stop_flag(true);
+        }
         thread.abort_now = true;
         return Score::ZERO;
     }
