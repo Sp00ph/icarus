@@ -145,7 +145,6 @@ impl TimeManager {
         self.stop_flag()
             || thread.nodes.global() >= self.hard_nodes.load(Relaxed)
             || (thread.nodes.local().is_multiple_of(1024)
-                && thread.id == 0
                 && self.check_time.load(Relaxed)
                 && self.elapsed().as_millis() as u64 > self.hard_time.load(Relaxed))
     }
