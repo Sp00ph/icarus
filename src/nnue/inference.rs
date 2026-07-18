@@ -10,7 +10,7 @@ use crate::nnue::{
 const Q0: i16 = 255;
 const _Q1: i16 = 128;
 const Q: i32 = 64;
-const SCALE: i32 = 400;
+const SCALE: i32 = 530;
 
 #[cfg(any(feature = "count-act", feature = "count-nnz", feature = "count-coact"))]
 use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
