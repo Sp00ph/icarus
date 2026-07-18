@@ -136,16 +136,21 @@ pub fn search<Node: NodeType>(
 
     let in_check = pos.board().checkers().is_non_empty();
 
-    let (raw_eval, static_eval) = if in_check {
-        (Score::NONE, Score::NONE)
+    let (raw_eval, static_eval, corr) = if in_check {
+        (Score::NONE, Score::NONE, 0)
     } else if singular_search {
-        (Score::NONE, thread.search_stack[ply as usize].static_eval)
+        (
+            Score::NONE,
+            thread.search_stack[ply as usize].static_eval,
+            thread.history.corr(pos),
+        )
     } else {
         let raw_eval = tt_entry
             .map(|e| e.eval)
             .unwrap_or_else(|| pos.eval(&mut thread.nnue, thread.mat_scaling));
-        let static_eval = Score::clamp_nomate(raw_eval.0.saturating_add(thread.history.corr(pos)));
-        (raw_eval, static_eval)
+        let corr = thread.history.corr(pos);
+        let static_eval = Score::clamp_nomate(raw_eval.0.saturating_add(corr));
+        (raw_eval, static_eval, corr)
     };
 
     let mut score_estimate = static_eval;
@@ -461,6 +466,7 @@ pub fn search<Node: NodeType>(
                 lmr += lmr_cutnode() * cutnode as i32;
                 lmr -= DEPTH_SCALE * hist_lmr;
                 lmr += lmr_exact() * (flag == TTFlag::Exact) as i32;
+                lmr -= 3072 * corr as i32 / 1024;
             }
 
             let lmr_depth = (new_depth - lmr).max(DEPTH_SCALE).min(new_depth);
