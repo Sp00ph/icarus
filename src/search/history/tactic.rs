@@ -9,8 +9,8 @@ use crate::search::{
 };
 
 pub struct TacticHist {
-    /// [stm][attacker][victim][to]
-    data: [[[i16; 64]; 6]; 2],
+    /// [stm][attacker][victim][to][from-threatened][to-threatened]
+    data: [[[[[i16; 2]; 2]; 64]; 6]; 2],
 }
 
 impl TacticHist {
@@ -25,15 +25,20 @@ impl TacticHist {
     pub fn get(&self, board: &Board, mv: Move) -> i16 {
         let (stm, from, to) = (board.stm(), mv.from(), mv.to());
         let piece = board.piece_on(from).unwrap();
+        let from_threat = board.attacked().contains(from) as usize;
+        let to_threat = board.attacked().contains(from) as usize;
 
-        self.data[stm][piece][to]
+        self.data[stm][piece][to][from_threat][to_threat]
     }
 
     fn get_mut(&mut self, board: &Board, mv: Move) -> &mut i16 {
         let (stm, from, to) = (board.stm(), mv.from(), mv.to());
         let piece = board.piece_on(from).unwrap();
 
-        &mut self.data[stm][piece][to]
+        let from_threat = board.attacked().contains(from) as usize;
+        let to_threat = board.attacked().contains(from) as usize;
+
+        &mut self.data[stm][piece][to][from_threat][to_threat]
     }
 
     pub fn apply_bonus(&mut self, board: &Board, mv: Move, depth: i16) {
