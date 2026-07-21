@@ -672,7 +672,7 @@ pub fn qsearch<Node: NodeType>(
                 continue;
             }
             // FP
-            if !in_check && futility <= alpha && !pos.cmp_see(mv, 1) {
+            if futility <= alpha && !pos.cmp_see(mv, 1) {
                 best_score = best_score.max(futility);
                 continue;
             }
