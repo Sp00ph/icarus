@@ -7,7 +7,6 @@ fn main() {
     let in_path = env::var("EVALFILE").unwrap_or_else(|_| "nets/icarus.nnue".to_string());
     println!("cargo:rerun-if-changed={in_path}");
 
-
     if !fs::exists(&in_path).unwrap() {
         panic!(
             "No net found! Use the Makefile, `download-net.py`, or specify a net path through the `EVALFILE` env var!"
