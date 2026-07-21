@@ -252,6 +252,16 @@ impl TTable {
             }
         }
 
+        #[cfg(target_feature = "neon")]
+        {
+            unsafe {
+                std::arch::asm!(
+                    "prfm pldl1keep, [{}]",
+                    in(reg) self.entries().as_ptr().add(self.index(board.hash())),
+                );
+            }
+        }
+
         let _ = board;
     }
 

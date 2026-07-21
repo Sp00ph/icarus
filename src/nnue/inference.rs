@@ -198,8 +198,8 @@ fn propagate_l3(act_l2: &[i32; L3]) -> i32 {
 pub fn forward(us: &[i16; L1], them: &[i16; L1]) -> i32 {
     // in [0, Q1]
     let act_ft = activate_ft(us, them);
-    
-    #[cfg(any(feature="count-act", feature = "count-coact"))]
+
+    #[cfg(any(feature = "count-act", feature = "count-coact"))]
     {
         let idxs: arrayvec::ArrayVec<usize, L1> = (0..L1).filter(|&i| act_ft[i] != 0).collect();
         for &i in &idxs {
