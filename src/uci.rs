@@ -106,6 +106,8 @@ pub enum UciParseError {
     MissingPositionMovesToken,
     #[error("Invalid or illegal move `{0}`")]
     InvalidMove(String),
+    #[error("`searchmoves` requires at least one move")]
+    EmptySearchMoves,
     #[error("Unknown search limit: {0}")]
     UnknownLimit(String),
     #[error("Missing value for limit `{0}`")]
@@ -307,6 +309,9 @@ impl UciCommand {
                                 moves.push(mv);
                                 // consume token
                                 reader.next();
+                            }
+                            if moves.is_empty() {
+                                return Err(EmptySearchMoves);
                             }
 
                             limits.push(SearchMoves(moves));
