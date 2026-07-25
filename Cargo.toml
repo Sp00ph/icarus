@@ -18,6 +18,7 @@ viriformat = { version = "3.0.0", optional = true }
 clap = { version = "4.5.60", features = ["derive"], optional = true }
 indicatif = { version = "0.18.4", optional = true }
 memmap2 = "0.9.10"
+color-backtrace = "0.7.2"
 
 [workspace]
 members = ["icarus-board", "icarus-common"]
@@ -31,3 +32,6 @@ count-coact = []
 count-nnz = []
 tune = []
 default = []
+
+[profile.release]
+debug = "full"

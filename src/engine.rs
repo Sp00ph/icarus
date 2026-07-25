@@ -3,6 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use color_backtrace::{BacktracePrinter, Verbosity, default_frame_filter, default_output_stream};
 use icarus_board::{board::Board, r#move::Move, movegen::Abort, perft::perft};
 use rustyline::{Config, Editor, error::ReadlineError, history::MemHistory};
 
@@ -47,6 +48,13 @@ impl Engine {
     pub fn run(&mut self) -> anyhow::Result<()> {
         // Initialize the epoch used for `AtomicInstant`.
         LazyLock::force(&EPOCH);
+
+        std::panic::set_hook(
+            BacktracePrinter::default()
+                .verbosity(Verbosity::from_env().max(Verbosity::Medium))
+                .add_frame_filter(Box::new(default_frame_filter))
+                .into_panic_handler(default_output_stream()),
+        );
 
         let argv: Vec<String> = std::env::args().skip(1).collect();
 
