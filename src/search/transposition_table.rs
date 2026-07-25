@@ -314,7 +314,7 @@ impl TTable {
 
         if tt_flag == TTFlag::Exact
             || old.is_none_or(|old| {
-                depth + 4 > old.depth
+                depth as u16 + 4 > old.depth as u16
                     || old.flags.tt_flag() == TTFlag::None
                     || age != old.flags.age()
             })
