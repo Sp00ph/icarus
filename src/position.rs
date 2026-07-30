@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use icarus_board::{
-    attack_generators::{bishop_moves, rook_moves},
+    attack_generators::{bishop_moves, queen_moves, rook_bishop_moves, rook_moves},
     board::{Board, TerminalState},
     r#move::{Move, MoveFlag},
 };
@@ -154,13 +154,14 @@ impl Position {
             occupied ^= Square::new(to.file(), from.rank());
         }
 
+        let (rook, bishop) = rook_bishop_moves(to, occupied);
         #[rustfmt::skip]
         let mut attackers = (
             (pawn_attacks(to, Color::White) & board.occupied_by(Color::Black) & board.pieces(Piece::Pawn))
             | (pawn_attacks(to, Color::Black) & board.occupied_by(Color::White) & board.pieces(Piece::Pawn))
             | (knight_moves(to) & board.pieces(Piece::Knight))
-            | (bishop_moves(to, occupied) & diag)
-            | (rook_moves(to, occupied) & orth)
+            | (bishop & diag)
+            | (rook & orth)
             | (king_moves(to) & board.pieces(Piece::King))
         ) & occupied;
 
@@ -178,12 +179,16 @@ impl Position {
 
             occupied ^= (board.pieces(next_victim) & my_attackers).next();
 
-            if [Piece::Pawn, Piece::Bishop, Piece::Queen].contains(&next_victim) {
+            if [Piece::Pawn, Piece::Bishop].contains(&next_victim) {
                 attackers |= bishop_moves(to, occupied) & diag;
             }
 
-            if [Piece::Rook, Piece::Queen].contains(&next_victim) {
+            if next_victim == Piece::Rook {
                 attackers |= rook_moves(to, occupied) & orth;
+            }
+
+            if next_victim == Piece::Queen {
+                attackers |= queen_moves(to, occupied) & orth;
             }
 
             attackers &= occupied;

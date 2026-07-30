@@ -10,7 +10,7 @@ use icarus_common::{
 };
 
 use crate::{
-    attack_generators::{bishop_moves, rook_moves},
+    attack_generators::{bishop_moves, queen_moves, rook_bishop_moves, rook_moves},
     board::Board,
     castling::CastlingDirection,
     ep_file::EnPassantFile,
@@ -255,31 +255,30 @@ impl Board {
     }
 
     #[inline]
-    fn diag_slider_moves<V: FnMut(PieceMoves) -> Abort>(
+    fn bishop_moves<V: FnMut(PieceMoves) -> Abort>(
         &self,
         visitor: &mut V,
         targets: Bitboard,
     ) -> Abort {
-        self.sliders(
-            visitor,
-            targets,
-            self.pieces[Piece::Queen] | self.pieces[Piece::Bishop],
-            bishop_moves,
-        )
+        self.sliders(visitor, targets, self.pieces[Piece::Bishop], bishop_moves)
     }
 
     #[inline]
-    fn orth_slider_moves<V: FnMut(PieceMoves) -> Abort>(
+    fn rook_moves<V: FnMut(PieceMoves) -> Abort>(
         &self,
         visitor: &mut V,
         targets: Bitboard,
     ) -> Abort {
-        self.sliders(
-            visitor,
-            targets,
-            self.pieces[Piece::Queen] | self.pieces[Piece::Rook],
-            rook_moves,
-        )
+        self.sliders(visitor, targets, self.pieces[Piece::Rook], rook_moves)
+    }
+
+    #[inline]
+    fn queen_moves<V: FnMut(PieceMoves) -> Abort>(
+        &self,
+        visitor: &mut V,
+        targets: Bitboard,
+    ) -> Abort {
+        self.sliders(visitor, targets, self.pieces[Piece::Queen], queen_moves)
     }
 
     #[inline]
@@ -351,8 +350,9 @@ impl Board {
         abort_if!(self.pawn_noisies::<WHITE, V>(visitor, targets));
         abort_if!(self.pawn_quiets::<WHITE, V>(visitor, targets));
         abort_if!(self.knight_moves(visitor, targets));
-        abort_if!(self.orth_slider_moves(visitor, targets));
-        abort_if!(self.diag_slider_moves(visitor, targets));
+        abort_if!(self.rook_moves(visitor, targets));
+        abort_if!(self.bishop_moves(visitor, targets));
+        abort_if!(self.queen_moves(visitor, targets));
         abort_if!(self.king_moves::<IN_CHECK, true, V>(visitor, Bitboard::ALL));
 
         Abort::No
@@ -402,8 +402,9 @@ impl Board {
         let targets = targets & them;
 
         abort_if!(self.knight_moves(visitor, targets));
-        abort_if!(self.orth_slider_moves(visitor, targets));
-        abort_if!(self.diag_slider_moves(visitor, targets));
+        abort_if!(self.rook_moves(visitor, targets));
+        abort_if!(self.bishop_moves(visitor, targets));
+        abort_if!(self.queen_moves(visitor, targets));
         abort_if!(self.king_moves::<IN_CHECK, true, V>(visitor, them));
 
         Abort::No
@@ -422,8 +423,9 @@ impl Board {
         let targets = self.targets::<IN_CHECK, WHITE>() & not_them;
         abort_if!(self.pawn_quiets::<WHITE, V>(visitor, targets));
         abort_if!(self.knight_moves(visitor, targets));
-        abort_if!(self.orth_slider_moves(visitor, targets));
-        abort_if!(self.diag_slider_moves(visitor, targets));
+        abort_if!(self.rook_moves(visitor, targets));
+        abort_if!(self.bishop_moves(visitor, targets));
+        abort_if!(self.queen_moves(visitor, targets));
         abort_if!(self.king_moves::<IN_CHECK, false, V>(visitor, not_them));
 
         Abort::No
@@ -489,11 +491,12 @@ impl Board {
         }
 
         let their_king = self.king(!self.stm);
+        let (rook, bishop) = rook_bishop_moves(their_king, blockers);
         self.check_zones = [
             pawn_attacks(their_king, !self.stm),
             knight_moves(their_king),
-            bishop_moves(their_king, blockers),
-            rook_moves(their_king, blockers),
+            bishop,
+            rook,
         ];
     }
 

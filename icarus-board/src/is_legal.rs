@@ -10,7 +10,7 @@ use icarus_common::{
 };
 
 use crate::{
-    attack_generators::{bishop_moves, rook_moves},
+    attack_generators::{bishop_moves, queen_moves, rook_moves},
     board::Board,
     castling::CastlingDirection,
     r#move::{Move, MoveFlag},
@@ -68,9 +68,7 @@ impl Board {
             Piece::Knight => knight_moves(from).contains(to),
             Piece::Bishop => bishop_moves(from, blockers).contains(to),
             Piece::Rook => rook_moves(from, blockers).contains(to),
-            Piece::Queen => {
-                (bishop_moves(from, blockers) | rook_moves(from, blockers)).contains(to)
-            }
+            Piece::Queen => queen_moves(from, blockers).contains(to),
             Piece::King => (king_moves(from) & !self.attacked).contains(to),
         }
     }
@@ -129,9 +127,7 @@ impl Board {
             Piece::Knight => knight_moves(from).contains(to),
             Piece::Bishop => bishop_moves(from, blockers).contains(to),
             Piece::Rook => rook_moves(from, blockers).contains(to),
-            Piece::Queen => {
-                (bishop_moves(from, blockers) | rook_moves(from, blockers)).contains(to)
-            }
+            Piece::Queen => queen_moves(from, blockers).contains(to),
             Piece::King => unreachable!("King moves were already handled"),
         }
     }
