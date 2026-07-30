@@ -88,14 +88,36 @@ impl Bitboard {
 
     #[inline]
     pub const fn main_diag_for(sq: Square) -> Self {
-        let shift = sq.rank().idx() as i8 - sq.file().idx() as i8;
-        Self::MAIN_DIAGONAL.shift::<Up>(shift)
+        static LUT: [Bitboard; 64] = {
+            let mut arr = [Bitboard::EMPTY; 64];
+            let mut i = 0;
+            while i < 64 {
+                let sq = Square::from_idx(i as u8);
+                let shift = sq.rank().idx() as i8 - sq.file().idx() as i8;
+                arr[i] = Bitboard::MAIN_DIAGONAL.shift::<Up>(shift);
+                i += 1;
+            }
+            arr
+        };
+
+        LUT[sq.idx() as usize]
     }
 
     #[inline]
     pub const fn anti_diag_for(sq: Square) -> Self {
-        let shift = sq.rank().idx() as i8 + sq.file().idx() as i8 - 7;
-        Self::ANTI_DIAGONAL.shift::<Up>(shift)
+        static LUT: [Bitboard; 64] = {
+            let mut arr = [Bitboard::EMPTY; 64];
+            let mut i = 0;
+            while i < 64 {
+                let sq = Square::from_idx(i as u8);
+                let shift = sq.rank().idx() as i8 + sq.file().idx() as i8 - 7;
+                arr[i] = Bitboard::ANTI_DIAGONAL.shift::<Up>(shift);
+                i += 1;
+            }
+            arr
+        };
+
+        LUT[sq.idx() as usize]
     }
 }
 
