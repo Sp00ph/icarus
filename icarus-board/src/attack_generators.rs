@@ -1,7 +1,7 @@
 // attack generator tables are generated in build.rs
 // include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
-use icarus_common::{bitboard::Bitboard, square::Square};
+use icarus_common::{bitboard::Bitboard, square::Square, util::Align64};
 
 // static ROOK_RANK_ATTACKS: [[u8; 64]; 8] = {
 //     let mut arr = [[0; 64]; 8];
@@ -111,6 +111,22 @@ pub fn queen_moves(sq: Square, blockers: Bitboard) -> Bitboard {
 
 use std::arch::x86_64::*;
 
+static MASKS: Align64<[[Bitboard; 4]; 64]> = {
+    let mut arr = [[Bitboard::EMPTY; 4]; 64];
+    let mut i = 0;
+    while i < 64 {
+        let sq = Square::from_idx(i as u8);
+        arr[i] = [
+            sq.file().bitboard().xor_square(sq),
+            Bitboard::main_diag_for(sq).xor_square(sq),
+            Bitboard::EMPTY,
+            Bitboard::anti_diag_for(sq).xor_square(sq),
+        ];
+        i += 1;
+    }
+    Align64(arr)
+};
+
 #[inline]
 pub fn rook_bishop_moves(sq: Square, blockers: Bitboard) -> (Bitboard, Bitboard) {
     fn bswap(v: __m256i) -> __m256i {
@@ -126,14 +142,9 @@ pub fn rook_bishop_moves(sq: Square, blockers: Bitboard) -> (Bitboard, Bitboard)
     }
 
     unsafe {
-        let mask = _mm256_setr_epi64x(
-            sq.file().bitboard().0 as i64,
-            Bitboard::main_diag_for(sq).0 as i64,
-            0,
-            Bitboard::anti_diag_for(sq).0 as i64,
-        );
-        let r = _mm256_set1_epi64x((sq.bitboard().0 << 1) as i64);
-        let rr = _mm256_set1_epi64x((sq.bitboard().0.swap_bytes() << 1) as i64);
+        let mask = _mm256_load_si256(MASKS[sq].as_ptr().cast());
+        let r = _mm256_set1_epi64x((sq.bitboard().0) as i64);
+        let rr = _mm256_set1_epi64x((sq.flip_rank().bitboard().0) as i64);
 
         let o = _mm256_and_si256(_mm256_set1_epi64x(blockers.0 as i64), mask);
         let fwd = _mm256_sub_epi64(o, r);
