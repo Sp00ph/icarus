@@ -105,147 +105,147 @@ mod magic {
     // Black magics found by Volker Annuss and Niklas Fiekas
     // http://talkchess.com/forum/viewtopic.php?t=64790
 
-    const TABLE_SIZE: usize = 87988;
+    const TABLE_SIZE: usize = 87038;
 
     struct Magic {
         factor: u64,
-        position: u32,
+        position: isize,
     }
 
     #[rustfmt::skip]
     const BISHOP_MAGICS: &[Magic; 64] = &[
-        Magic { factor: 0xa7020080601803d8, position: 60984 },
-        Magic { factor: 0x13802040400801f1, position: 66046 },
-        Magic { factor: 0x0a0080181001f60c, position: 32910 },
-        Magic { factor: 0x1840802004238008, position: 16369 },
-        Magic { factor: 0xc03fe00100000000, position: 42115 },
-        Magic { factor: 0x24c00bffff400000, position:   835 },
-        Magic { factor: 0x0808101f40007f04, position: 18910 },
-        Magic { factor: 0x100808201ec00080, position: 25911 },
-        Magic { factor: 0xffa2feffbfefb7ff, position: 63301 },
-        Magic { factor: 0x083e3ee040080801, position: 16063 },
-        Magic { factor: 0xc0800080181001f8, position: 17481 },
-        Magic { factor: 0x0440007fe0031000, position: 59361 },
-        Magic { factor: 0x2010007ffc000000, position: 18735 },
-        Magic { factor: 0x1079ffe000ff8000, position: 61249 },
-        Magic { factor: 0x3c0708101f400080, position: 68938 },
-        Magic { factor: 0x080614080fa00040, position: 61791 },
-        Magic { factor: 0x7ffe7fff817fcff9, position: 21893 },
-        Magic { factor: 0x7ffebfffa01027fd, position: 62068 },
-        Magic { factor: 0x53018080c00f4001, position: 19829 },
-        Magic { factor: 0x407e0001000ffb8a, position: 26091 },
-        Magic { factor: 0x201fe000fff80010, position: 15815 },
-        Magic { factor: 0xffdfefffde39ffef, position: 16419 },
-        Magic { factor: 0xcc8808000fbf8002, position: 59777 },
-        Magic { factor: 0x7ff7fbfff8203fff, position: 16288 },
-        Magic { factor: 0x8800013e8300c030, position: 33235 },
-        Magic { factor: 0x0420009701806018, position: 15459 },
-        Magic { factor: 0x7ffeff7f7f01f7fd, position: 15863 },
-        Magic { factor: 0x8700303010c0c006, position: 75555 },
-        Magic { factor: 0xc800181810606000, position: 79445 },
-        Magic { factor: 0x20002038001c8010, position: 15917 },
-        Magic { factor: 0x087ff038000fc001, position:  8512 },
-        Magic { factor: 0x00080c0c00083007, position: 73069 },
-        Magic { factor: 0x00000080fc82c040, position: 16078 },
-        Magic { factor: 0x000000407e416020, position: 19168 },
-        Magic { factor: 0x00600203f8008020, position: 11056 },
-        Magic { factor: 0xd003fefe04404080, position: 62544 },
-        Magic { factor: 0xa00020c018003088, position: 80477 },
-        Magic { factor: 0x7fbffe700bffe800, position: 75049 },
-        Magic { factor: 0x107ff00fe4000f90, position: 32947 },
-        Magic { factor: 0x7f8fffcff1d007f8, position: 59172 },
-        Magic { factor: 0x0000004100f88080, position: 55845 },
-        Magic { factor: 0x00000020807c4040, position: 61806 },
-        Magic { factor: 0x00000041018700c0, position: 73601 },
-        Magic { factor: 0x0010000080fc4080, position: 15546 },
-        Magic { factor: 0x1000003c80180030, position: 45243 },
-        Magic { factor: 0xc10000df80280050, position: 20333 },
-        Magic { factor: 0xffffffbfeff80fdc, position: 33402 },
-        Magic { factor: 0x000000101003f812, position: 25917 },
-        Magic { factor: 0x0800001f40808200, position: 32875 },
-        Magic { factor: 0x084000101f3fd208, position:  4639 },
-        Magic { factor: 0x080000000f808081, position: 17077 },
-        Magic { factor: 0x0004000008003f80, position: 62324 },
-        Magic { factor: 0x08000001001fe040, position: 18159 },
-        Magic { factor: 0x72dd000040900a00, position: 61436 },
-        Magic { factor: 0xfffffeffbfeff81d, position: 57073 },
-        Magic { factor: 0xcd8000200febf209, position: 61025 },
-        Magic { factor: 0x100000101ec10082, position: 81259 },
-        Magic { factor: 0x7fbaffffefe0c02f, position: 64083 },
-        Magic { factor: 0x7f83fffffff07f7f, position: 56114 },
-        Magic { factor: 0xfff1fffffff7ffc1, position: 57058 },
-        Magic { factor: 0x0878040000ffe01f, position: 58912 },
-        Magic { factor: 0x945e388000801012, position: 22194 },
-        Magic { factor: 0x0840800080200fda, position: 70880 },
-        Magic { factor: 0x100000c05f582008, position: 11140 },
+        Magic { factor: 0x400346a194005002, position: 48941 },
+        Magic { factor: 0x800b0480d0840a00, position: 71848 },
+        Magic { factor: 0x02a4111050080008, position: 70683 },
+        Magic { factor: 0x803a185410000080, position: 70945 },
+        Magic { factor: 0x91013a820081000c, position: 34313 },
+        Magic { factor: 0x0021244281200001, position: 78649 },
+        Magic { factor: 0x000162418480c404, position: 67861 },
+        Magic { factor: 0x0080893101018080, position: 33646 },
+        Magic { factor: 0x5006090304e2a008, position: 70434 },
+        Magic { factor: 0x014203068150cc02, position: 44763 },
+        Magic { factor: 0x4000a42120481000, position: 69985 },
+        Magic { factor: 0x80323a18600a0000, position:  5007 },
+        Magic { factor: 0x8290a13a81810008, position: 50127 },
+        Magic { factor: 0x0000012148810000, position: 65752 },
+        Magic { factor: 0x08800122c1848088, position: 70071 },
+        Magic { factor: 0x962197d0c3028050, position: 64165 },
+        Magic { factor: 0x0124081043021022, position: 73972 },
+        Magic { factor: 0x2a90103d62d19008, position: 70139 },
+        Magic { factor: 0x000a010500282404, position: 84338 },
+        Magic { factor: 0x0002000401f803c6, position: 84433 },
+        Magic { factor: 0xc000c00063008000, position:  5030 },
+        Magic { factor: 0x06406200c0580080, position: 34313 },
+        Magic { factor: 0x169a00879182c043, position: 45277 },
+        Magic { factor: 0x820100042f5e6016, position: 64288 },
+        Magic { factor: 0x000a281205850020, position: 73078 },
+        Magic { factor: 0x2045140005014020, position: 65502 },
+        Magic { factor: 0x800a030206003008, position: 47729 },
+        Magic { factor: 0x4011044001040001, position: 84560 },
+        Magic { factor: 0x4600181810606002, position: 85055 },
+        Magic { factor: 0x060020310180cc00, position:  5123 },
+        Magic { factor: 0x4805014000512080, position: 67811 },
+        Magic { factor: 0x5001414000289044, position: 36069 },
+        Magic { factor: 0x4140827500145400, position: 39804 },
+        Magic { factor: 0x48004144a00a0a17, position: 49471 },
+        Magic { factor: 0x02000407e8040040, position: 85523 },
+        Magic { factor: 0x40020020d001a00c, position: 85632 },
+        Magic { factor: 0x000020303010c0c0, position: 86092 },
+        Magic { factor: 0x800020505002a140, position: 86581 },
+        Magic { factor: 0x2800812058014500, position: 64799 },
+        Magic { factor: 0x010010604800a280, position: 46126 },
+        Magic { factor: 0x801001056d002400, position: 64355 },
+        Magic { factor: 0x0118020203a01200, position: 71195 },
+        Magic { factor: 0x60c400f404080200, position: 86688 },
+        Magic { factor: 0x2000080203f40201, position: 86751 },
+        Magic { factor: 0x00810048a0510280, position: 86830 },
+        Magic { factor: 0x0000412060a04140, position: 86910 },
+        Magic { factor: 0x0000425220580240, position: 64216 },
+        Magic { factor: 0x34004188a3d44120, position: 68190 },
+        Magic { factor: 0x27000186047b3005, position: 66967 },
+        Magic { factor: 0x0220014261454200, position: 43645 },
+        Magic { factor: 0x2108000851242000, position: 77673 },
+        Magic { factor: 0x0100000818460440, position: 47833 },
+        Magic { factor: 0x0080000085414001, position: 67290 },
+        Magic { factor: 0x000d008304212040, position: 67096 },
+        Magic { factor: 0x0d0045061197a541, position: 82768 },
+        Magic { factor: 0x000041810930b210, position: 84177 },
+        Magic { factor: 0x040400806108939c, position: 65602 },
+        Magic { factor: 0x0108000861048b18, position: 40136 },
+        Magic { factor: 0x0082000008512444, position: 67992 },
+        Magic { factor: 0x031200420180c300, position: 38057 },
+        Magic { factor: 0x0040000400854142, position: 68221 },
+        Magic { factor: 0x0840080082c44122, position: 42936 },
+        Magic { factor: 0x84400006862147a1, position: 71861 },
+        Magic { factor: 0x8000433800a03868, position: 40563 },
     ];
 
     #[rustfmt::skip]
     const ROOK_MAGICS: &[Magic; 64] = &[
-        Magic { factor: 0x80280013ff84ffff, position: 10890 },
-        Magic { factor: 0x5ffbfefdfef67fff, position: 50579 },
-        Magic { factor: 0xffeffaffeffdffff, position: 62020 },
-        Magic { factor: 0x003000900300008a, position: 67322 },
-        Magic { factor: 0x0050028010500023, position: 80251 },
-        Magic { factor: 0x0020012120a00020, position: 58503 },
-        Magic { factor: 0x0030006000c00030, position: 51175 },
-        Magic { factor: 0x0058005806b00002, position: 83130 },
-        Magic { factor: 0x7fbff7fbfbeafffc, position: 50430 },
-        Magic { factor: 0x0000140081050002, position: 21613 },
-        Magic { factor: 0x0000180043800048, position: 72625 },
-        Magic { factor: 0x7fffe800021fffb8, position: 80755 },
-        Magic { factor: 0xffffcffe7fcfffaf, position: 69753 },
-        Magic { factor: 0x00001800c0180060, position: 26973 },
-        Magic { factor: 0x4f8018005fd00018, position: 84972 },
-        Magic { factor: 0x0000180030620018, position: 31958 },
-        Magic { factor: 0x00300018010c0003, position: 69272 },
-        Magic { factor: 0x0003000c0085ffff, position: 48372 },
-        Magic { factor: 0xfffdfff7fbfefff7, position: 65477 },
-        Magic { factor: 0x7fc1ffdffc001fff, position: 43972 },
-        Magic { factor: 0xfffeffdffdffdfff, position: 57154 },
-        Magic { factor: 0x7c108007befff81f, position: 53521 },
-        Magic { factor: 0x20408007bfe00810, position: 30534 },
-        Magic { factor: 0x0400800558604100, position: 16548 },
-        Magic { factor: 0x0040200010080008, position: 46407 },
-        Magic { factor: 0x0010020008040004, position: 11841 },
-        Magic { factor: 0xfffdfefff7fbfff7, position: 21112 },
-        Magic { factor: 0xfebf7dfff8fefff9, position: 44214 },
-        Magic { factor: 0xc00000ffe001ffe0, position: 57925 },
-        Magic { factor: 0x4af01f00078007c3, position: 29574 },
-        Magic { factor: 0xbffbfafffb683f7f, position: 17309 },
-        Magic { factor: 0x0807f67ffa102040, position: 40143 },
-        Magic { factor: 0x200008e800300030, position: 64659 },
-        Magic { factor: 0x0000008780180018, position: 70469 },
-        Magic { factor: 0x0000010300180018, position: 62917 },
-        Magic { factor: 0x4000008180180018, position: 60997 },
-        Magic { factor: 0x008080310005fffa, position: 18554 },
-        Magic { factor: 0x4000188100060006, position: 14385 },
-        Magic { factor: 0xffffff7fffbfbfff, position:     0 },
-        Magic { factor: 0x0000802000200040, position: 38091 },
-        Magic { factor: 0x20000202ec002800, position: 25122 },
-        Magic { factor: 0xfffff9ff7cfff3ff, position: 60083 },
-        Magic { factor: 0x000000404b801800, position: 72209 },
-        Magic { factor: 0x2000002fe03fd000, position: 67875 },
-        Magic { factor: 0xffffff6ffe7fcffd, position: 56290 },
-        Magic { factor: 0xbff7efffbfc00fff, position: 43807 },
-        Magic { factor: 0x000000100800a804, position: 73365 },
-        Magic { factor: 0x6054000a58005805, position: 76398 },
-        Magic { factor: 0x0829000101150028, position: 20024 },
-        Magic { factor: 0x00000085008a0014, position:  9513 },
-        Magic { factor: 0x8000002b00408028, position: 24324 },
-        Magic { factor: 0x4000002040790028, position: 22996 },
-        Magic { factor: 0x7800002010288028, position: 23213 },
-        Magic { factor: 0x0000001800e08018, position: 56002 },
-        Magic { factor: 0xa3a80003f3a40048, position: 22809 },
-        Magic { factor: 0x2003d80000500028, position: 44545 },
-        Magic { factor: 0xfffff37eefefdfbe, position: 36072 },
-        Magic { factor: 0x40000280090013c1, position:  4750 },
-        Magic { factor: 0xbf7ffeffbffaf71f, position:  6014 },
-        Magic { factor: 0xfffdffff777b7d6e, position: 36054 },
-        Magic { factor: 0x48300007e8080c02, position: 78538 },
-        Magic { factor: 0xafe0000fff780402, position: 28745 },
-        Magic { factor: 0xee73fffbffbb77fe, position:  8555 },
-        Magic { factor: 0x0002000308482882, position:  1009 },
+        Magic { factor: 0x0050020428000230, position: -1406 },
+        Magic { factor: 0x00300018008c0004, position:  2180 },
+        Magic { factor: 0x00600060804c0003, position:  3994 },
+        Magic { factor: 0x00600c0060060002, position:  5530 },
+        Magic { factor: 0x0060030060060001, position:  7066 },
+        Magic { factor: 0x0060034001800060, position:  8666 },
+        Magic { factor: 0x0060018000c00060, position: 10202 },
+        Magic { factor: 0x0150002410080004, position: 11333 },
+        Magic { factor: 0x0100500202280014, position: 14678 },
+        Magic { factor: 0x100090002400801b, position: 16460 },
+        Magic { factor: 0x0400c01800084032, position: 17300 },
+        Magic { factor: 0x0000a00a01032003, position: 18034 },
+        Magic { factor: 0x0800a0050080a002, position: 18736 },
+        Magic { factor: 0x2000a018a0028001, position: 19482 },
+        Magic { factor: 0x0000a010254000a0, position: 20044 },
+        Magic { factor: 0x0400300060c20030, position: 20599 },
+        Magic { factor: 0x86a0003002180015, position: 22427 },
+        Magic { factor: 0x200c003000980004, position: 24041 },
+        Magic { factor: 0x4120006014000420, position: 24937 },
+        Magic { factor: 0x000600600c006004, position: 25637 },
+        Magic { factor: 0x0403006006006002, position: 26421 },
+        Magic { factor: 0x0001806003106001, position: 27181 },
+        Magic { factor: 0x043003000424002a, position: 28028 },
+        Magic { factor: 0x000000d004e80018, position: 28855 },
+        Magic { factor: 0x0a80402620100010, position: 30900 },
+        Magic { factor: 0x2040600030300010, position: 32916 },
+        Magic { factor: 0xc120600060140004, position: 33876 },
+        Magic { factor: 0x4201d0001c001800, position: 34825 },
+        Magic { factor: 0x060408006006e001, position: 35817 },
+        Magic { factor: 0x31008a001c001d00, position: 36837 },
+        Magic { factor: 0x21a0920015390218, position: 37833 },
+        Magic { factor: 0xcba05b000ab08040, position: 38819 },
+        Magic { factor: 0x0900123000600060, position: 40539 },
+        Magic { factor: 0x1400037c00c00040, position: 42485 },
+        Magic { factor: 0x010000af00600060, position: 43394 },
+        Magic { factor: 0x0041c810001c0018, position: 44399 },
+        Magic { factor: 0x0030006040600c00, position: 45373 },
+        Magic { factor: 0x02000080c0c00c06, position: 46343 },
+        Magic { factor: 0x14b0008280800201, position: 47316 },
+        Magic { factor: 0xb0840ac1000aa581, position: 48224 },
+        Magic { factor: 0x40000405d8005000, position: 49745 },
+        Magic { factor: 0x22000c0098003004, position: 51484 },
+        Magic { factor: 0x0d0008401800c030, position: 52288 },
+        Magic { factor: 0x800002411400c018, position: 53213 },
+        Magic { factor: 0x0c00014031814014, position: 53878 },
+        Magic { factor: 0x200000c00300c006, position: 54726 },
+        Magic { factor: 0x201c001140014005, position: 55381 },
+        Magic { factor: 0x410a0014b000b001, position: 56237 },
+        Magic { factor: 0x200000f804020120, position: 57163 },
+        Magic { factor: 0x100001802a140050, position: 58725 },
+        Magic { factor: 0x08014000403e0140, position: 59331 },
+        Magic { factor: 0x03212000a0220120, position: 60000 },
+        Magic { factor: 0x0e20a000404500a0, position: 60714 },
+        Magic { factor: 0x0b18a000180280a0, position: 61352 },
+        Magic { factor: 0x002800140d200120, position: 61911 },
+        Magic { factor: 0x128a000a02900090, position: 62232 },
+        Magic { factor: 0x0000051084102046, position: 64102 },
+        Magic { factor: 0x0100048214210441, position: 68175 },
+        Magic { factor: 0x0080012040088c12, position: 70189 },
+        Magic { factor: 0xb82000206e404a07, position: 72227 },
+        Magic { factor: 0x4100100004208853, position: 74217 },
+        Magic { factor: 0x1192080008040362, position: 76263 },
+        Magic { factor: 0x00000400021220cd, position: 78257 },
+        Magic { factor: 0x4002000828884302, position: 80290 },
     ];
 
     pub fn generate(w: &mut impl Write) -> io::Result<()> {
@@ -262,9 +262,10 @@ mod magic {
                     let blockers = pdep(j, mask.0);
                     let moves = rook_moves(sq, blockers);
 
-                    table[(ROOK_MAGICS[i].position as usize)
-                        + ((blockers | !mask.0).wrapping_mul(ROOK_MAGICS[i].factor) >> 52)
-                            as usize] = moves.0;
+                    table[(ROOK_MAGICS[i].position as usize).wrapping_add(
+                        ((blockers | !mask.0).wrapping_mul(ROOK_MAGICS[i].factor)
+                            >> (!mask.0).count_ones()) as usize,
+                    )] = moves.0;
                 }
             }
 
@@ -276,9 +277,10 @@ mod magic {
                     let blockers = pdep(j, mask.0);
                     let moves = bishop_moves(sq, blockers);
 
-                    table[(BISHOP_MAGICS[i].position as usize)
-                        + ((blockers | !mask.0).wrapping_mul(BISHOP_MAGICS[i].factor) >> 55)
-                            as usize] = moves.0;
+                    table[(BISHOP_MAGICS[i].position as usize).wrapping_add(
+                        ((blockers | !mask.0).wrapping_mul(BISHOP_MAGICS[i].factor)
+                            >> (!mask.0).count_ones()) as usize,
+                    )] = moves.0;
                 }
             }
         }
@@ -290,11 +292,11 @@ mod magic {
             pub const fn rook_moves(sq: Square, blockers: Bitboard) -> Bitboard {
                 let sq_idx = sq.idx() as usize;
                 Bitboard(unsafe {
-                    *ROOK_MAGICS.0[sq_idx].data.add(
+                    *ROOK_MAGICS.0[sq_idx].data.wrapping_add(
                         (ROOK_MAGICS.0[sq_idx]
                             .factor
                             .wrapping_mul(blockers.0 | ROOK_MAGICS.0[sq_idx].mask)
-                            >> 52) as usize,
+                            >> ROOK_MAGICS.0[sq_idx].shift) as usize,
                     )
                 })
             }
@@ -303,11 +305,11 @@ mod magic {
             pub const fn bishop_moves(sq: Square, blockers: Bitboard) -> Bitboard {
                 let sq_idx = sq.idx() as usize;
                 Bitboard(unsafe {
-                    *BISHOP_MAGICS.0[sq_idx].data.add(
+                    *BISHOP_MAGICS.0[sq_idx].data.wrapping_add(
                         (BISHOP_MAGICS.0[sq_idx]
                             .factor
                             .wrapping_mul(blockers.0 | BISHOP_MAGICS.0[sq_idx].mask)
-                            >> 55) as usize,
+                            >> BISHOP_MAGICS.0[sq_idx].shift) as usize,
                     )
                 })
             }
@@ -317,6 +319,7 @@ mod magic {
                 factor: u64,
                 data: *const u64,
                 mask: u64,
+                shift: u64,
             }
 
             unsafe impl Sync for Magic {}
@@ -332,8 +335,11 @@ mod magic {
             let mask = !rook_mask(Square::from_idx(i as u8));
             writeln!(
                 w,
-                "    Magic {{ factor: {:#018x}, data: ATTACK_TABLE.0.as_ptr().wrapping_add({:#07x}), mask: {:#018x} }},",
-                m.factor, m.position, mask.0
+                "    Magic {{ factor: {:#018x}, mask: {:#018x}, shift: {}, data: ATTACK_TABLE.0.as_ptr().wrapping_offset({:>5}) }},",
+                m.factor,
+                mask.0,
+                mask.0.count_ones(),
+                m.position,
             )?;
         }
         writeln!(w, "]);\n\n")?;
@@ -346,8 +352,11 @@ mod magic {
             let mask = !bishop_mask(Square::from_idx(i as u8));
             writeln!(
                 w,
-                "    Magic {{ factor: {:#018x}, data: ATTACK_TABLE.0.as_ptr().wrapping_add({:#07x}), mask: {:#018x} }},",
-                m.factor, m.position, mask.0
+                "    Magic {{ factor: {:#018x}, mask: {:#018x}, shift: {}, data: ATTACK_TABLE.0.as_ptr().wrapping_offset({:>5}) }},",
+                m.factor,
+                mask.0,
+                mask.0.count_ones(),
+                m.position,
             )?;
         }
         writeln!(w, "]);\n\n")?;
