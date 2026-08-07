@@ -106,6 +106,9 @@ pub fn acc_sub(acc: &mut [i16; L1], weights: &[[i16; L1]; INPUT], sub: usize) {
     }
 }
 
+const ACC_CHUNK_SIZE: usize = super::simd::i16::LANES * super::simd::NUM_ACC_REGS;
+const _: () = assert!(L1.is_multiple_of(ACC_CHUNK_SIZE));
+
 pub fn acc_add_sub(
     src: &[i16; L1],
     dst: &mut [i16; L1],
@@ -116,11 +119,16 @@ pub fn acc_add_sub(
     let add: &[i16; L1] = &weights[add];
     let sub: &[i16; L1] = &weights[sub];
 
-    for i in 0..L1 {
-        dst[i] = src[i] + add[i] - sub[i];
+    for i in (0..L1).step_by(ACC_CHUNK_SIZE) {
+        let mut chunk: [i16; ACC_CHUNK_SIZE] = *src[i..i + ACC_CHUNK_SIZE].as_array().unwrap();
+        for j in 0..ACC_CHUNK_SIZE {
+            chunk[j] += add[i + j] - sub[i + j];
+        }
+        dst[i..i + ACC_CHUNK_SIZE].copy_from_slice(&chunk);
     }
 }
 
+#[unsafe(no_mangle)]
 pub fn acc_add_sub2(
     src: &[i16; L1],
     dst: &mut [i16; L1],
@@ -133,8 +141,12 @@ pub fn acc_add_sub2(
     let sub1: &[i16; L1] = &weights[sub1];
     let sub2: &[i16; L1] = &weights[sub2];
 
-    for i in 0..L1 {
-        dst[i] = src[i] + add[i] - sub1[i] - sub2[i];
+    for i in (0..L1).step_by(ACC_CHUNK_SIZE) {
+        let mut chunk: [i16; ACC_CHUNK_SIZE] = *src[i..i + ACC_CHUNK_SIZE].as_array().unwrap();
+        for j in 0..ACC_CHUNK_SIZE {
+            chunk[j] += add[i + j] - sub1[i + j] - sub2[i + j];
+        }
+        dst[i..i + ACC_CHUNK_SIZE].copy_from_slice(&chunk);
     }
 }
 
@@ -152,8 +164,12 @@ pub fn acc_add2_sub2(
     let sub1: &[i16; L1] = &weights[sub1];
     let sub2: &[i16; L1] = &weights[sub2];
 
-    for i in 0..L1 {
-        dst[i] = src[i] + add1[i] + add2[i] - sub1[i] - sub2[i];
+    for i in (0..L1).step_by(ACC_CHUNK_SIZE) {
+        let mut chunk: [i16; ACC_CHUNK_SIZE] = *src[i..i + ACC_CHUNK_SIZE].as_array().unwrap();
+        for j in 0..ACC_CHUNK_SIZE {
+            chunk[j] += add1[i + j] + add2[i + j] - sub1[i + j] - sub2[i + j];
+        }
+        dst[i..i + ACC_CHUNK_SIZE].copy_from_slice(&chunk);
     }
 }
 
@@ -170,8 +186,12 @@ pub fn acc_add4(
     let add3: &[i16; L1] = &weights[add3];
     let add4: &[i16; L1] = &weights[add4];
 
-    for i in 0..L1 {
-        dst[i] += add1[i] + add2[i] + add3[i] + add4[i];
+    for i in (0..L1).step_by(ACC_CHUNK_SIZE) {
+        let mut chunk: [i16; ACC_CHUNK_SIZE] = *dst[i..i + ACC_CHUNK_SIZE].as_array().unwrap();
+        for j in 0..ACC_CHUNK_SIZE {
+            chunk[j] += add1[i + j] + add2[i + j] + add3[i + j] + add4[i + j];
+        }
+        dst[i..i + ACC_CHUNK_SIZE].copy_from_slice(&chunk);
     }
 }
 
@@ -188,7 +208,11 @@ pub fn acc_sub4(
     let sub3: &[i16; L1] = &weights[sub3];
     let sub4: &[i16; L1] = &weights[sub4];
 
-    for i in 0..L1 {
-        dst[i] += -sub1[i] - sub2[i] - sub3[i] - sub4[i];
+    for i in (0..L1).step_by(ACC_CHUNK_SIZE) {
+        let mut chunk: [i16; ACC_CHUNK_SIZE] = *dst[i..i + ACC_CHUNK_SIZE].as_array().unwrap();
+        for j in 0..ACC_CHUNK_SIZE {
+            chunk[j] -= sub1[i + j] + sub2[i + j] + sub3[i + j] + sub4[i + j];
+        }
+        dst[i..i + ACC_CHUNK_SIZE].copy_from_slice(&chunk);
     }
 }

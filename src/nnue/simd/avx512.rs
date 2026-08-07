@@ -5,6 +5,8 @@ pub type I8Vec = __m512i;
 pub type I16Vec = __m512i;
 pub type I32Vec = __m512i;
 
+pub const NUM_ACC_REGS: usize = 32;
+
 pub mod i8 {
     use super::*;
 

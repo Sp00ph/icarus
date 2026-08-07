@@ -6,6 +6,8 @@ pub type I8Vec = __m128i;
 pub type I16Vec = __m128i;
 pub type I32Vec = __m128i;
 
+pub const NUM_ACC_REGS: usize = 16;
+
 #[cfg(not(all(feature = "use-bmi2", target_feature = "bmi2")))]
 #[path = "nnz_table.rs"]
 mod nnz_table;

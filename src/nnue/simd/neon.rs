@@ -9,6 +9,11 @@ pub type I8Vec = int8x16_t;
 pub type I16Vec = int16x8_t;
 pub type I32Vec = int32x4_t;
 
+// Neon doesn't have fused load adds, so we only
+// use half the registers to keep the other half
+// available for loads.
+pub const NUM_ACC_REGS: usize = 8;
+
 pub mod i8 {
     use super::*;
 
