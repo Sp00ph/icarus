@@ -96,7 +96,7 @@ pub fn search<Node: NodeType>(
         };
     }
 
-    if !Node::ROOT && pos.repetition() {
+    if !Node::ROOT && pos.repetition(ply) {
         thread.nodes.inc();
         return Score::ZERO;
     }
@@ -589,7 +589,7 @@ pub fn qsearch<Node: NodeType>(
         };
     }
 
-    if pos.repetition() {
+    if pos.repetition(ply) {
         return Score::ZERO;
     }
 
