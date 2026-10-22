@@ -87,7 +87,6 @@ pub fn search<Node: NodeType>(
         beta = beta.min(Score::new_mate(ply + 1));
 
         if alpha >= beta {
-            thread.nodes.inc();
             return alpha;
         }
     }
@@ -99,7 +98,7 @@ pub fn search<Node: NodeType>(
         };
     }
 
-    if !Node::ROOT && pos.repetition() {
+    if !Node::ROOT && pos.repetition(ply) {
         return Score::ZERO;
     }
 
@@ -586,7 +585,7 @@ pub fn qsearch<Node: NodeType>(
         };
     }
 
-    if pos.repetition() {
+    if pos.repetition(ply) {
         return Score::ZERO;
     }
 
