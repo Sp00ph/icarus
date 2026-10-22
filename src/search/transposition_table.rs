@@ -284,7 +284,7 @@ impl TTable {
         let mut cluster = self.entries()[index].load();
         let mut keys = cluster.keys();
 
-        let age = self.age.load(Relaxed);
+        let age = self.age.load(Relaxed) % 32;
 
         let mut cluster_idx = 0;
         let mut min_value = i32::MAX;
@@ -339,9 +339,7 @@ impl TTable {
     }
 
     pub fn age(&self) {
-        self.age
-            .fetch_update(Relaxed, Relaxed, |age| Some((age + 1) % 32))
-            .ok();
+        self.age.fetch_add(1, Relaxed);
     }
 
     pub fn hashfull(&self) -> usize {

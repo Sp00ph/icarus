@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use icarus_board::{
     attack_generators::{bishop_moves, rook_moves},
-    board::{Board, TerminalState},
+    board::Board,
     r#move::{Move, MoveFlag},
 };
 use icarus_common::{
@@ -111,10 +111,6 @@ impl Position {
             .rev()
             .take(self.board.halfmove_clock() as usize)
             .any(|&b| b == self.board.hash())
-    }
-
-    pub fn is_draw(&self) -> bool {
-        self.board.terminal_state() == Some(TerminalState::Draw) || self.repetition()
     }
 
     pub fn cmp_see(&self, mv: Move, threshold: i32) -> bool {

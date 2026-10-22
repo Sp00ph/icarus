@@ -249,7 +249,7 @@ fn play_game(
 
     thread_ctxs.values_mut().for_each(|t| {
         t.history.clear();
-        t.global.ttable.clear();
+        t.global.ttable.clear(1);
     });
 
     let mut game = {
