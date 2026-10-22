@@ -1,7 +1,8 @@
-use icarus_board::r#move::Move;
-use icarus_common::piece::{Color, Piece};
-
-use crate::search::history::{MAX_CORR_VALUE, apply_gravity};
+use crate::{
+    board::r#move::Move,
+    common::piece::{Color, Piece},
+    search::history::{MAX_CORR_VALUE, apply_gravity},
+};
 
 pub struct ContCorrHist {
     /// [stm][prev piece][prev dst][piece][dst]

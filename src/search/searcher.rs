@@ -11,9 +11,9 @@ use std::{
 };
 
 use arrayvec::ArrayVec;
-use icarus_board::{board::Board, r#move::Move};
 
 use crate::{
+    board::{Board, r#move::Move},
     nnue::network::Nnue,
     position::Position,
     score::Score,

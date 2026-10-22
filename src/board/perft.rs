@@ -1,4 +1,4 @@
-use crate::{board::Board, movegen::Abort};
+use crate::board::{Board, movegen::Abort};
 
 pub fn perft<const BULK: bool>(board: &Board, depth: u8) -> u64 {
     let mut nodes = 0;

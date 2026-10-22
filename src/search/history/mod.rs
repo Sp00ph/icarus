@@ -4,10 +4,9 @@ pub mod corr;
 pub mod main;
 pub mod tactic;
 
-use icarus_board::{board::Board, r#move::Move};
-use icarus_common::piece::Color;
-
 use crate::{
+    board::{Board, r#move::Move},
+    common::piece::Color,
     position::Position,
     score::Score,
     search::{

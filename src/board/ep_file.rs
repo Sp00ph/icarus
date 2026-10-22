@@ -1,6 +1,6 @@
 use std::num::NonZeroU8;
 
-use icarus_common::{
+use crate::common::{
     bitboard::Bitboard,
     piece::Color,
     square::{File, Rank, Square},
@@ -21,7 +21,6 @@ use icarus_common::{
 pub struct EnPassantFile(NonZeroU8);
 
 impl EnPassantFile {
-    #[inline]
     pub fn new(file: File, left: bool, right: bool) -> Self {
         Self(
             NonZeroU8::new(file.idx() | (u8::from(left) << 3) | (u8::from(right) << 4))
@@ -29,12 +28,10 @@ impl EnPassantFile {
         )
     }
 
-    #[inline]
     pub fn file(self) -> File {
         File::from_idx(self.0.get() & 7)
     }
 
-    #[inline]
     pub fn attacker_bb(self, stm: Color) -> Bitboard {
         let rank = Rank::R5.relative_to(stm);
         let ep_sq = Square::new(self.file(), rank);

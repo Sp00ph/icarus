@@ -1,8 +1,11 @@
 use std::arch::x86_64::*;
 
-use icarus_common::{
-    bitboard::Bitboard,
-    square::{File, Rank},
+use crate::{
+    board::sliders::SliderTag,
+    common::{
+        bitboard::Bitboard,
+        square::{File, Rank},
+    },
 };
 
 const A: i64 = File::A.bitboard().0 as i64;
@@ -80,6 +83,7 @@ pub fn knight_and_slider_attacks_setwise(
     orth: Bitboard,
     diag: Bitboard,
     blockers: Bitboard,
+    _: SliderTag,
 ) -> Bitboard {
     unsafe {
         Bitboard(_mm512_reduce_or_epi64(_mm512_or_si512(

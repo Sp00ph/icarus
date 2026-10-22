@@ -1,13 +1,14 @@
 use std::{fmt, num::NonZeroU16};
 
-use icarus_common::{
-    bitboard::Bitboard,
+use crate::{
+    board::{Board, castling::CastlingDirection},
+    common::{
+        bitboard::Bitboard,
+        piece::{Color, Piece},
+        square::{File, Square},
+    },
     define_enum,
-    piece::{Color, Piece},
-    square::{File, Square},
 };
-
-use crate::{board::Board, castling::CastlingDirection};
 
 /// Bit packed move type
 /// Bits 0-5:   src square
@@ -34,7 +35,6 @@ define_enum!(
 );
 
 impl Move {
-    #[inline]
     pub const fn new(from: Square, to: Square, flag: MoveFlag) -> Self {
         debug_assert!(!matches!(flag, MoveFlag::Promotion));
 
@@ -46,7 +46,6 @@ impl Move {
         )
     }
 
-    #[inline(never)]
     pub const fn new_promotion(from: Square, to: Square, promote_to: Piece) -> Self {
         debug_assert!(
             promote_to.idx() != Piece::Pawn.idx() && promote_to.idx() != Piece::King.idx()
@@ -63,22 +62,18 @@ impl Move {
         )
     }
 
-    #[inline]
     pub const fn from(self) -> Square {
         Square::from_idx(self.0.get() as u8 & 0x3f)
     }
 
-    #[inline]
     pub const fn to(self) -> Square {
         Square::from_idx((self.0.get() >> 6) as u8 & 0x3f)
     }
 
-    #[inline]
     pub const fn flag(self) -> MoveFlag {
         MoveFlag::from_idx((self.0.get() >> 12) as u8 & 0x3)
     }
 
-    #[inline]
     pub const fn promotes_to(self) -> Option<Piece> {
         if !matches!(self.flag(), MoveFlag::Promotion) {
             None
@@ -89,12 +84,10 @@ impl Move {
 
     /// Returns the piece that this move promotes to. If the move
     /// doesn't promote, the return value is arbitrary.
-    #[inline]
     pub const fn promotes_to_unchecked(self) -> Piece {
         Piece::from_idx(((self.0.get() >> 14) as u8 & 0x3) + Piece::Knight.idx())
     }
 
-    #[inline]
     pub fn captures(self, board: &Board) -> Option<Piece> {
         match self.flag() {
             MoveFlag::Castle => None,
@@ -103,7 +96,6 @@ impl Move {
         }
     }
 
-    #[inline]
     pub fn castling_dir(self) -> Option<CastlingDirection> {
         if self.flag() != MoveFlag::Castle {
             None
@@ -114,18 +106,15 @@ impl Move {
         }
     }
 
-    #[inline]
     pub fn piece_type(&self, board: &Board) -> Piece {
         board.mailbox[self.from()].expect("Illegal move!")
     }
 
-    #[inline]
     pub const fn to_bits(self) -> u16 {
         self.0.get()
     }
 
     /// Should only be called with an argument that was previously returned from a `mov.to_bits()` call.
-    #[inline]
     pub const fn from_bits(n: u16) -> Self {
         Self(NonZeroU16::new(n).expect("Illegal move!"))
     }
@@ -151,7 +140,6 @@ impl Move {
 }
 
 impl fmt::Debug for Move {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.display(true), f)
     }
@@ -166,7 +154,6 @@ pub struct PieceMoves {
 }
 
 impl PieceMoves {
-    #[inline]
     pub const fn new(move_flag: MoveFlag, piece: Piece, from: Square, to: Bitboard) -> Self {
         Self {
             move_flag,
@@ -176,17 +163,14 @@ impl PieceMoves {
         }
     }
 
-    #[inline]
     pub const fn piece_type(&self) -> Piece {
         self.piece
     }
 
-    #[inline]
     pub const fn to(&self) -> Bitboard {
         self.to
     }
 
-    #[inline]
     pub const fn len(&self) -> usize {
         self.to.popcnt() as usize
             * if self.move_flag.idx() == MoveFlag::Promotion.idx() {
@@ -196,7 +180,6 @@ impl PieceMoves {
             }
     }
 
-    #[inline]
     pub const fn is_empty(&self) -> bool {
         self.to.is_empty()
     }
@@ -211,7 +194,6 @@ pub struct PieceMovesIter {
 impl Iterator for PieceMovesIter {
     type Item = Move;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let from = self.moves.from;
         let to = self.moves.to.try_next()?;
@@ -236,7 +218,6 @@ impl Iterator for PieceMovesIter {
         }
     }
 
-    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         let n = self.moves.len() - self.promote_idx as usize;
         (n, Some(n))
@@ -250,7 +231,6 @@ impl IntoIterator for PieceMoves {
 
     type IntoIter = PieceMovesIter;
 
-    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         PieceMovesIter {
             moves: self,

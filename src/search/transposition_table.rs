@@ -3,10 +3,12 @@ use std::{
     sync::atomic::{AtomicU8, AtomicU64, Ordering::Relaxed},
 };
 
-use icarus_board::{board::Board, r#move::Move};
 use memmap2::{MmapMut, MmapOptions};
 
-use crate::score::Score;
+use crate::{
+    board::{Board, r#move::Move},
+    score::Score,
+};
 
 pub const DEFAULT_TT_SIZE: u64 = 16;
 pub const MAX_TT_SIZE: u64 = 1048576;

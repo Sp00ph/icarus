@@ -11,11 +11,7 @@ use std::{
 };
 
 use clap::{Args, Parser};
-use icarus_board::{board::TerminalState, r#move::MoveFlag, movegen::Abort};
-use icarus_common::{
-    piece::Color,
-    util::enum_map::{EnumMap, enum_map},
-};
+use enum_map::{EnumMap, enum_map};
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
 use rand::{SeedableRng, rngs::SmallRng};
 use viriformat::{
@@ -29,6 +25,8 @@ use viriformat::{
 };
 
 use crate::{
+    board::{TerminalState, r#move::MoveFlag, movegen::Abort},
+    common::piece::Color,
     datagen::genfens::try_generate_pos,
     position::Position,
     score::Score,

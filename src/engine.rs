@@ -1,16 +1,13 @@
-use std::{
-    sync::LazyLock,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use color_backtrace::{BacktracePrinter, Verbosity, default_frame_filter, default_output_stream};
-use icarus_board::{board::Board, r#move::Move, movegen::Abort, perft::perft};
 use rustyline::{Config, Editor, error::ReadlineError, history::MemHistory};
 
 #[cfg(feature = "tune")]
 use crate::search::params::{list_params, print_params_ob, valid_param_name};
 use crate::{
     bench::DEFAULT_BENCH_DEPTH,
+    board::{Board, r#move::Move, movegen::Abort, perft::perft},
     datagen::genfens,
     nnue::network::Nnue,
     position::Position,
@@ -20,7 +17,6 @@ use crate::{
         transposition_table::{DEFAULT_TT_SIZE, MAX_TT_SIZE},
     },
     uci::{SearchLimit, UciCommand},
-    util::atomic_instant::EPOCH,
     wdl,
 };
 
@@ -46,9 +42,6 @@ impl Engine {
     }
 
     pub fn run(&mut self) -> anyhow::Result<()> {
-        // Initialize the epoch used for `AtomicInstant`.
-        LazyLock::force(&EPOCH);
-
         std::panic::set_hook(
             BacktracePrinter::default()
                 .verbosity(Verbosity::from_env().max(Verbosity::Medium))
@@ -71,7 +64,7 @@ impl Engine {
 
         #[cfg(feature = "test-islegal")]
         if argv == ["test_islegal"] {
-            icarus_board::is_legal::test::test_islegal(&crate::bench::FENS);
+            crate::board::is_legal::test::test_islegal(&crate::bench::FENS);
         }
 
         let mut editor = Editor::<(), MemHistory>::with_history(

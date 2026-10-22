@@ -15,7 +15,6 @@ define_enum!(
 );
 
 impl Piece {
-    #[inline]
     pub fn to_char(self, color: Color) -> char {
         let mut ch = match self {
             Piece::Knight => 'N',
@@ -33,7 +32,6 @@ impl Piece {
         ch
     }
 
-    #[inline]
     pub fn from_char(ch: char) -> Option<Self> {
         match ch.to_ascii_lowercase() {
             'n' => Some(Piece::Knight),
@@ -56,18 +54,15 @@ define_enum!(
 );
 
 impl Color {
-    #[inline]
     pub const fn invert(self) -> Self {
         Self::from_idx(1 - self.idx())
     }
 
-    #[inline]
     /// Returns 1 for white, -1 for black
     pub const fn signum(self) -> i8 {
         1 - 2 * self.idx() as i8
     }
 
-    #[inline]
     pub const fn to_char(self) -> char {
         match self {
             Color::White => 'w',
@@ -79,7 +74,6 @@ impl Color {
 impl Not for Color {
     type Output = Self;
 
-    #[inline]
     fn not(self) -> Self {
         self.invert()
     }

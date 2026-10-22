@@ -1,14 +1,12 @@
 use std::sync::{Arc, atomic::Ordering};
 
 use arrayvec::ArrayVec;
-use icarus_board::{board::Board, r#move::Move};
-use icarus_common::{
-    piece::Color,
-    util::enum_map::{EnumMap, enum_map},
-};
+use enum_map::{EnumMap, enum_map};
 use rand::{Rng, SeedableRng, rngs::SmallRng};
 
 use crate::{
+    board::{Board, r#move::Move},
+    common::piece::Color,
     position::Position,
     search::{
         move_picker::MAX_MOVES,

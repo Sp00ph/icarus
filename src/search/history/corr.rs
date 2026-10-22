@@ -1,8 +1,9 @@
-use icarus_common::piece::Color;
-
-use crate::search::{
-    history::{CORR_SIZE, MAX_CORR_VALUE, apply_gravity},
-    params::{corr_bonus_div, corr_bonus_scale},
+use crate::{
+    common::piece::Color,
+    search::{
+        history::{CORR_SIZE, MAX_CORR_VALUE, apply_gravity},
+        params::{corr_bonus_div, corr_bonus_scale},
+    },
 };
 
 pub struct CorrHist {

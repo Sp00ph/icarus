@@ -1,5 +1,39 @@
 use std::{env, fs, process::Command};
 
+#[cfg(feature = "perft-all-960")]
+fn generate_perft960_tests() {
+    use std::{
+        fs,
+        io::{BufWriter, Write},
+        path::Path,
+    };
+
+    println!("cargo::rerun-if-changed=perft960.txt");
+    let results = fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/perft960.txt")).unwrap();
+    let file_path = Path::new(&env::var("OUT_DIR").unwrap()).join("perft_generated.rs");
+    let mut writer = BufWriter::new(fs::File::create(file_path).unwrap());
+
+    for line in results.lines() {
+        let mut parts = line.split('\t');
+        let number = parts.next().unwrap().trim();
+        let fen = parts.next().unwrap().trim();
+
+        let expected: Vec<_> = parts.map(|s| s.trim()).collect();
+        let expected = expected.join(", ");
+
+        writeln!(
+            writer,
+            "
+        perft_test!(
+            perft960_p{number}: {fen:?};
+            {expected},
+        );
+        "
+        )
+        .unwrap();
+    }
+}
+
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=EVALFILE");
@@ -32,4 +66,7 @@ fn main() {
     };
 
     println!("cargo:rustc-env=ICARUS_VERSION={version}{dev_suffix}");
+
+    #[cfg(feature = "perft-all-960")]
+    generate_perft960_tests();
 }

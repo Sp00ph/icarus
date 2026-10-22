@@ -25,7 +25,6 @@ pub static NNZ_CNT: AtomicUsize = AtomicUsize::new(0);
 #[cfg(feature = "count-nnz")]
 pub static NNZ_DIV: AtomicUsize = AtomicUsize::new(0);
 
-#[inline(always)]
 fn activate_ft(us: &[i16; L1], them: &[i16; L1]) -> [i8; L1] {
     let mut out = [const { MaybeUninit::<i8>::uninit() }; L1];
 
@@ -73,7 +72,6 @@ fn activate_ft(us: &[i16; L1], them: &[i16; L1]) -> [i8; L1] {
     }
 }
 
-#[inline(always)]
 fn propagate_l1(act_ft: &[i8; L1]) -> [i32; L2] {
     const UNROLL: usize = 4;
     const { assert!(L2.is_multiple_of(simd::i32::LANES)) };

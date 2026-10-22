@@ -1,22 +1,23 @@
-use icarus_common::{
-    bitboard::Bitboard,
-    direction::{Down, DownLeft, DownRight, Up, UpLeft, UpRight},
-    lookups::{
-        between, between_inclusive, bishop_rays, king_moves, knight_moves, line, pawn_attacks,
-        rook_rays,
-    },
-    piece::{Color, Piece},
-    square::{File, Rank, Square},
-};
-
 use crate::{
-    attack_generators::{bishop_moves, rook_moves},
-    board::Board,
-    castling::CastlingDirection,
-    ep_file::EnPassantFile,
-    r#move::{Move, MoveFlag, PieceMoves},
-    setwise_attacks::knight_and_slider_attacks_setwise,
-    zobrist::ZOBRIST,
+    board::{
+        Board,
+        castling::CastlingDirection,
+        ep_file::EnPassantFile,
+        r#move::{Move, MoveFlag, PieceMoves},
+        setwise_attacks::knight_and_slider_attacks_setwise,
+        sliders::{SliderTag, bishop_moves, rook_moves},
+        zobrist::ZOBRIST,
+    },
+    common::{
+        bitboard::Bitboard,
+        direction::{Down, DownLeft, DownRight, Up, UpLeft, UpRight},
+        lookups::{
+            between, between_inclusive, bishop_rays, king_moves, knight_moves, line, pawn_attacks,
+            rook_rays,
+        },
+        piece::{Color, Piece},
+        square::{File, Rank, Square},
+    },
 };
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -34,13 +35,11 @@ macro_rules! abort_if {
     };
 }
 
-#[inline(always)]
 fn color<const WHITE: bool>() -> Color {
     Color::from_idx(!WHITE as u8)
 }
 
 impl Board {
-    #[inline]
     fn targets<const IN_CHECK: bool, const WHITE: bool>(&self) -> Bitboard {
         let stm = color::<WHITE>();
 
@@ -55,7 +54,6 @@ impl Board {
         b.subtract(self.colors[stm])
     }
 
-    #[inline]
     fn pawn_noisies<const WHITE: bool, V: FnMut(PieceMoves) -> Abort>(
         &self,
         visitor: &mut V,
@@ -144,7 +142,6 @@ impl Board {
         Abort::No
     }
 
-    #[inline]
     fn pawn_quiets<const WHITE: bool, V: FnMut(PieceMoves) -> Abort>(
         &self,
         visitor: &mut V,
@@ -194,7 +191,6 @@ impl Board {
         Abort::No
     }
 
-    #[inline]
     fn knight_moves<V: FnMut(PieceMoves) -> Abort>(
         &self,
         visitor: &mut V,
@@ -214,8 +210,7 @@ impl Board {
         Abort::No
     }
 
-    #[inline]
-    fn sliders<V: FnMut(PieceMoves) -> Abort, F: Fn(Square, Bitboard) -> Bitboard>(
+    fn sliders<V: FnMut(PieceMoves) -> Abort, F: Fn(Square, Bitboard, SliderTag) -> Bitboard>(
         &self,
         visitor: &mut V,
         targets: Bitboard,
@@ -227,7 +222,7 @@ impl Board {
         let our_king = self.king(self.stm);
 
         for unpinned in from & !self.pinned {
-            let to = moves(unpinned, blockers) & targets;
+            let to = moves(unpinned, blockers, self.slider_tag) & targets;
             if to.is_non_empty() {
                 abort_if!(visitor(PieceMoves::new(
                     MoveFlag::None,
@@ -240,7 +235,7 @@ impl Board {
 
         for pinned in from & self.pinned {
             let ray = line(our_king, pinned);
-            let to = moves(pinned, blockers) & targets & ray;
+            let to = moves(pinned, blockers, self.slider_tag) & targets & ray;
             if to.is_non_empty() {
                 abort_if!(visitor(PieceMoves::new(
                     MoveFlag::None,
@@ -254,7 +249,6 @@ impl Board {
         Abort::No
     }
 
-    #[inline]
     fn diag_slider_moves<V: FnMut(PieceMoves) -> Abort>(
         &self,
         visitor: &mut V,
@@ -268,7 +262,6 @@ impl Board {
         )
     }
 
-    #[inline]
     fn orth_slider_moves<V: FnMut(PieceMoves) -> Abort>(
         &self,
         visitor: &mut V,
@@ -282,7 +275,6 @@ impl Board {
         )
     }
 
-    #[inline]
     fn king_moves<const IN_CHECK: bool, const MAY_CASTLE: bool, V: FnMut(PieceMoves) -> Abort>(
         &self,
         visitor: &mut V,
@@ -341,7 +333,6 @@ impl Board {
         Abort::No
     }
 
-    #[inline]
     fn gen_moves_impl<const IN_CHECK: bool, const WHITE: bool, V: FnMut(PieceMoves) -> Abort>(
         &self,
         visitor: &mut V,
@@ -358,7 +349,6 @@ impl Board {
         Abort::No
     }
 
-    #[inline]
     pub fn gen_moves<V: FnMut(PieceMoves) -> Abort>(&self, mut visitor: V) -> Abort {
         match (self.stm, self.checkers.popcnt()) {
             (Color::White, 0) => self.gen_moves_impl::<false, true, V>(&mut visitor),
@@ -369,7 +359,6 @@ impl Board {
         }
     }
 
-    #[inline]
     pub fn gen_all_moves_to_mapped<M, F: FnMut(Move) -> M, C: Default + Extend<M>>(
         &self,
         mut map: F,
@@ -382,12 +371,10 @@ impl Board {
         collection
     }
 
-    #[inline]
     pub fn gen_all_moves_to<C: Default + Extend<Move>>(&self) -> C {
         self.gen_all_moves_to_mapped(std::convert::identity)
     }
 
-    #[inline]
     fn gen_noisy_moves_impl<
         const IN_CHECK: bool,
         const WHITE: bool,
@@ -409,7 +396,6 @@ impl Board {
         Abort::No
     }
 
-    #[inline]
     fn gen_quiet_moves_impl<
         const IN_CHECK: bool,
         const WHITE: bool,
@@ -429,7 +415,6 @@ impl Board {
         Abort::No
     }
 
-    #[inline]
     pub fn gen_noisy_moves<V: FnMut(PieceMoves) -> Abort>(&self, mut visitor: V) -> Abort {
         match (self.stm, self.checkers.popcnt()) {
             (Color::White, 0) => self.gen_noisy_moves_impl::<false, true, V>(&mut visitor),
@@ -440,7 +425,6 @@ impl Board {
         }
     }
 
-    #[inline]
     pub fn gen_quiet_moves<V: FnMut(PieceMoves) -> Abort>(&self, mut visitor: V) -> Abort {
         match (self.stm, self.checkers.popcnt()) {
             (Color::White, 0) => self.gen_quiet_moves_impl::<false, true, V>(&mut visitor),
@@ -453,7 +437,6 @@ impl Board {
 
     /// Recalculates the `checkers`, `pinned`, `attacked`, and `check_zones` bitboards.
     /// Should be called after making a move, and after toggling `self.stm`.
-    #[inline]
     pub(crate) fn calc_threats(&mut self) {
         let our_king = self.king(self.stm);
         let blockers = self.occupied();
@@ -472,6 +455,7 @@ impl Board {
             their_orth,
             their_diag,
             blockers ^ our_king,
+            self.slider_tag,
         );
 
         self.checkers |= knight_moves(our_king) & their_knights;
@@ -492,14 +476,13 @@ impl Board {
         self.check_zones = [
             pawn_attacks(their_king, !self.stm),
             knight_moves(their_king),
-            bishop_moves(their_king, blockers),
-            rook_moves(their_king, blockers),
+            bishop_moves(their_king, blockers, self.slider_tag),
+            rook_moves(their_king, blockers, self.slider_tag),
         ];
     }
 
     /// Calcuates en-passant threats onto a nstm pawn that just double pushed on `file`.
     /// Should be called after making a move, and after toggling `self.stm`.
-    #[inline]
     pub(crate) fn calc_ep_file(&mut self, file: File) {
         let victim = Square::new(file, Rank::R5.relative_to(self.stm));
         let attacker_dst = Square::new(file, Rank::R6.relative_to(self.stm));
@@ -546,7 +529,6 @@ impl Board {
 
     /// Makes the given move on the board. Does *not* check whether the move is legal. An illegal
     /// move may break the board, silently or loudly.
-    #[inline]
     pub fn make_move(&mut self, mov: Move) {
         let (from, to, flag, promotion) = (
             mov.from(),
@@ -671,7 +653,6 @@ impl Board {
         self.calc_threats();
     }
 
-    #[inline]
     pub fn make_null_move(&mut self) {
         debug_assert!(self.checkers.is_empty());
 

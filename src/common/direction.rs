@@ -1,4 +1,4 @@
-use crate::bitboard::Bitboard;
+use crate::common::bitboard::Bitboard;
 
 pub trait Direction {
     /// File delta
@@ -41,7 +41,6 @@ impl_dir!(
     (UpLeft, DownRight, -1, 1),
 );
 
-#[inline]
 pub(crate) const fn shl_general(bb: Bitboard, shift: i8) -> Bitboard {
     Bitboard(if shift >= 0 {
         bb.0 << shift
@@ -50,7 +49,6 @@ pub(crate) const fn shl_general(bb: Bitboard, shift: i8) -> Bitboard {
     })
 }
 
-#[inline]
 pub const fn horizontal_shl_mask(shift: i8) -> Bitboard {
     Bitboard(u64::from_ne_bytes(
         [if shift >= 0 {
@@ -61,7 +59,6 @@ pub const fn horizontal_shl_mask(shift: i8) -> Bitboard {
     ))
 }
 
-#[inline]
 pub(crate) const fn shift_bb<D: Direction>(bb: Bitboard, steps: i8) -> Bitboard {
     let mask = horizontal_shl_mask(D::DF * steps);
     let shift_amt = (8 * D::DR + D::DF) * steps;

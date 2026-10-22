@@ -1,22 +1,25 @@
 use crate::{
-    attack_generators::{bishop_moves, rook_moves},
-    board::Board,
-    r#move::{Move, MoveFlag},
-    movegen::Abort,
-};
-use icarus_common::{
-    bitboard::Bitboard,
-    lookups::{knight_moves, pawn_attacks, pawn_pushes},
-    piece::{Color, Piece},
-    square::{File, Rank, Square},
+    board::{
+        Board,
+        r#move::{Move, MoveFlag},
+        movegen::Abort,
+        sliders::{self, bishop_moves, rook_moves},
+    },
+    common::{
+        bitboard::Bitboard,
+        lookups::{knight_moves, pawn_attacks, pawn_pushes},
+        piece::{Color, Piece},
+        square::{File, Rank, Square},
+    },
 };
 
 pub fn test_islegal(fens: &[&str]) {
+    let slider_tag = sliders::init();
     let mut all_moves = vec![];
     for from in Square::all() {
         let to = knight_moves(from)
-            | rook_moves(from, Bitboard::EMPTY)
-            | bishop_moves(from, Bitboard::EMPTY);
+            | rook_moves(from, Bitboard::EMPTY, slider_tag)
+            | bishop_moves(from, Bitboard::EMPTY, slider_tag);
         all_moves.extend(to.into_iter().map(|to| Move::new(from, to, MoveFlag::None)));
     }
 
@@ -48,6 +51,7 @@ pub fn test_islegal(fens: &[&str]) {
     all_moves.push(Move::new(Square::E8, Square::A8, MoveFlag::Castle));
     all_moves.push(Move::new(Square::E8, Square::H8, MoveFlag::Castle));
 
+    #[allow(clippy::for_unbounded_range)]
     for depth in 0.. {
         println!("Depth {depth}...");
         for fen in fens {

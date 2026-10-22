@@ -1,6 +1,6 @@
-use icarus_common::piece::Piece;
-
-use crate::{nontunable, search::search::DEPTH_SCALE, tunable_params, util::MAX_PLY};
+use crate::{
+    common::piece::Piece, nontunable, search::search::DEPTH_SCALE, tunable_params, util::MAX_PLY,
+};
 
 tunable_params!(
     rfp_margin              : i16 = 50      (25..=100);

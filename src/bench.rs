@@ -3,9 +3,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use icarus_board::board::Board;
-
 use crate::{
+    board::Board,
     engine::Engine,
     position::Position,
     search::{

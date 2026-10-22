@@ -1,42 +1,52 @@
 use std::{
-    sync::{
-        LazyLock,
-        atomic::{AtomicU64, Ordering},
-    },
+    sync::atomic::{AtomicU64, Ordering},
     time::{Duration, Instant},
 };
+
+use crate::tagged_cell;
 
 /// Wrapper type to atomically store and load `Instant`s. Internally, we store
 /// in a `AtomicU64` the duration in nanoseconds since `EPOCH`. Note that this
 /// breaks after running the program for ~584 years at a time.
-pub struct AtomicInstant(AtomicU64);
-
-/// The epoch used for `AtomicInstant`. Note that this MUST be initialized
-/// to a value smaller than any `Instant`s ever stored in an `AtomicInstant`.
-pub static EPOCH: LazyLock<Instant> = LazyLock::new(Instant::now);
-
-fn instant_to_bits(instant: Instant) -> u64 {
-    (instant - *EPOCH).as_nanos().try_into().unwrap()
+pub struct AtomicInstant {
+    value: AtomicU64,
+    tag: EpochTag,
 }
 
-fn bits_to_instant(bits: u64) -> Instant {
-    *EPOCH + Duration::from_nanos(bits)
+tagged_cell!(
+    /// The epoch used for `AtomicInstant`.
+    static EPOCH: TaggedCell<Instant, pub EpochTag> = TaggedCell::new();
+);
+
+pub fn init() -> EpochTag {
+    EPOCH.init(Instant::now)
+}
+
+fn instant_to_bits(instant: Instant, tag: EpochTag) -> u64 {
+    (instant - *EPOCH.get(tag)).as_nanos().try_into().unwrap()
+}
+
+fn bits_to_instant(bits: u64, tag: EpochTag) -> Instant {
+    *EPOCH.get(tag) + Duration::from_nanos(bits)
 }
 
 impl AtomicInstant {
-    pub fn new(instant: Instant) -> Self {
-        Self(AtomicU64::new(instant_to_bits(instant)))
+    fn new(instant: Instant, tag: EpochTag) -> Self {
+        Self {
+            value: AtomicU64::new(instant_to_bits(instant, tag)),
+            tag,
+        }
     }
 
-    pub fn now() -> Self {
-        Self::new(Instant::now())
+    pub fn now(tag: EpochTag) -> Self {
+        Self::new(Instant::now(), tag)
     }
 
     pub fn load(&self, order: Ordering) -> Instant {
-        bits_to_instant(self.0.load(order))
+        bits_to_instant(self.value.load(order), self.tag)
     }
 
     pub fn store(&self, instant: Instant, order: Ordering) {
-        self.0.store(instant_to_bits(instant), order);
+        self.value.store(instant_to_bits(instant, self.tag), order);
     }
 }

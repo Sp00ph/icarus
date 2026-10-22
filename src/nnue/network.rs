@@ -1,15 +1,15 @@
 use arrayvec::ArrayVec;
-use icarus_board::{
-    board::Board,
-    r#move::{Move, MoveFlag},
-};
-use icarus_common::{
-    piece::{Color, Piece},
-    square::{File, Rank, Square},
-    util::enum_map::enum_map,
-};
+use enum_map::enum_map;
 
 use crate::{
+    board::{
+        Board,
+        r#move::{Move, MoveFlag},
+    },
+    common::{
+        piece::{Color, Piece},
+        square::{File, Rank, Square},
+    },
     nnue::{
         accumulator::{
             Accumulator, Feature, KingBucketCache, Updates, acc_add, acc_add_sub, acc_add_sub2,

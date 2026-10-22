@@ -90,7 +90,6 @@ impl fmt::Display for Score {
 impl Neg for Score {
     type Output = Score;
 
-    #[inline]
     fn neg(self) -> Self::Output {
         Score(-self.0)
     }

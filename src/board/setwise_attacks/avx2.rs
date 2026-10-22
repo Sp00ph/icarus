@@ -1,5 +1,6 @@
-use icarus_common::bitboard::Bitboard;
 use std::arch::x86_64::*;
+
+use crate::{board::sliders::SliderTag, common::bitboard::Bitboard};
 
 fn reduce_or2(a: __m256i, b: __m256i) -> u64 {
     unsafe {
@@ -93,6 +94,7 @@ pub fn knight_and_slider_attacks_setwise(
     orth: Bitboard,
     diag: Bitboard,
     blockers: Bitboard,
+    _: SliderTag,
 ) -> Bitboard {
     unsafe {
         let [a, b] = knight_attacks_setwise(knights);

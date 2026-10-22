@@ -1,13 +1,15 @@
-use icarus_board::{board::Board, r#move::Move};
-use icarus_common::piece::Piece;
-
-use crate::search::{
-    history::MAX_HIST_VALUE,
-    params::{
-        cont1_bonus_base, cont1_bonus_max, cont1_bonus_scale, cont1_malus_base, cont1_malus_max,
-        cont1_malus_scale, cont2_bonus_base, cont2_bonus_max, cont2_bonus_scale, cont2_malus_base,
-        cont2_malus_max, cont2_malus_scale, cont4_bonus_base, cont4_bonus_max, cont4_bonus_scale,
-        cont4_malus_base, cont4_malus_max, cont4_malus_scale,
+use crate::{
+    board::{Board, r#move::Move},
+    common::piece::Piece,
+    search::{
+        history::MAX_HIST_VALUE,
+        params::{
+            cont1_bonus_base, cont1_bonus_max, cont1_bonus_scale, cont1_malus_base,
+            cont1_malus_max, cont1_malus_scale, cont2_bonus_base, cont2_bonus_max,
+            cont2_bonus_scale, cont2_malus_base, cont2_malus_max, cont2_malus_scale,
+            cont4_bonus_base, cont4_bonus_max, cont4_bonus_scale, cont4_malus_base,
+            cont4_malus_max, cont4_malus_scale,
+        },
     },
 };
 

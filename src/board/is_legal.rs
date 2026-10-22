@@ -1,19 +1,20 @@
 #[cfg(feature = "test-islegal")]
 pub mod test;
 
-use icarus_common::{
-    lookups::{
-        between, between_inclusive, king_moves, knight_moves, line, pawn_attacks, pawn_pushes,
-    },
-    piece::Piece,
-    square::{Rank, Square},
-};
-
 use crate::{
-    attack_generators::{bishop_moves, rook_moves},
-    board::Board,
-    castling::CastlingDirection,
-    r#move::{Move, MoveFlag},
+    board::{
+        Board,
+        castling::CastlingDirection,
+        r#move::{Move, MoveFlag},
+        sliders::{bishop_moves, rook_moves},
+    },
+    common::{
+        lookups::{
+            between, between_inclusive, king_moves, knight_moves, line, pawn_attacks, pawn_pushes,
+        },
+        piece::Piece,
+        square::{Rank, Square},
+    },
 };
 
 impl Board {
@@ -21,7 +22,6 @@ impl Board {
     /// Crucially, it is assumed that there is at least one possible position in
     /// which `mv` is legal; so it is assumed that e.g. the promotion flag is only
     /// set if the move moves to rank 1 or rank 8.
-    #[inline]
     pub fn is_legal(&self, mv: Move) -> bool {
         match self.checkers.popcnt() {
             0 => self.is_legal_no_check(mv),
@@ -30,7 +30,6 @@ impl Board {
         }
     }
 
-    #[inline]
     fn is_legal_no_check(&self, mv: Move) -> bool {
         let (from, to, flag) = (mv.from(), mv.to(), mv.flag());
 
@@ -66,16 +65,15 @@ impl Board {
                         || pawn_pushes(from, self.stm, blockers).contains(to))
             }
             Piece::Knight => knight_moves(from).contains(to),
-            Piece::Bishop => bishop_moves(from, blockers).contains(to),
-            Piece::Rook => rook_moves(from, blockers).contains(to),
-            Piece::Queen => {
-                (bishop_moves(from, blockers) | rook_moves(from, blockers)).contains(to)
-            }
+            Piece::Bishop => bishop_moves(from, blockers, self.slider_tag).contains(to),
+            Piece::Rook => rook_moves(from, blockers, self.slider_tag).contains(to),
+            Piece::Queen => (bishop_moves(from, blockers, self.slider_tag)
+                | rook_moves(from, blockers, self.slider_tag))
+            .contains(to),
             Piece::King => (king_moves(from) & !self.attacked).contains(to),
         }
     }
 
-    #[inline]
     fn is_legal_check(&self, mv: Move) -> bool {
         let (from, to, flag) = (mv.from(), mv.to(), mv.flag());
 
@@ -127,16 +125,15 @@ impl Board {
                         || pawn_pushes(from, self.stm, blockers).contains(to))
             }
             Piece::Knight => knight_moves(from).contains(to),
-            Piece::Bishop => bishop_moves(from, blockers).contains(to),
-            Piece::Rook => rook_moves(from, blockers).contains(to),
-            Piece::Queen => {
-                (bishop_moves(from, blockers) | rook_moves(from, blockers)).contains(to)
-            }
+            Piece::Bishop => bishop_moves(from, blockers, self.slider_tag).contains(to),
+            Piece::Rook => rook_moves(from, blockers, self.slider_tag).contains(to),
+            Piece::Queen => (bishop_moves(from, blockers, self.slider_tag)
+                | rook_moves(from, blockers, self.slider_tag))
+            .contains(to),
             Piece::King => unreachable!("King moves were already handled"),
         }
     }
 
-    #[inline]
     fn is_legal_evasion(&self, mv: Move) -> bool {
         let (from, to, flag) = (mv.from(), mv.to(), mv.flag());
 
@@ -150,7 +147,6 @@ impl Board {
                 .contains(to)
     }
 
-    #[inline]
     fn is_legal_en_passant(&self, mv: Move) -> bool {
         self.en_passant.is_some_and(|ep_file| {
             mv.flag() == MoveFlag::EnPassant
@@ -159,7 +155,6 @@ impl Board {
         })
     }
 
-    #[inline]
     fn is_legal_castle(&self, mv: Move) -> bool {
         let (from, to) = (mv.from(), mv.to());
         if self.colored_piece_on(from, self.stm) != Some(Piece::King) {

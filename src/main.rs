@@ -1,6 +1,8 @@
 use crate::engine::Engine;
 
 pub mod bench;
+pub mod board;
+pub mod common;
 pub mod datagen;
 pub mod engine;
 pub mod nnue;

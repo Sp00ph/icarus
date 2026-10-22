@@ -3,9 +3,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use icarus_common::{piece::Color, util::enum_map::enum_map};
+use enum_map::enum_map;
 
 use crate::{
+    common::piece::Color,
     search::{
         params::{
             hard_time_factor, move_stability_base, move_stability_min, move_stability_scale,
@@ -14,7 +15,10 @@ use crate::{
         searcher::ThreadCtx,
     },
     uci::SearchLimit,
-    util::{MAX_PLY, atomic_instant::AtomicInstant},
+    util::{
+        MAX_PLY,
+        atomic_instant::{self, AtomicInstant},
+    },
 };
 
 pub struct TimeManager {
@@ -37,7 +41,7 @@ pub const DEFAULT_MOVE_OVERHEAD: u64 = 20;
 impl Default for TimeManager {
     fn default() -> Self {
         Self {
-            start: AtomicInstant::now(),
+            start: AtomicInstant::now(atomic_instant::init()),
             infinite: AtomicBool::new(false),
             check_time: AtomicBool::new(true),
             stop: AtomicU32::new(0),

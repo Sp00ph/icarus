@@ -1,8 +1,8 @@
 use arrayvec::ArrayVec;
-use icarus_board::{board::TerminalState, r#move::Move};
 use smallvec::SmallVec;
 
 use crate::{
+    board::{TerminalState, r#move::Move},
     position::Position,
     score::Score,
     search::{

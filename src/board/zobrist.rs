@@ -1,4 +1,4 @@
-use icarus_common::{
+use crate::common::{
     piece::{Color, Piece},
     square::{File, Square},
 };
@@ -31,17 +31,14 @@ pub struct Zobrist {
 }
 
 impl Zobrist {
-    #[inline]
     pub const fn piece(&self, sq: Square, pt: Piece, col: Color) -> u64 {
         self.pieces[col as usize][pt as usize][sq as usize]
     }
 
-    #[inline]
     pub const fn castles(&self, file: File, col: Color) -> u64 {
         self.castles[col as usize][file as usize]
     }
 
-    #[inline]
     pub const fn en_passant(&self, file: File) -> u64 {
         self.en_passant[file as usize]
     }

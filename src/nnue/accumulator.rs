@@ -1,12 +1,14 @@
 use arrayvec::ArrayVec;
-use icarus_common::{
-    bitboard::Bitboard,
-    piece::{Color, Piece},
-    square::Square,
-    util::enum_map::EnumMap,
-};
+use enum_map::EnumMap;
 
-use crate::nnue::network::{INPUT, L1, NET, NUM_KING_BUCKETS, should_mirror};
+use crate::{
+    common::{
+        bitboard::Bitboard,
+        piece::{Color, Piece},
+        square::Square,
+    },
+    nnue::network::{INPUT, L1, NET, NUM_KING_BUCKETS, should_mirror},
+};
 
 #[derive(Debug, Clone)]
 pub struct Accumulator {

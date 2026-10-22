@@ -1,18 +1,45 @@
+pub mod castling;
+pub mod ep_file;
+pub mod is_legal;
+pub mod r#move;
+pub mod movegen;
+pub mod perft;
+pub mod sliders;
+pub mod zobrist;
+
+cfg_select! {
+    target_feature = "avx512f" => {
+        #[path = "setwise_attacks/avx512.rs"]
+        pub mod setwise_attacks;
+    }
+    target_feature = "avx2" => {
+        #[path = "setwise_attacks/avx2.rs"]
+        pub mod setwise_attacks;
+    }
+    _ => {
+        #[path = "setwise_attacks/generic.rs"]
+        pub mod setwise_attacks;
+    }
+}
+
 use std::{array, fmt, mem};
 
-use icarus_common::{
-    bitboard::Bitboard,
-    piece::{Color, Piece},
-    square::{File, Rank, Square},
-    util::enum_map::EnumMap,
-};
+use enum_map::EnumMap;
 
 use crate::{
-    castling::{CastlingDirection, CastlingRights},
-    ep_file::EnPassantFile,
-    r#move::{Move, MoveFlag},
-    movegen::Abort,
-    zobrist::ZOBRIST,
+    board::{
+        castling::{CastlingDirection, CastlingRights},
+        ep_file::EnPassantFile,
+        r#move::{Move, MoveFlag},
+        movegen::Abort,
+        sliders::SliderTag,
+        zobrist::ZOBRIST,
+    },
+    common::{
+        bitboard::Bitboard,
+        piece::{Color, Piece},
+        square::{File, Rank, Square},
+    },
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,131 +85,108 @@ pub struct Board {
     pub(crate) major_hash: u64,
     /// Zobrist hash of all non-pawns of one color.
     pub(crate) nonpawn_hash: EnumMap<Color, u64>,
+
+    pub(crate) slider_tag: SliderTag,
 }
 
 impl Board {
-    #[inline]
     pub fn occupied(&self) -> Bitboard {
         self.colors[Color::White] | self.colors[Color::Black]
     }
 
-    #[inline]
     pub fn occupied_by(&self, color: Color) -> Bitboard {
         self.colors[color]
     }
 
-    #[inline]
     pub fn pieces(&self, piece: Piece) -> Bitboard {
         self.pieces[piece]
     }
 
-    #[inline]
     pub fn piece_bbs(&self) -> &EnumMap<Piece, Bitboard> {
         &self.pieces
     }
 
-    #[inline]
     pub fn color_bbs(&self) -> &EnumMap<Color, Bitboard> {
         &self.colors
     }
 
-    #[inline]
     pub fn colored_pieces(&self, piece: Piece, color: Color) -> Bitboard {
         self.pieces[piece] & self.colors[color]
     }
 
-    #[inline]
     pub fn piece_on(&self, sq: Square) -> Option<Piece> {
         self.mailbox[sq]
     }
 
-    #[inline]
     pub fn colored_piece_on(&self, sq: Square, color: Color) -> Option<Piece> {
         self.mailbox[sq].filter(|_| self.colors[color].contains(sq))
     }
 
-    #[inline]
     pub fn king(&self, color: Color) -> Square {
         self.colored_pieces(Piece::King, color).next()
     }
 
-    #[inline]
     pub fn orth_sliders(&self, color: Color) -> Bitboard {
         self.colors[color] & (self.pieces[Piece::Rook] | self.pieces[Piece::Queen])
     }
 
-    #[inline]
     pub fn diag_sliders(&self, color: Color) -> Bitboard {
         self.colors[color] & (self.pieces[Piece::Bishop] | self.pieces[Piece::Queen])
     }
 
-    #[inline]
     pub fn en_passant(&self) -> Option<EnPassantFile> {
         self.en_passant
     }
 
-    #[inline]
     pub fn pinned(&self) -> Bitboard {
         self.pinned
     }
 
-    #[inline]
     pub fn checkers(&self) -> Bitboard {
         self.checkers
     }
 
-    #[inline]
     pub fn attacked(&self) -> Bitboard {
         self.attacked
     }
 
-    #[inline]
     pub fn halfmove_clock(&self) -> u8 {
         self.halfmove_clock
     }
 
-    #[inline]
     pub fn fullmove_count(&self) -> u16 {
         self.fullmove_count
     }
 
-    #[inline]
     pub fn stm(&self) -> Color {
         self.stm
     }
 
-    #[inline]
     pub fn hash(&self) -> u64 {
         self.hash
     }
 
-    #[inline]
     pub fn pawn_hash(&self) -> u64 {
         self.pawn_hash
     }
 
-    #[inline]
     pub fn minor_hash(&self) -> u64 {
         self.minor_hash
     }
 
-    #[inline]
     pub fn major_hash(&self) -> u64 {
         self.major_hash
     }
 
-    #[inline]
     pub fn nonpawn_hash(&self, color: Color) -> u64 {
         self.nonpawn_hash[color]
     }
 
-    #[inline]
     pub fn castling_rights(&self) -> EnumMap<Color, CastlingRights> {
         self.castling_rights
     }
 
     /// Returns the total material across both sides, with 13359 values
-    #[inline]
     pub fn classical_material(&self) -> i16 {
         self.pieces[Piece::Pawn].popcnt() as i16
             + 3 * self.pieces[Piece::Knight].popcnt() as i16
@@ -191,18 +195,15 @@ impl Board {
             + 9 * self.pieces[Piece::Queen].popcnt() as i16
     }
 
-    #[inline]
     pub fn is_tactic(&self, mv: Move) -> bool {
         [MoveFlag::EnPassant, MoveFlag::Promotion].contains(&mv.flag())
             || self.occupied_by(!self.stm).contains(mv.to())
     }
 
-    #[inline]
     pub fn is_quiet(&self, mv: Move) -> bool {
         !self.is_tactic(mv)
     }
 
-    #[inline]
     pub fn check_zone(&self, piece: Piece) -> Bitboard {
         assert!(piece != Piece::King);
         if piece == Piece::Queen {
@@ -212,7 +213,6 @@ impl Board {
         }
     }
 
-    #[inline]
     pub fn gives_direct_check(&self, mv: Move) -> bool {
         let piece = mv
             .promotes_to()
@@ -223,7 +223,6 @@ impl Board {
 
     /// Returns whether the given move is legal on the current board. Note that this uses move generation internally, so
     /// it is rather slow. In return, it can handle _any_ kind of move, so it doesn't require any invariants of `Move` to hold.
-    #[inline]
     pub fn is_legal_thorough(&self, mv: Move) -> bool {
         self.gen_moves(|moves| {
             if moves.into_iter().any(|legal| legal == mv) {
@@ -234,7 +233,6 @@ impl Board {
         }) == Abort::Yes
     }
 
-    #[inline]
     pub fn terminal_state(&self) -> Option<TerminalState> {
         let any_legal = self.gen_moves(|moves| {
             if !moves.is_empty() {
@@ -257,7 +255,6 @@ impl Board {
     }
 
     /// If this returns true, then the board contains insufficient material to ever checkmate either king.
-    #[inline]
     pub fn insufficient_material(&self) -> bool {
         let pieces = &self.pieces;
         use Piece::*;
@@ -274,7 +271,6 @@ impl Board {
                 & (pieces[Knight].popcnt() < 2))
     }
 
-    #[inline]
     pub(crate) fn toggle_square(&mut self, sq: Square, color: Color, piece: Piece) {
         self.pieces[piece] ^= sq;
         self.colors[color] ^= sq;
@@ -292,7 +288,6 @@ impl Board {
         }
     }
 
-    #[inline]
     pub(crate) fn set_en_passant(&mut self, f: Option<EnPassantFile>) {
         if let Some(old) = mem::replace(&mut self.en_passant, f) {
             self.hash ^= ZOBRIST.en_passant(old.file());
@@ -302,7 +297,6 @@ impl Board {
         }
     }
 
-    #[inline]
     pub(crate) fn set_castles(&mut self, color: Color, dir: CastlingDirection, file: Option<File>) {
         if let Some(old) = self.castling_rights[color].get(dir) {
             self.hash ^= ZOBRIST.castles(old, color);
@@ -348,6 +342,7 @@ impl Board {
             minor_hash: 0,
             major_hash: 0,
             nonpawn_hash: Default::default(),
+            slider_tag: sliders::init(),
         };
 
         let mut rank = 8u8;
@@ -553,6 +548,7 @@ impl Board {
             minor_hash: 0,
             major_hash: 0,
             nonpawn_hash: Default::default(),
+            slider_tag: sliders::init(),
         };
         write_color(&mut board, w, Color::White);
         write_color(&mut board, b, Color::Black);
@@ -662,7 +658,6 @@ impl Board {
         println!("Zobrist key: {:#018x}", self.hash)
     }
 
-    #[inline]
     pub fn parse_move(&self, lan: &str, chess960: bool) -> Option<Move> {
         if !(4..=5).contains(&lan.len()) {
             return None;

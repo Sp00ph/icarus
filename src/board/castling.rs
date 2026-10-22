@@ -1,4 +1,4 @@
-use icarus_common::square::File;
+use crate::common::square::File;
 
 /// The castling rights for one side. We need to store flags for whether
 /// the side may castle short or long. Additionally, to support Chess960,
@@ -22,7 +22,6 @@ pub enum CastlingDirection {
 }
 
 impl CastlingDirection {
-    #[inline]
     pub fn king_dst(self) -> File {
         match self {
             Self::Long => File::C,
@@ -30,7 +29,6 @@ impl CastlingDirection {
         }
     }
 
-    #[inline]
     pub fn rook_dst(self) -> File {
         match self {
             Self::Long => File::D,
@@ -40,19 +38,16 @@ impl CastlingDirection {
 }
 
 impl CastlingRights {
-    #[inline]
     pub fn new(long: Option<File>, short: Option<File>) -> Self {
         let long = long.map_or(8, File::idx);
         let short = short.map_or(8, File::idx);
         Self(long | (short << 4))
     }
 
-    #[inline]
     pub fn get(self, dir: CastlingDirection) -> Option<File> {
         File::try_from_idx((self.0 >> dir as u8) & 0xf)
     }
 
-    #[inline]
     pub fn set(&mut self, dir: CastlingDirection, file: Option<File>) {
         let and_mask = !(0xf << (dir as u8));
         let new_val = file.map_or(8, File::idx);

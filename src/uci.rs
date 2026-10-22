@@ -3,9 +3,10 @@ use std::{
     str::{FromStr, ParseBoolError},
 };
 
-use icarus_board::{board::Board, r#move::Move};
-
-use crate::bench::DEFAULT_BENCH_DEPTH;
+use crate::{
+    bench::DEFAULT_BENCH_DEPTH,
+    board::{Board, r#move::Move},
+};
 
 #[derive(Debug)]
 pub enum UciCommand {

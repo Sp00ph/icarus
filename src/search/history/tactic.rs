@@ -1,10 +1,11 @@
-use icarus_board::{board::Board, r#move::Move};
-
-use crate::search::{
-    history::{MAX_HIST_VALUE, apply_gravity},
-    params::{
-        tactic_bonus_base, tactic_bonus_max, tactic_bonus_scale, tactic_malus_base,
-        tactic_malus_max, tactic_malus_scale,
+use crate::{
+    board::{Board, r#move::Move},
+    search::{
+        history::{MAX_HIST_VALUE, apply_gravity},
+        params::{
+            tactic_bonus_base, tactic_bonus_max, tactic_bonus_scale, tactic_malus_base,
+            tactic_malus_max, tactic_malus_scale,
+        },
     },
 };
 

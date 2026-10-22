@@ -1,11 +1,10 @@
-use crate::{
+use crate::common::{
     bitboard::Bitboard,
     direction::{DownLeft, DownRight, Up, UpLeft, UpRight},
     piece::Color,
     square::{Rank, Square},
 };
 
-#[inline]
 pub const fn rook_rays(sq: Square) -> Bitboard {
     const RAYS: &[Bitboard; Square::COUNT] = &{
         let mut arr = [Bitboard::EMPTY; Square::COUNT];
@@ -24,7 +23,6 @@ pub const fn rook_rays(sq: Square) -> Bitboard {
     RAYS[sq.idx() as usize]
 }
 
-#[inline]
 pub fn bishop_rays(sq: Square) -> Bitboard {
     const RAYS: &[Bitboard; Square::COUNT] = &{
         let mut arr = [Bitboard::EMPTY; Square::COUNT];
@@ -43,7 +41,6 @@ pub fn bishop_rays(sq: Square) -> Bitboard {
     RAYS[sq.idx() as usize]
 }
 
-#[inline]
 pub const fn knight_moves(sq: Square) -> Bitboard {
     const MOVES: &[Bitboard; Square::COUNT] = &{
         let mut arr = [Bitboard::EMPTY; Square::COUNT];
@@ -84,7 +81,6 @@ pub const fn knight_moves(sq: Square) -> Bitboard {
     MOVES[sq.idx() as usize]
 }
 
-#[inline]
 pub const fn king_moves(sq: Square) -> Bitboard {
     const MOVES: &[Bitboard; Square::COUNT] = &{
         let mut arr = [Bitboard::EMPTY; Square::COUNT];
@@ -125,7 +121,6 @@ pub const fn king_moves(sq: Square) -> Bitboard {
     MOVES[sq.idx() as usize]
 }
 
-#[inline]
 pub const fn pawn_pushes(sq: Square, color: Color, blockers: Bitboard) -> Bitboard {
     let (push_dir, start_rank) = (color.signum(), Rank::R2.relative_to(color));
 
@@ -138,7 +133,6 @@ pub const fn pawn_pushes(sq: Square, color: Color, blockers: Bitboard) -> Bitboa
     to
 }
 
-#[inline]
 pub const fn pawn_attacks(sq: Square, color: Color) -> Bitboard {
     const MOVES: &[[Bitboard; Square::COUNT]; Color::COUNT] = &{
         let mut arr = [[Bitboard::EMPTY; Square::COUNT]; Color::COUNT];
@@ -161,7 +155,6 @@ pub const fn pawn_attacks(sq: Square, color: Color) -> Bitboard {
     MOVES[color.idx() as usize][sq.idx() as usize]
 }
 
-#[inline]
 pub const fn between_inclusive(a: Square, b: Square) -> Bitboard {
     const fn between_inclusive_comptime(mut a: Square, b: Square) -> Bitboard {
         let (fa, ra) = (a.file(), a.rank());
@@ -218,7 +211,6 @@ pub const fn between_inclusive(a: Square, b: Square) -> Bitboard {
     BETWEEN[a.idx() as usize][b.idx() as usize]
 }
 
-#[inline]
 pub const fn between(a: Square, b: Square) -> Bitboard {
     const BETWEEN: &[[Bitboard; Square::COUNT]; Square::COUNT] = &{
         let mut arr = [[Bitboard::EMPTY; Square::COUNT]; Square::COUNT];
@@ -247,7 +239,6 @@ pub const fn between(a: Square, b: Square) -> Bitboard {
     BETWEEN[a.idx() as usize][b.idx() as usize]
 }
 
-#[inline]
 pub const fn line(a: Square, b: Square) -> Bitboard {
     const fn line_comptime(a: Square, b: Square) -> Bitboard {
         let (fa, ra) = (a.file(), a.rank());

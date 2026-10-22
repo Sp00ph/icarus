@@ -1,6 +1,9 @@
 use std::fmt;
 
-use crate::{bitboard::Bitboard, define_enum, piece::Color};
+use crate::{
+    common::{bitboard::Bitboard, piece::Color},
+    define_enum,
+};
 
 define_enum!(
     #[derive(PartialOrd, Ord, Debug)]
@@ -11,22 +14,18 @@ define_enum!(
 );
 
 impl File {
-    #[inline]
     pub const fn try_offset(self, offset: i8) -> Option<Self> {
         Self::try_from_idx(self.idx().wrapping_add_signed(offset))
     }
 
-    #[inline]
     pub const fn offset(self, offset: i8) -> Self {
         self.try_offset(offset).expect("Invalid offset")
     }
 
-    #[inline]
     pub const fn bitboard(self) -> Bitboard {
         Bitboard(0x0101010101010101 << self.idx())
     }
 
-    #[inline]
     pub fn to_char(self) -> char {
         (b'A' + self.idx()) as char
     }
@@ -53,22 +52,18 @@ define_enum!(
 );
 
 impl Rank {
-    #[inline]
     pub const fn try_offset(self, offset: i8) -> Option<Self> {
         Self::try_from_idx(self.idx().wrapping_add_signed(offset))
     }
 
-    #[inline]
     pub const fn offset(self, offset: i8) -> Self {
         self.try_offset(offset).expect("Invalid offset")
     }
 
-    #[inline]
     pub const fn bitboard(self) -> Bitboard {
         Bitboard(0xff << (8 * self.idx()))
     }
 
-    #[inline]
     pub const fn relative_to(self, col: Color) -> Self {
         Self::from_idx(self.idx() ^ (7 * col.idx()))
     }
@@ -102,22 +97,18 @@ define_enum!(
 );
 
 impl Square {
-    #[inline]
     pub const fn new(file: File, rank: Rank) -> Self {
         Self::from_idx(file.idx() + rank.idx() * 8)
     }
 
-    #[inline]
     pub const fn file(self) -> File {
         File::from_idx(self.idx() & 7)
     }
 
-    #[inline]
     pub const fn rank(self) -> Rank {
         Rank::from_idx(self.idx() >> 3)
     }
 
-    #[inline]
     pub const fn try_offset(self, df: i8, dr: i8) -> Option<Self> {
         match (self.file().try_offset(df), self.rank().try_offset(dr)) {
             (Some(f), Some(r)) => Some(Self::new(f, r)),
@@ -125,17 +116,14 @@ impl Square {
         }
     }
 
-    #[inline]
     pub const fn offset(self, df: i8, dr: i8) -> Self {
         self.try_offset(df, dr).expect("Invalid offset")
     }
 
-    #[inline]
     pub const fn bitboard(self) -> Bitboard {
         Bitboard(1 << self.idx())
     }
 
-    #[inline]
     pub fn parse(s: &str) -> Option<Self> {
         let &[f, r]: &[u8; 2] = s.as_bytes().try_into().ok()?;
 
@@ -148,12 +136,10 @@ impl Square {
         }
     }
 
-    #[inline]
     pub fn flip_rank(self) -> Self {
         Self::from_idx(self.idx() ^ 56)
     }
 
-    #[inline]
     pub fn flip_file(self) -> Self {
         Self::from_idx(self.idx() ^ 7)
     }

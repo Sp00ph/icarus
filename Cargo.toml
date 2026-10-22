@@ -5,8 +5,6 @@ edition = "2024"
 license-file = "LICENSE"
 
 [dependencies]
-icarus-common = { path = "icarus-common" }
-icarus-board = { path = "icarus-board" }
 arrayvec = "0.7.6"
 rustyline = "17.0.2"
 thiserror = "2.0.17"
@@ -19,13 +17,13 @@ clap = { version = "4.5.60", features = ["derive"], optional = true }
 indicatif = { version = "0.18.4", optional = true }
 memmap2 = "0.9.10"
 color-backtrace = "0.7.2"
-
-[workspace]
-members = ["icarus-board", "icarus-common"]
+enum-map = "3.1.0"
+zerocopy = { version = "0.8.63", features = ["derive"] }
 
 [features]
-use-bmi2 = ["icarus-board/use-bmi2"]
-test-islegal = ["icarus-board/test-islegal"]
+test-islegal = []
+use-bmi2 = []
+perft-all-960 = []
 datagen = ["dep:viriformat", "dep:clap", "dep:indicatif"]
 count-act = []
 count-coact = []

@@ -1,17 +1,16 @@
 use std::collections::HashSet;
 
-use icarus_board::{
-    attack_generators::{bishop_moves, rook_moves},
-    board::Board,
-    r#move::{Move, MoveFlag},
-};
-use icarus_common::{
-    lookups::{king_moves, knight_moves, pawn_attacks},
-    piece::{Color, Piece},
-    square::Square,
-};
-
 use crate::{
+    board::{
+        Board,
+        r#move::{Move, MoveFlag},
+        sliders::{bishop_moves, rook_moves},
+    },
+    common::{
+        lookups::{king_moves, knight_moves, pawn_attacks},
+        piece::{Color, Piece},
+        square::Square,
+    },
     nnue::network::Nnue,
     score::Score,
     search::params::{mat_scale, mat_scaling_base, see_val},
@@ -155,8 +154,8 @@ impl Position {
             (pawn_attacks(to, Color::White) & board.occupied_by(Color::Black) & board.pieces(Piece::Pawn))
             | (pawn_attacks(to, Color::Black) & board.occupied_by(Color::White) & board.pieces(Piece::Pawn))
             | (knight_moves(to) & board.pieces(Piece::Knight))
-            | (bishop_moves(to, occupied) & diag)
-            | (rook_moves(to, occupied) & orth)
+            | (bishop_moves(to, occupied, self.board.slider_tag) & diag)
+            | (rook_moves(to, occupied, self.board.slider_tag) & orth)
             | (king_moves(to) & board.pieces(Piece::King))
         ) & occupied;
 
@@ -175,11 +174,11 @@ impl Position {
             occupied ^= (board.pieces(next_victim) & my_attackers).next();
 
             if [Piece::Pawn, Piece::Bishop, Piece::Queen].contains(&next_victim) {
-                attackers |= bishop_moves(to, occupied) & diag;
+                attackers |= bishop_moves(to, occupied, self.board.slider_tag) & diag;
             }
 
             if [Piece::Rook, Piece::Queen].contains(&next_victim) {
-                attackers |= rook_moves(to, occupied) & orth;
+                attackers |= rook_moves(to, occupied, self.board.slider_tag) & orth;
             }
 
             attackers &= occupied;

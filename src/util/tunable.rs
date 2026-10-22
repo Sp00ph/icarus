@@ -64,13 +64,13 @@ macro_rules! tunable_params {
 
         $(
             #[cfg(feature = "tune")]
-            #[inline]
+
             pub fn $name() -> $ty {
                 unsafe { *vals::$name.0.get() }
             }
 
             #[cfg(not(feature = "tune"))]
-            #[inline]
+
             pub fn $name() -> $ty {
                 $val
             }
