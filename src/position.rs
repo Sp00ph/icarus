@@ -3,15 +3,19 @@ use crate::{
         Board,
         r#move::{Move, MoveFlag},
         sliders::{bishop_moves, rook_moves},
+        zobrist::ZOBRIST,
     },
     common::{
-        lookups::{king_moves, knight_moves, pawn_attacks},
+        lookups::{between, king_moves, knight_moves, pawn_attacks},
         piece::{Color, Piece},
         square::Square,
     },
     nnue::network::Nnue,
     score::Score,
-    search::params::{mat_scale, mat_scaling_base, see_val},
+    search::{
+        cuckoo::{self, Cuckoo, CuckooTag},
+        params::{mat_scale, mat_scaling_base, see_val},
+    },
 };
 
 #[derive(Clone)]
@@ -20,6 +24,8 @@ pub struct Position {
     /// Previously played boards. `history[0]` is the starting position.
     history: Vec<Board>,
     moves: Vec<Option<(Piece, Move)>>,
+
+    cuckoo_tag: CuckooTag,
 }
 
 impl Position {
@@ -28,6 +34,8 @@ impl Position {
             board,
             history: vec![],
             moves: vec![],
+
+            cuckoo_tag: Cuckoo::init(),
         }
     }
 
@@ -87,7 +95,6 @@ impl Position {
         &self.board
     }
 
-    #[inline(never)]
     pub fn repetition(&self, ply: u16) -> bool {
         let mut matches = self
             .history
@@ -102,6 +109,59 @@ impl Position {
         // Two-fold counts as a repetition if both positions occurred after root. Otherwise
         // we check for threefold.
         matches.next().is_some_and(|(i, _)| i < ply as usize) || matches.next().is_some()
+    }
+
+    pub fn upcoming_repetition(&self, ply: u16) -> bool {
+        let end = self.history.len().min(self.board.halfmove_clock as usize);
+
+        if end < 3 {
+            return false;
+        }
+
+        let old_key = |i: usize| self.history[self.history.len() - i].hash();
+
+        let occ = self.board.occupied();
+        let orig_key = self.board.hash();
+
+        let mut other = orig_key ^ old_key(1) ^ ZOBRIST.black_to_move;
+
+        for i in (3..=end).step_by(2) {
+            let curr_key = old_key(i);
+
+            other ^= curr_key ^ old_key(i - 1) ^ ZOBRIST.black_to_move;
+            if other != 0 {
+                continue;
+            }
+
+            let diff = orig_key ^ curr_key;
+
+            let cuckoo = Cuckoo::get(self.cuckoo_tag);
+            let mut slot = cuckoo::h1(diff);
+            if diff != cuckoo.keys[slot] {
+                slot = cuckoo::h2(diff)
+            }
+            if diff != cuckoo.keys[slot] {
+                continue;
+            }
+
+            let (sq1, sq2) = cuckoo.moves[slot];
+
+            if (between(sq1, sq2) & occ).is_non_empty() {
+                continue;
+            }
+
+            // twofold before root
+            if i <= ply as usize {
+                return true;
+            }
+
+            // threefold beyond root
+            if (i + 2..=end).step_by(2).any(|j| old_key(j) == curr_key) {
+                return true;
+            }
+        }
+
+        false
     }
 
     pub fn cmp_see(&self, mv: Move, threshold: i32) -> bool {

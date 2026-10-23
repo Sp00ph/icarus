@@ -96,9 +96,19 @@ pub fn search<Node: NodeType>(
         };
     }
 
-    if !Node::ROOT && pos.repetition(ply) {
-        thread.nodes.inc();
-        return Score::ZERO;
+    if !Node::ROOT {
+        if pos.repetition(ply) {
+            thread.nodes.inc();
+            return Score::ZERO;
+        }
+
+        if alpha < Score::ZERO && pos.upcoming_repetition(ply) {
+            alpha = Score::ZERO;
+            if alpha >= beta {
+                thread.nodes.inc();
+                return alpha;
+            }
+        }
     }
 
     if ply >= MAX_PLY {
@@ -591,6 +601,13 @@ pub fn qsearch<Node: NodeType>(
 
     if pos.repetition(ply) {
         return Score::ZERO;
+    }
+
+    if alpha < Score::ZERO && pos.upcoming_repetition(ply) {
+        alpha = Score::ZERO;
+        if alpha >= beta {
+            return alpha;
+        }
     }
 
     if ply >= MAX_PLY {

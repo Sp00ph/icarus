@@ -1,5 +1,6 @@
 #![allow(clippy::module_inception)]
 
+pub mod cuckoo;
 pub mod history;
 pub mod move_picker;
 pub mod params;
