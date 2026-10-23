@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::{
     board::{
         Board,
@@ -23,6 +25,11 @@ pub struct Position {
     board: Board,
     /// Previously played boards. `history[0]` is the starting position.
     history: Vec<Board>,
+    /// Zobrist hashes of the previous positions, used for repetition detection.
+    /// We store these separately to the history, because pre-root hashes are pruned,
+    /// by only keeping the ones that occurred twice already. This way, we don't immediately
+    /// return draw scores on positions that occurred before root.
+    hashes: Vec<u64>,
     moves: Vec<Option<(Piece, Move)>>,
 
     cuckoo_tag: CuckooTag,
@@ -33,6 +40,7 @@ impl Position {
         Self {
             board,
             history: vec![],
+            hashes: vec![],
             moves: vec![],
 
             cuckoo_tag: Cuckoo::init(),
@@ -45,12 +53,14 @@ impl Position {
             nnue.make_move(&self.board, mv);
         }
         self.history.push(self.board);
+        self.hashes.push(self.board.hash());
         self.board.make_move(mv);
         self.moves.push(Some((piece, mv)));
     }
 
     pub fn make_null_move(&mut self) {
         self.history.push(self.board);
+        self.hashes.push(self.board.hash());
         self.board.make_null_move();
         self.moves.push(None);
     }
@@ -61,11 +71,18 @@ impl Position {
         }
         self.board = self.history.pop().unwrap();
         self.moves.pop();
+        self.hashes.pop();
     }
 
     pub fn unmake_null_move(&mut self) {
         self.board = self.history.pop().unwrap();
         self.moves.pop();
+        self.hashes.pop();
+    }
+
+    pub fn prune_preroot_hashes(&mut self) {
+        let mut seen = HashSet::new();
+        self.hashes.retain(|&h| !seen.insert(h));
     }
 
     pub fn eval(&self, nnue: &mut Nnue, mat_scaling: bool) -> Score {
@@ -95,20 +112,12 @@ impl Position {
         &self.board
     }
 
-    pub fn repetition(&self, ply: u16) -> bool {
-        let mut matches = self
-            .history
+    pub fn repetition(&self) -> bool {
+        self.hashes
             .iter()
             .rev()
-            .enumerate()
             .take(self.board.halfmove_clock() as usize)
-            .skip(3)
-            .step_by(2)
-            .filter(|(_, b)| b.hash() == self.board.hash());
-
-        // Two-fold counts as a repetition if both positions occurred after root. Otherwise
-        // we check for threefold.
-        matches.next().is_some_and(|(i, _)| i < ply as usize) || matches.next().is_some()
+            .any(|&b| b == self.board.hash())
     }
 
     pub fn upcoming_repetition(&self, ply: u16) -> bool {
