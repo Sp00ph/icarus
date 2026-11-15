@@ -55,6 +55,13 @@ fn update_pv(thread: &mut ThreadCtx, ply: u16, mv: Move) {
     parent.pv.extend(child.pv.iter().copied());
 }
 
+fn splitmix64(mut v: u64) -> u64 {
+    v = v.wrapping_add(0x9e3779b97f4a7c15u64);
+    v = (v ^ (v >> 30)).wrapping_mul(0xbf58476d1ce4e5b9u64);
+    v = (v ^ (v >> 27)).wrapping_mul(0x94d049bb133111ebu64);
+    v ^ (v >> 31)
+}
+
 pub fn search<Node: NodeType>(
     pos: &mut Position,
     mut depth: i32,
@@ -113,11 +120,16 @@ pub fn search<Node: NodeType>(
         thread.nodes.inc();
     }
 
-    let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
-    let mut tt_move = tt_entry.and_then(|e| e.mv);
-    let tt_pv = Node::PV || tt_entry.is_some_and(|e| e.flags.pv());
     let singular = thread.search_stack[ply as usize].singular;
     let singular_search = singular.is_some();
+    let tt_key = if let Some(mv) = singular {
+        splitmix64(pos.board().hash() ^ mv.to_bits() as u64)
+    } else {
+        pos.board().hash()
+    };
+    let tt_entry = thread.global.ttable.fetch(tt_key, ply);
+    let mut tt_move = tt_entry.and_then(|e| e.mv);
+    let tt_pv = Node::PV || tt_entry.is_some_and(|e| e.flags.pv());
 
     // TT cutoffs
     if !Node::PV
@@ -174,6 +186,7 @@ pub fn search<Node: NodeType>(
             None,
             TTFlag::None,
             Node::PV,
+            false,
         );
     }
 
@@ -541,6 +554,20 @@ pub fn search<Node: NodeType>(
             best_move,
             flag,
             tt_pv,
+            false,
+        );
+    } else {
+        let se_hash = splitmix64(pos.board().hash ^ singular.unwrap().to_bits() as u64);
+        thread.global.ttable.store(
+            se_hash,
+            (depth / DEPTH_SCALE) as u8,
+            ply,
+            raw_eval,
+            best_score,
+            best_move,
+            flag,
+            tt_pv,
+            true,
         );
     }
 
@@ -632,6 +659,7 @@ pub fn qsearch<Node: NodeType>(
                 None,
                 TTFlag::None,
                 Node::PV,
+                false,
             );
         }
     }
@@ -721,6 +749,7 @@ pub fn qsearch<Node: NodeType>(
         best_move,
         flag,
         tt_pv,
+        false,
     );
 
     best_score.max(alpha)

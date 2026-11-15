@@ -108,24 +108,39 @@ impl TTCluster {
     }
 }
 
+const AGE_MASK: u8 = 0b1111;
+
 #[derive(Clone, Copy)]
 pub struct Flags(u8);
 
 impl Flags {
-    pub fn new(age: u8, pv: bool, tt_flag: TTFlag) -> Self {
-        Self((age << 3) | ((pv as u8) << 2) | tt_flag as u8)
+    const FLAG_SHIFT: u32 = 4;
+    const PV_SHIFT: u32 = 7;
+    const SE_SHIFT: u32 = 6;
+
+    pub fn new(age: u8, pv: bool, tt_flag: TTFlag, singular: bool) -> Self {
+        Self(
+            (age & AGE_MASK)
+                | ((pv as u8) << Self::PV_SHIFT)
+                | ((singular as u8) << Self::SE_SHIFT)
+                | ((tt_flag as u8) << Self::FLAG_SHIFT),
+        )
     }
 
     pub fn age(self) -> u8 {
-        self.0 >> 3
+        self.0 & AGE_MASK
     }
 
     pub fn pv(self) -> bool {
-        (self.0 >> 2) & 1 != 0
+        (self.0 >> Self::PV_SHIFT) & 1 != 0
+    }
+
+    pub fn singular(&self) -> bool {
+        (self.0 >> Self::SE_SHIFT) & 1 != 0
     }
 
     pub fn tt_flag(self) -> TTFlag {
-        unsafe { std::mem::transmute(self.0 & 3) }
+        unsafe { std::mem::transmute((self.0 >> Self::FLAG_SHIFT) & 3) }
     }
 }
 
@@ -279,6 +294,7 @@ impl TTable {
         mv: Option<Move>,
         tt_flag: TTFlag,
         pv: bool,
+        singular: bool,
     ) {
         let index = self.index(hash);
         let hash = Self::trunc_key(hash);
@@ -286,7 +302,7 @@ impl TTable {
         let mut cluster = self.entries()[index].load();
         let mut keys = cluster.keys();
 
-        let age = self.age.load(Relaxed) % 32;
+        let age = self.age();
 
         let mut cluster_idx = 0;
         let mut min_value = i32::MAX;
@@ -318,6 +334,7 @@ impl TTable {
             || old.is_none_or(|old| {
                 depth as u16 + 4 > old.depth as u16
                     || old.flags.tt_flag() == TTFlag::None
+                    || (old.flags.singular() & !singular)
                     || age != old.flags.age()
             })
         {
@@ -328,7 +345,7 @@ impl TTable {
                 score: Self::score_to_tt(score, ply),
                 mv: mv.or(old.and_then(|e| e.mv)),
                 depth,
-                flags: Flags::new(age, pv, tt_flag),
+                flags: Flags::new(age, pv, tt_flag, singular),
             };
 
             self.entries()[index].store(cluster);
@@ -340,15 +357,21 @@ impl TTable {
         self.age.store(0, Relaxed)
     }
 
-    pub fn age(&self) {
+    #[must_use]
+    pub fn age(&self) -> u8 {
+        self.age.load(Relaxed) & AGE_MASK
+    }
+
+    pub fn bump_age(&self) {
         self.age.fetch_add(1, Relaxed);
     }
 
     pub fn hashfull(&self) -> usize {
+        let age = self.age();
         self.entries()[..2000]
             .iter()
             .flat_map(|e| e.load().entries)
-            .filter(|e| e.flags.tt_flag() != TTFlag::None)
+            .filter(|e| e.flags.tt_flag() != TTFlag::None && e.flags.age() == age)
             .count()
             / 6
     }

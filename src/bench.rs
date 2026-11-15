@@ -92,6 +92,7 @@ impl Engine {
                 Print::None,
             );
             searcher.wait();
+            searcher.global_ctx.ttable.bump_age();
             duration += start.elapsed();
             nodes += searcher.global_ctx.nodes.load(Ordering::Relaxed);
         }

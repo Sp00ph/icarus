@@ -496,7 +496,7 @@ pub fn id_loop(mut pos: Position, thread: &mut ThreadCtx, print: Print) -> Score
     // We want the waiters to wake up after the bestmove print
     if thread.id == 0 {
         atomic_wait::wake_all(&thread.global.num_searching);
-        thread.global.ttable.age();
+        thread.global.ttable.bump_age();
     }
 
     best_score
