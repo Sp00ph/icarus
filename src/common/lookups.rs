@@ -6,7 +6,7 @@ use crate::common::{
 };
 
 pub const fn rook_rays(sq: Square) -> Bitboard {
-    const RAYS: &[Bitboard; Square::COUNT] = &{
+    static RAYS: [Bitboard; Square::COUNT] = {
         let mut arr = [Bitboard::EMPTY; Square::COUNT];
 
         let mut i = 0;
@@ -23,8 +23,8 @@ pub const fn rook_rays(sq: Square) -> Bitboard {
     RAYS[sq.idx() as usize]
 }
 
-pub fn bishop_rays(sq: Square) -> Bitboard {
-    const RAYS: &[Bitboard; Square::COUNT] = &{
+pub const fn bishop_rays(sq: Square) -> Bitboard {
+    static RAYS: [Bitboard; Square::COUNT] = {
         let mut arr = [Bitboard::EMPTY; Square::COUNT];
 
         let mut i = 0;
@@ -42,7 +42,7 @@ pub fn bishop_rays(sq: Square) -> Bitboard {
 }
 
 pub const fn knight_moves(sq: Square) -> Bitboard {
-    const MOVES: &[Bitboard; Square::COUNT] = &{
+    static MOVES: [Bitboard; Square::COUNT] = {
         let mut arr = [Bitboard::EMPTY; Square::COUNT];
 
         let offsets = [
@@ -81,8 +81,23 @@ pub const fn knight_moves(sq: Square) -> Bitboard {
     MOVES[sq.idx() as usize]
 }
 
+pub const fn superpiece_rays(sq: Square) -> Bitboard {
+    static RAYS: [Bitboard; Square::COUNT] = {
+        let mut arr = [Bitboard::EMPTY; Square::COUNT];
+        let mut i = 0;
+        while i < Square::COUNT {
+            let sq = Square::from_idx(i as u8);
+            arr[i] = Bitboard(rook_rays(sq).0 | bishop_rays(sq).0 | knight_moves(sq).0);
+            i += 1;
+        }
+        arr
+    };
+
+    RAYS[sq.idx() as usize]
+}
+
 pub const fn king_moves(sq: Square) -> Bitboard {
-    const MOVES: &[Bitboard; Square::COUNT] = &{
+    static MOVES: [Bitboard; Square::COUNT] = {
         let mut arr = [Bitboard::EMPTY; Square::COUNT];
 
         let offsets = [
@@ -134,7 +149,7 @@ pub const fn pawn_pushes(sq: Square, color: Color, blockers: Bitboard) -> Bitboa
 }
 
 pub const fn pawn_attacks(sq: Square, color: Color) -> Bitboard {
-    const MOVES: &[[Bitboard; Square::COUNT]; Color::COUNT] = &{
+    static MOVES: [[Bitboard; Square::COUNT]; Color::COUNT] = {
         let mut arr = [[Bitboard::EMPTY; Square::COUNT]; Color::COUNT];
 
         let mut i = 0;
@@ -186,7 +201,7 @@ pub const fn between_inclusive(a: Square, b: Square) -> Bitboard {
         }
     }
 
-    const BETWEEN: &[[Bitboard; Square::COUNT]; Square::COUNT] = &{
+    static BETWEEN: [[Bitboard; Square::COUNT]; Square::COUNT] = {
         let mut arr = [[Bitboard::EMPTY; Square::COUNT]; Square::COUNT];
 
         let mut i = 0;
@@ -212,7 +227,7 @@ pub const fn between_inclusive(a: Square, b: Square) -> Bitboard {
 }
 
 pub const fn between(a: Square, b: Square) -> Bitboard {
-    const BETWEEN: &[[Bitboard; Square::COUNT]; Square::COUNT] = &{
+    static BETWEEN: [[Bitboard; Square::COUNT]; Square::COUNT] = {
         let mut arr = [[Bitboard::EMPTY; Square::COUNT]; Square::COUNT];
 
         let mut i = 0;
@@ -269,7 +284,7 @@ pub const fn line(a: Square, b: Square) -> Bitboard {
         bb
     }
 
-    const LINES: &[[Bitboard; Square::COUNT]; Square::COUNT] = &{
+    static LINES: [[Bitboard; Square::COUNT]; Square::COUNT] = {
         let mut arr = [[Bitboard::EMPTY; Square::COUNT]; Square::COUNT];
 
         let mut i = 0;

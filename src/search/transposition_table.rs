@@ -6,7 +6,8 @@ use std::{
 use memmap2::{MmapMut, MmapOptions};
 
 use crate::{
-    board::{Board, r#move::Move},
+    board::{Board, r#move::Move, zobrist::ZOBRIST},
+    common::lookups::superpiece_rays,
     score::Score,
 };
 
@@ -243,12 +244,34 @@ impl TTable {
         unsafe { std::slice::from_raw_parts(self.mmap.as_ptr().cast(), self.len) }
     }
 
-    pub fn fetch(&self, hash: u64, ply: u16) -> Option<TTEntry> {
+    fn excluded_hash(board: &Board, excluded: Move) -> u64 {
+        let (from, to, promo) = (excluded.from(), excluded.to(), excluded.promotes_to());
+        let piece_idx =
+            ((from.bitboard().0 - 1) & board.occupied_by(board.stm()).0).count_ones() as usize;
+        let to_sq_idx = ((to.bitboard().0 - 1) & superpiece_rays(from).0).count_ones() as usize;
+        ZOBRIST.piece_idx[piece_idx]
+            | ZOBRIST.to_sq_idx[to_sq_idx]
+            | ZOBRIST.promo[promo.map_or(0, |p| p.idx() as usize)]
+    }
+
+    pub fn fetch(
+        &self,
+        board: &Board,
+        mut hash: u64,
+        ply: u16,
+        excluded: Option<Move>,
+    ) -> Option<TTEntry> {
+        if let Some(mv) = excluded {
+            hash ^= Self::excluded_hash(board, mv);
+        }
+
         let idx = self.index(hash);
         let hash = Self::trunc_key(hash);
 
         let cluster = self.entries()[idx].load();
-        if let Some(idx) = cluster.key_idx(hash) {
+        if let Some(idx) = cluster.key_idx(hash)
+            && cluster.entries[idx].flags.singular() == excluded.is_some()
+        {
             let mut entry = cluster.entries[idx];
             entry.score = Self::tt_to_score(entry.score, ply);
             Some(entry)
@@ -286,7 +309,8 @@ impl TTable {
     #[allow(clippy::too_many_arguments)]
     pub fn store(
         &self,
-        hash: u64,
+        board: &Board,
+        mut hash: u64,
         depth: u8,
         ply: u16,
         eval: Score,
@@ -294,8 +318,13 @@ impl TTable {
         mv: Option<Move>,
         tt_flag: TTFlag,
         pv: bool,
-        singular: bool,
+        excluded: Option<Move>,
     ) {
+        let singular = excluded.is_some();
+        if let Some(mv) = excluded {
+            hash ^= Self::excluded_hash(board, mv);
+        }
+
         let index = self.index(hash);
         let hash = Self::trunc_key(hash);
 

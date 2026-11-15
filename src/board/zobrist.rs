@@ -28,6 +28,9 @@ pub struct Zobrist {
     pub black_to_move: u64,
     castles: [[u64; File::COUNT]; Color::COUNT],
     en_passant: [u64; File::COUNT],
+    pub piece_idx: [u64; 16],
+    pub to_sq_idx: [u64; 35],
+    pub promo: [u64; 6],
 }
 
 impl Zobrist {
@@ -50,6 +53,9 @@ pub static ZOBRIST: Zobrist = {
         black_to_move: 0,
         castles: [[0; File::COUNT]; Color::COUNT],
         en_passant: [0; File::COUNT],
+        piece_idx: [0; 16],
+        to_sq_idx: [0; 35],
+        promo: [0; 6],
     };
 
     // Random 256-bit key
@@ -79,6 +85,18 @@ pub static ZOBRIST: Zobrist = {
             f += 1;
         }
         c += 1;
+    }
+
+    let mut i = 0;
+    while i < 35 {
+        if i < 6 {
+            zobrist.promo[i] = rng.next();
+        }
+        if i < 16 {
+            zobrist.piece_idx[i] = rng.next();
+        }
+        zobrist.to_sq_idx[i] = rng.next();
+        i += 1;
     }
 
     zobrist.black_to_move = rng.next();
