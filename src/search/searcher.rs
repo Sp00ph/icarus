@@ -117,6 +117,7 @@ impl ThreadCtx {
 pub struct SearchStackEntry {
     pub pv: PrincipalVariation,
     pub static_eval: Score,
+    pub played_move: Option<Move>,
     pub singular: Option<Move>,
     pub reduction: i32,
 }
@@ -126,6 +127,7 @@ impl Default for SearchStackEntry {
         Self {
             pv: Default::default(),
             static_eval: -Score::INFINITE,
+            played_move: None,
             singular: None,
             reduction: 0,
         }

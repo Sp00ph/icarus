@@ -148,6 +148,13 @@ pub fn search<Node: NodeType>(
         (raw_eval, static_eval)
     };
 
+    if !Node::ROOT
+        && thread.search_stack[ply as usize - 1].played_move.is_none()
+        && static_eval.saturating_add(16) < -thread.search_stack[ply as usize - 1].static_eval
+    {
+        return beta;
+    }
+
     let mut score_estimate = static_eval;
     if !in_check
         && !singular_search
@@ -222,6 +229,7 @@ pub fn search<Node: NodeType>(
             && pos.prev_move(1).is_some()
             && tt_entry.is_none_or(|e| e.flags.tt_flag() != TTFlag::Upper)
         {
+            thread.search_stack[ply as usize].played_move = None;
             pos.make_null_move();
             thread.global.ttable.prefetch(pos.board());
 
@@ -437,6 +445,7 @@ pub fn search<Node: NodeType>(
             0
         };
 
+        thread.search_stack[ply as usize].played_move = Some(mv);
         pos.make_move(mv, Some(&mut thread.nnue));
         thread.global.ttable.prefetch(pos.board());
 
@@ -678,6 +687,7 @@ pub fn qsearch<Node: NodeType>(
             }
         }
 
+        thread.search_stack[ply as usize].played_move = Some(mv);
         pos.make_move(mv, Some(&mut thread.nnue));
         thread.global.ttable.prefetch(pos.board());
         let score = -qsearch::<Node::Next>(pos, ply + 1, -beta, -alpha, thread);
