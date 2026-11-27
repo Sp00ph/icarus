@@ -5,15 +5,19 @@ use crate::{
         Board,
         r#move::{Move, MoveFlag},
         sliders::{bishop_moves, rook_moves},
+        zobrist::ZOBRIST,
     },
     common::{
-        lookups::{king_moves, knight_moves, pawn_attacks},
+        lookups::{between, king_moves, knight_moves, pawn_attacks},
         piece::{Color, Piece},
         square::Square,
     },
     nnue::network::Nnue,
     score::Score,
-    search::params::{mat_scale, mat_scaling_base, see_val},
+    search::{
+        cuckoo::{self, Cuckoo, CuckooTag},
+        params::{mat_scale, mat_scaling_base, see_val},
+    },
 };
 
 #[derive(Clone)]
@@ -27,6 +31,8 @@ pub struct Position {
     /// return draw scores on positions that occurred before root.
     hashes: Vec<u64>,
     moves: Vec<Option<(Piece, Move)>>,
+
+    cuckoo_tag: CuckooTag,
 }
 
 impl Position {
@@ -36,6 +42,8 @@ impl Position {
             history: vec![],
             hashes: vec![],
             moves: vec![],
+
+            cuckoo_tag: Cuckoo::init(),
         }
     }
 
@@ -110,6 +118,59 @@ impl Position {
             .rev()
             .take(self.board.halfmove_clock() as usize)
             .any(|&b| b == self.board.hash())
+    }
+
+    pub fn upcoming_repetition(&self, ply: u16) -> bool {
+        let end = self.history.len().min(self.board.halfmove_clock as usize);
+
+        if end < 3 {
+            return false;
+        }
+
+        let old_key = |i: usize| self.history[self.history.len() - i].hash();
+
+        let occ = self.board.occupied();
+        let orig_key = self.board.hash();
+
+        let mut other = orig_key ^ old_key(1) ^ ZOBRIST.black_to_move;
+
+        for i in (3..=end).step_by(2) {
+            let curr_key = old_key(i);
+
+            other ^= curr_key ^ old_key(i - 1) ^ ZOBRIST.black_to_move;
+            if other != 0 {
+                continue;
+            }
+
+            let diff = orig_key ^ curr_key;
+
+            let cuckoo = Cuckoo::get(self.cuckoo_tag);
+            let mut slot = cuckoo::h1(diff);
+            if diff != cuckoo.keys[slot] {
+                slot = cuckoo::h2(diff)
+            }
+            if diff != cuckoo.keys[slot] {
+                continue;
+            }
+
+            let (sq1, sq2) = cuckoo.moves[slot];
+
+            if (between(sq1, sq2) & occ).is_non_empty() {
+                continue;
+            }
+
+            // twofold before root
+            if i <= ply as usize {
+                return true;
+            }
+
+            // threefold beyond root
+            if (i + 2..=end).step_by(2).any(|j| old_key(j) == curr_key) {
+                return true;
+            }
+        }
+
+        false
     }
 
     pub fn cmp_see(&self, mv: Move, threshold: i32) -> bool {

@@ -87,7 +87,6 @@ pub fn search<Node: NodeType>(
         beta = beta.min(Score::new_mate(ply + 1));
 
         if alpha >= beta {
-            thread.nodes.inc();
             return alpha;
         }
     }
@@ -99,8 +98,17 @@ pub fn search<Node: NodeType>(
         };
     }
 
-    if !Node::ROOT && pos.repetition() {
-        return Score::ZERO;
+    if !Node::ROOT {
+        if pos.repetition() {
+            return Score::ZERO;
+        }
+
+        if alpha < Score::ZERO && pos.upcoming_repetition(ply) {
+            alpha = Score::ZERO;
+            if alpha >= beta {
+                return alpha;
+            }
+        }
     }
 
     if ply >= MAX_PLY {
@@ -588,6 +596,13 @@ pub fn qsearch<Node: NodeType>(
 
     if pos.repetition() {
         return Score::ZERO;
+    }
+
+    if alpha < Score::ZERO && pos.upcoming_repetition(ply) {
+        alpha = Score::ZERO;
+        if alpha >= beta {
+            return alpha;
+        }
     }
 
     if ply >= MAX_PLY {
