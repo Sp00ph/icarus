@@ -64,12 +64,16 @@ pub fn search<Node: NodeType>(
     cutnode: bool,
     thread: &mut ThreadCtx,
 ) -> Score {
-    if !Node::ROOT && (thread.abort_now || thread.global.time_manager.stop_search(thread)) {
-        if thread.id == 0 {
-            thread.global.time_manager.set_stop_flag(true);
+    if !Node::ROOT {
+        if thread.abort_now || thread.global.time_manager.stop_search(thread) {
+            if thread.id == 0 {
+                thread.global.time_manager.set_stop_flag(true);
+            }
+            thread.abort_now = true;
+            return Score::ZERO;
         }
-        thread.abort_now = true;
-        return Score::ZERO;
+
+        thread.nodes.inc();
     }
 
     thread.sel_depth = thread.sel_depth.max(ply);
@@ -89,7 +93,6 @@ pub fn search<Node: NodeType>(
     }
 
     if let Some(terminal) = pos.board().terminal_state() {
-        thread.nodes.inc();
         return match terminal {
             TerminalState::Checkmate(_) => Score::new_mated(ply),
             TerminalState::Draw => Score::ZERO,
@@ -97,7 +100,6 @@ pub fn search<Node: NodeType>(
     }
 
     if !Node::ROOT && pos.repetition() {
-        thread.nodes.inc();
         return Score::ZERO;
     }
 
@@ -107,10 +109,6 @@ pub fn search<Node: NodeType>(
 
     if depth <= 0 {
         return qsearch::<Node>(pos, ply, alpha, beta, thread);
-    }
-
-    if !Node::ROOT {
-        thread.nodes.inc();
     }
 
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
@@ -575,7 +573,6 @@ pub fn qsearch<Node: NodeType>(
         thread.abort_now = true;
         return Score::ZERO;
     }
-    thread.nodes.inc();
     thread.sel_depth = thread.sel_depth.max(ply);
 
     if Node::PV {
@@ -678,6 +675,9 @@ pub fn qsearch<Node: NodeType>(
             }
         }
 
+        // to avoid double counting leaf nodes of main search, which are root nodes of
+        // qsearch, we count traversed edges in qsearch instead of visited nodes.
+        thread.nodes.inc();
         pos.make_move(mv, Some(&mut thread.nnue));
         thread.global.ttable.prefetch(pos.board());
         let score = -qsearch::<Node::Next>(pos, ply + 1, -beta, -alpha, thread);
