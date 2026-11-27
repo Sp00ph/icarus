@@ -98,6 +98,8 @@ pub fn search<Node: NodeType>(
         };
     }
 
+    let in_check = pos.board().checkers().is_non_empty();
+
     if !Node::ROOT {
         if pos.repetition() {
             return Score::ZERO;
@@ -105,6 +107,14 @@ pub fn search<Node: NodeType>(
 
         if alpha < Score::ZERO && pos.upcoming_repetition(ply) {
             alpha = Score::ZERO;
+            if !in_check {
+                let eval = pos
+                    .eval(&mut thread.nnue, thread.mat_scaling)
+                    .saturating_add(thread.history.corr(pos));
+                thread
+                    .history
+                    .update_corr(pos, (depth / DEPTH_SCALE) as i16, Score::ZERO, eval);
+            }
             if alpha >= beta {
                 return alpha;
             }
@@ -139,8 +149,6 @@ pub fn search<Node: NodeType>(
             _ => {}
         }
     }
-
-    let in_check = pos.board().checkers().is_non_empty();
 
     let (raw_eval, static_eval) = if in_check {
         (Score::NONE, Score::NONE)
@@ -598,8 +606,17 @@ pub fn qsearch<Node: NodeType>(
         return Score::ZERO;
     }
 
+    let in_check = pos.board().checkers().is_non_empty();
     if alpha < Score::ZERO && pos.upcoming_repetition(ply) {
         alpha = Score::ZERO;
+        if !in_check {
+            let eval = pos
+                .eval(&mut thread.nnue, thread.mat_scaling)
+                .saturating_add(thread.history.corr(pos));
+            thread
+                .history
+                .update_corr(pos, 0, Score::ZERO, eval);
+        }
         if alpha >= beta {
             return alpha;
         }
@@ -609,7 +626,6 @@ pub fn qsearch<Node: NodeType>(
         return pos.eval(&mut thread.nnue, thread.mat_scaling);
     }
 
-    let in_check = pos.board().checkers().is_non_empty();
     let tt_entry = thread.global.ttable.fetch(pos.board().hash(), ply);
     let tt_pv = Node::PV || tt_entry.is_some_and(|e| e.flags.pv());
 
