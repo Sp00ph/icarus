@@ -615,7 +615,7 @@ pub fn qsearch<Node: NodeType>(
                 .saturating_add(thread.history.corr(pos));
             thread
                 .history
-                .update_corr(pos, 0, Score::ZERO, eval);
+                .update_corr(pos, 1, Score::ZERO, eval);
         }
         if alpha >= beta {
             return alpha;
